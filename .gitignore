@@ -1,0 +1,33 @@
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+*.class
+*.jar
+*.war
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+*.log
+
+# Unity
+unity-client/Library/
+unity-client/Temp/
+unity-client/Obj/
+unity-client/Logs/
+unity-client/UserSettings/
+unity-client/MemoryCaptures/
+unity-client/Recordings/
+unity-client/Builds/
+unity-client/*.csproj
+unity-client/*.sln
+unity-client/*.unitypackage
