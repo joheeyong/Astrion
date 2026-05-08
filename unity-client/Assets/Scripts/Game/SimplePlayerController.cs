@@ -30,8 +30,9 @@ namespace Astrion.Game
         private void Update()
         {
             float h, v;
+            bool isMobile = Application.isMobilePlatform;
 
-            if (joystick != null)
+            if (isMobile && joystick != null)
             {
                 h = joystick.Horizontal;
                 v = joystick.Vertical;
@@ -47,12 +48,28 @@ namespace Astrion.Game
 
             _verticalVelocity += gravity * Time.deltaTime;
 
-            Vector3 move = new Vector3(h, 0, v) * moveSpeed;
-            move.y = _verticalVelocity;
+            // Move relative to camera direction
+            Vector3 move;
+            var cam = Camera.main;
+            if (cam != null)
+            {
+                Vector3 camForward = cam.transform.forward;
+                Vector3 camRight = cam.transform.right;
+                camForward.y = 0;
+                camRight.y = 0;
+                camForward.Normalize();
+                camRight.Normalize();
+                move = (camRight * h + camForward * v) * moveSpeed;
+            }
+            else
+            {
+                move = new Vector3(h, 0, v) * moveSpeed;
+            }
 
+            move.y = _verticalVelocity;
             _cc.Move(move * Time.deltaTime);
 
-            Vector3 horizontal = new Vector3(h, 0, v);
+            Vector3 horizontal = new Vector3(move.x, 0, move.z);
             if (horizontal.sqrMagnitude > 0.001f)
                 transform.rotation = Quaternion.LookRotation(horizontal);
         }

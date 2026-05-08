@@ -1238,13 +1238,19 @@ public class ProjectSetup
         remotePrefab.GetComponent<Renderer>().material = remoteMat;
         remotePrefab.transform.position = new Vector3(100, 100, 100);
 
-        // MMORPG Camera
+        // Diablo-style top-down camera
         var mainCam = Camera.main;
         if (mainCam != null)
         {
-            mainCam.gameObject.AddComponent<Astrion.Game.MMORPGCamera>();
-            mainCam.transform.position = new Vector3(0, spawnY + 8, -10);
-            mainCam.transform.rotation = Quaternion.Euler(25, 0, 0);
+            mainCam.gameObject.AddComponent<Astrion.Game.DiabloCamera>();
+            // Match DiabloCamera defaults (pitch 55, distance 12, lookHeight 1.2) so first frame looks right
+            float pitch = 55f;
+            float distance = 12f;
+            Quaternion rot = Quaternion.Euler(pitch, 0f, 0f);
+            Vector3 offset = rot * new Vector3(0f, 0f, -distance);
+            Vector3 lookPoint = new Vector3(0f, spawnY + 1.2f, 0f);
+            mainCam.transform.position = lookPoint + offset;
+            mainCam.transform.rotation = rot;
             mainCam.farClipPlane = 500f;
         }
 
@@ -1268,7 +1274,7 @@ public class ProjectSetup
             for (int x = 0; x < size; x++)
             {
                 float d = Vector2.Distance(new Vector2(x, y), new Vector2(c, c)) / c;
-                float a = Mathf.Clamp01(1f - Mathf.Pow(d, 8)); // sharp circle with soft AA edge
+                float a = Mathf.Clamp01(1f - Mathf.Pow(d, 8));
                 tex.SetPixel(x, y, new Color(color.r, color.g, color.b, color.a * a));
             }
         tex.Apply(); return tex;
@@ -1296,7 +1302,6 @@ public class ProjectSetup
             for (int x = 0; x < w; x++)
             {
                 float t = (float)x / (w - 1);
-                // Add slight vertical brightness variation for glass effect
                 float vBright = 1f + (y > h * 0.5f ? 0.15f : 0f);
                 Color c = Color.Lerp(left, right, t);
                 c = new Color(
@@ -1325,6 +1330,79 @@ public class ProjectSetup
         tex.Apply(); return tex;
     }
 
+    // WoW-style stone/leather textured background
+    private static Texture2D MakeStoneTex(int w, int h, Color baseColor, Color borderColor, int borderWidth)
+    {
+        var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                bool isBorder = x < borderWidth || x >= w - borderWidth || y < borderWidth || y >= h - borderWidth;
+                if (isBorder)
+                {
+                    // Gold/dark border with slight 3D bevel
+                    float bevelT = 0f;
+                    if (y >= h - borderWidth) bevelT = 0.3f; // bottom darker
+                    if (x < borderWidth || y < borderWidth) bevelT = -0.15f; // top/left lighter
+                    Color bc = new Color(
+                        Mathf.Clamp01(borderColor.r + bevelT),
+                        Mathf.Clamp01(borderColor.g + bevelT),
+                        Mathf.Clamp01(borderColor.b + bevelT),
+                        borderColor.a);
+                    tex.SetPixel(x, y, bc);
+                }
+                else
+                {
+                    // Stone noise
+                    float noise = Mathf.PerlinNoise(x * 0.08f, y * 0.08f) * 0.06f - 0.03f;
+                    float noise2 = Mathf.PerlinNoise(x * 0.2f + 50, y * 0.2f + 50) * 0.03f;
+                    Color c = new Color(
+                        Mathf.Clamp01(baseColor.r + noise + noise2),
+                        Mathf.Clamp01(baseColor.g + noise + noise2),
+                        Mathf.Clamp01(baseColor.b + noise + noise2),
+                        baseColor.a);
+                    tex.SetPixel(x, y, c);
+                }
+            }
+        tex.Apply(); return tex;
+    }
+
+    // WoW-style action slot with gold border and inner shadow
+    private static Texture2D MakeWowSlotTex(int size, Color fill, Color border, int borderW)
+    {
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                bool isOuter = x < borderW || x >= size - borderW || y < borderW || y >= size - borderW;
+                if (isOuter)
+                {
+                    // Bevel: top-left lighter, bottom-right darker
+                    float bevel = 0f;
+                    if (y >= size - borderW || x >= size - borderW) bevel = -0.12f;
+                    if (y < borderW || x < borderW) bevel = 0.08f;
+                    Color bc = new Color(
+                        Mathf.Clamp01(border.r + bevel),
+                        Mathf.Clamp01(border.g + bevel),
+                        Mathf.Clamp01(border.b + bevel),
+                        border.a);
+                    tex.SetPixel(x, y, bc);
+                }
+                else
+                {
+                    // Inner shadow near edges
+                    int ix = x - borderW, iy = y - borderW;
+                    int iw = size - borderW * 2;
+                    float shadowX = Mathf.Min(ix, iw - ix) / (float)iw;
+                    float shadowY = Mathf.Min(iy, iw - iy) / (float)iw;
+                    float shadow = Mathf.Clamp01(Mathf.Min(shadowX, shadowY) * 6f);
+                    Color c = Color.Lerp(new Color(0, 0, 0, fill.a), fill, shadow);
+                    tex.SetPixel(x, y, c);
+                }
+            }
+        tex.Apply(); return tex;
+    }
+
     private static Sprite TexToSprite(Texture2D tex)
     {
         return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
@@ -1335,21 +1413,38 @@ public class ProjectSetup
     {
         var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
+        // Modern clean palette (Lost Ark / Genshin-inspired)
+        Color panelDark = new Color(0.06f, 0.07f, 0.10f, 0.85f);
+        Color panelMid = new Color(0.10f, 0.11f, 0.15f, 0.75f);
+        Color borderLight = new Color(0.40f, 0.45f, 0.55f, 0.3f);
+        Color accentCyan = new Color(0.30f, 0.85f, 0.95f);
+        Color accentBlue = new Color(0.35f, 0.55f, 1.0f);
+        Color textWhite = new Color(0.95f, 0.95f, 0.97f);
+        Color textGray = new Color(0.55f, 0.58f, 0.65f);
+        Color hpColor1 = new Color(0.18f, 0.78f, 0.45f);
+        Color hpColor2 = new Color(0.30f, 0.92f, 0.55f);
+        Color mpColor1 = new Color(0.25f, 0.45f, 0.95f);
+        Color mpColor2 = new Color(0.45f, 0.65f, 1.0f);
+        Color xpColor1 = new Color(0.85f, 0.65f, 0.15f);
+        Color xpColor2 = new Color(1.0f, 0.82f, 0.30f);
+
         // Pre-generate textures
         var circleWhite = MakeCircleTex(128, Color.white);
         var circleSpr = TexToSprite(circleWhite);
-        var roundPanel = MakeRoundRectTex(256, 64, 16, new Color(0.05f, 0.06f, 0.1f, 0.75f));
-        var roundPanelSpr = TexToSprite(roundPanel);
-        var hpGradient = MakeGradientBarTex(256, 16,
-            new Color(0.85f, 0.15f, 0.1f), new Color(1f, 0.4f, 0.2f));
-        var mpGradient = MakeGradientBarTex(256, 16,
-            new Color(0.1f, 0.25f, 0.85f), new Color(0.4f, 0.55f, 1f));
-        var expGradient = MakeGradientBarTex(256, 8,
-            new Color(0.75f, 0.65f, 0.2f), new Color(1f, 0.9f, 0.3f));
-        var ringTex = MakeRingTex(128, 0.82f, 0.98f, new Color(0.85f, 0.72f, 0.4f, 0.9f));
+        var panelTex = MakeRoundRectTex(256, 64, 12, panelDark);
+        var panelSpr = TexToSprite(panelTex);
+        var hpGradient = MakeGradientBarTex(256, 16, hpColor1, hpColor2);
+        var mpGradient = MakeGradientBarTex(256, 16, mpColor1, mpColor2);
+        var expGradient = MakeGradientBarTex(256, 8, xpColor1, xpColor2);
+        var ringTex = MakeRingTex(128, 0.85f, 0.98f, accentCyan);
         var ringSpr = TexToSprite(ringTex);
+        var thinRingSpr = TexToSprite(MakeRingTex(128, 0.90f, 0.98f, new Color(0.5f, 0.55f, 0.65f, 0.4f)));
         var joystickBgTex = MakeRingTex(256, 0.0f, 0.95f, new Color(1f, 1f, 1f, 0.08f));
         var joystickOuterTex = MakeRingTex(256, 0.85f, 0.98f, new Color(1f, 1f, 1f, 0.2f));
+        var slotTex = MakeRoundRectTex(64, 64, 6, new Color(0.10f, 0.11f, 0.15f, 0.9f));
+        var slotSpr = TexToSprite(slotTex);
+        var slotBorderTex = MakeRoundRectTex(64, 64, 6, borderLight);
+        var slotBorderSpr = TexToSprite(slotBorderTex);
 
         // Canvas
         var canvasGo = new GameObject("GameHUD_Canvas");
@@ -1358,162 +1453,214 @@ public class ProjectSetup
         canvas.sortingOrder = 10;
         var scaler = canvasGo.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1080, 2400);
+        scaler.referenceResolution = new Vector2(1920, 1080);
         scaler.matchWidthOrHeight = 0.5f;
         canvasGo.AddComponent<GraphicRaycaster>();
         var hudComp = canvasGo.AddComponent<Astrion.UI.GameHUD>();
         var root = canvasGo.GetComponent<RectTransform>();
 
-        // ========== TOP-LEFT: Character Portrait + Info ==========
+        // ========== TOP-LEFT: Clean Player Frame ==========
         var charPanel = HUD_CreateRT("CharPanel", root);
         charPanel.anchorMin = charPanel.anchorMax = new Vector2(0, 1);
         charPanel.pivot = new Vector2(0, 1);
-        charPanel.anchoredPosition = new Vector2(15, -15);
-        charPanel.sizeDelta = new Vector2(380, 95);
+        charPanel.anchoredPosition = new Vector2(16, -16);
+        charPanel.sizeDelta = new Vector2(280, 70);
 
-        // Panel background
+        // Panel background (clean dark glass)
         var charPanelBg = charPanel.gameObject.AddComponent<Image>();
-        charPanelBg.sprite = roundPanelSpr;
+        charPanelBg.sprite = panelSpr;
         charPanelBg.type = Image.Type.Sliced;
-        charPanelBg.color = new Color(0.06f, 0.07f, 0.12f, 0.8f);
+        charPanelBg.color = Color.white;
 
-        // Portrait circle
+        // Portrait (clean circle)
         var portrait = HUD_CreateRT("Portrait", charPanel);
         portrait.anchorMin = portrait.anchorMax = new Vector2(0, 0.5f);
-        portrait.anchoredPosition = new Vector2(48, 0);
-        portrait.sizeDelta = new Vector2(70, 70);
+        portrait.anchoredPosition = new Vector2(38, 0);
+        portrait.sizeDelta = new Vector2(50, 50);
         var portraitImg = portrait.gameObject.AddComponent<Image>();
         portraitImg.sprite = circleSpr;
-        portraitImg.color = new Color(0.15f, 0.18f, 0.25f);
+        portraitImg.color = new Color(0.14f, 0.16f, 0.22f);
 
-        // Portrait ring
+        // Portrait ring (thin cyan glow)
         var portraitRing = HUD_CreateRT("Ring", portrait);
         portraitRing.anchorMin = Vector2.zero; portraitRing.anchorMax = Vector2.one;
-        portraitRing.offsetMin = new Vector2(-4, -4);
-        portraitRing.offsetMax = new Vector2(4, 4);
+        portraitRing.offsetMin = new Vector2(-3, -3); portraitRing.offsetMax = new Vector2(3, 3);
         portraitRing.gameObject.AddComponent<Image>().sprite = ringSpr;
 
-        // Level badge
-        var lvlBadge = HUD_CreateRT("LvlBadge", portrait);
-        lvlBadge.anchorMin = lvlBadge.anchorMax = new Vector2(0.5f, 0);
-        lvlBadge.anchoredPosition = new Vector2(0, -4);
-        lvlBadge.sizeDelta = new Vector2(36, 20);
-        var lvlBadgeBg = lvlBadge.gameObject.AddComponent<Image>();
-        lvlBadgeBg.sprite = circleSpr;
-        lvlBadgeBg.color = new Color(0.15f, 0.12f, 0.08f, 0.95f);
-
-        var lvlText = HUD_CreateRT("LvlText", lvlBadge);
-        lvlText.anchorMin = Vector2.zero; lvlText.anchorMax = Vector2.one;
-        lvlText.offsetMin = lvlText.offsetMax = Vector2.zero;
-        var lvlT = lvlText.gameObject.AddComponent<Text>();
-        lvlT.font = font; lvlT.fontSize = 13; lvlT.fontStyle = FontStyle.Bold;
-        lvlT.color = AccentGold; lvlT.alignment = TextAnchor.MiddleCenter;
-        lvlT.text = "1";
-
-        // Class icon text in portrait
+        // Class letter in portrait
         var classIcon = HUD_CreateRT("ClassIcon", portrait);
         classIcon.anchorMin = Vector2.zero; classIcon.anchorMax = Vector2.one;
         classIcon.offsetMin = classIcon.offsetMax = Vector2.zero;
         var ciText = classIcon.gameObject.AddComponent<Text>();
-        ciText.font = font; ciText.fontSize = 28; ciText.fontStyle = FontStyle.Bold;
-        ciText.color = AccentGold; ciText.alignment = TextAnchor.MiddleCenter;
-        ciText.text = "\u2694"; // sword icon
+        ciText.font = font; ciText.fontSize = 22; ciText.fontStyle = FontStyle.Bold;
+        ciText.color = accentCyan; ciText.alignment = TextAnchor.MiddleCenter;
+        ciText.text = "W"; // Warrior
+
+        // Level badge
+        var lvlBadge = HUD_CreateRT("LvlBadge", portrait);
+        lvlBadge.anchorMin = lvlBadge.anchorMax = new Vector2(1, 0);
+        lvlBadge.anchoredPosition = new Vector2(4, -2);
+        lvlBadge.sizeDelta = new Vector2(22, 22);
+        lvlBadge.gameObject.AddComponent<Image>().sprite = circleSpr;
+        lvlBadge.GetComponent<Image>().color = panelDark;
+        var lvlRing = HUD_CreateRT("Ring", lvlBadge);
+        lvlRing.anchorMin = Vector2.zero; lvlRing.anchorMax = Vector2.one;
+        lvlRing.offsetMin = new Vector2(-1, -1); lvlRing.offsetMax = new Vector2(1, 1);
+        lvlRing.gameObject.AddComponent<Image>().sprite = thinRingSpr;
+        var lvlText = HUD_CreateRT("LvlText", lvlBadge);
+        lvlText.anchorMin = Vector2.zero; lvlText.anchorMax = Vector2.one;
+        lvlText.offsetMin = lvlText.offsetMax = Vector2.zero;
+        var lvlT = lvlText.gameObject.AddComponent<Text>();
+        lvlT.font = font; lvlT.fontSize = 11; lvlT.fontStyle = FontStyle.Bold;
+        lvlT.color = textWhite; lvlT.alignment = TextAnchor.MiddleCenter;
+        lvlT.text = "1";
 
         // Name text
         var nameRT = HUD_CreateRT("CharName", charPanel);
-        nameRT.anchorMin = new Vector2(0, 0.65f);
-        nameRT.anchorMax = new Vector2(1, 1);
-        nameRT.offsetMin = new Vector2(90, 0);
-        nameRT.offsetMax = new Vector2(-10, -8);
+        nameRT.anchorMin = new Vector2(0, 0.68f); nameRT.anchorMax = new Vector2(1, 1);
+        nameRT.offsetMin = new Vector2(72, 0); nameRT.offsetMax = new Vector2(-10, -6);
         var nameText = nameRT.gameObject.AddComponent<Text>();
-        nameText.font = font; nameText.fontSize = 20; nameText.fontStyle = FontStyle.Bold;
-        nameText.color = new Color(0.95f, 0.93f, 0.88f);
+        nameText.font = font; nameText.fontSize = 14; nameText.fontStyle = FontStyle.Bold;
+        nameText.color = textWhite;
         nameText.text = "Character"; nameText.alignment = TextAnchor.MiddleLeft;
 
         // Level/class subtext
         var levelRT = HUD_CreateRT("CharLevel", charPanel);
-        levelRT.anchorMin = new Vector2(0, 0.42f);
-        levelRT.anchorMax = new Vector2(1, 0.65f);
-        levelRT.offsetMin = new Vector2(90, 0);
-        levelRT.offsetMax = new Vector2(-10, 0);
+        levelRT.anchorMin = new Vector2(0, 0.68f); levelRT.anchorMax = new Vector2(1, 1);
+        levelRT.offsetMin = new Vector2(72, 0); levelRT.offsetMax = new Vector2(-10, -6);
         var levelText = levelRT.gameObject.AddComponent<Text>();
-        levelText.font = font; levelText.fontSize = 13;
-        levelText.color = new Color(0.6f, 0.58f, 0.52f);
-        levelText.text = "Lv.1 Warrior"; levelText.alignment = TextAnchor.MiddleLeft;
+        levelText.font = font; levelText.fontSize = 10;
+        levelText.color = textGray;
+        levelText.text = "Lv.1 Warrior"; levelText.alignment = TextAnchor.MiddleRight;
 
-        // HP bar (sleek gradient, thin)
-        var hpBar = HUD_CreateModernBar(charPanel, "HPBar", hpGradient, circleSpr,
-            new Vector2(90, 0), new Vector2(-10, 0), 0.2f, 0.4f, font, "100/100");
-        var hpFill = hpBar.Find("Fill").GetComponent<Image>();
-        var hpBarText = hpBar.Find("Text").GetComponent<Text>();
+        // HP bar (clean green gradient with rounded corners)
+        var hpBar = HUD_CreateRT("HPBar", charPanel);
+        hpBar.anchorMin = new Vector2(0, 0.38f); hpBar.anchorMax = new Vector2(1, 0.62f);
+        hpBar.offsetMin = new Vector2(72, 0); hpBar.offsetMax = new Vector2(-10, 0);
+        var hpBg = hpBar.gameObject.AddComponent<Image>();
+        hpBg.sprite = TexToSprite(MakeRoundRectTex(256, 16, 6, new Color(0.04f, 0.05f, 0.07f, 0.95f)));
 
-        // MP bar
-        var mpBar = HUD_CreateModernBar(charPanel, "MPBar", mpGradient, circleSpr,
-            new Vector2(90, 0), new Vector2(-10, 0), 0.03f, 0.18f, font, "50/50");
-        var mpFill = mpBar.Find("Fill").GetComponent<Image>();
-        var mpBarText = mpBar.Find("Text").GetComponent<Text>();
+        var hpFillRT = HUD_CreateRT("Fill", hpBar);
+        hpFillRT.anchorMin = Vector2.zero; hpFillRT.anchorMax = Vector2.one;
+        hpFillRT.offsetMin = new Vector2(1, 1); hpFillRT.offsetMax = new Vector2(-1, -1);
+        var hpFill = hpFillRT.gameObject.AddComponent<Image>();
+        hpFill.sprite = TexToSprite(hpGradient);
+        hpFill.type = Image.Type.Filled;
+        hpFill.fillMethod = Image.FillMethod.Horizontal;
 
-        // ========== TOP EXP BAR (full width, very thin) ==========
+        // HP shine (glass effect top half)
+        var hpShine = HUD_CreateRT("Shine", hpBar);
+        hpShine.anchorMin = new Vector2(0, 0.5f); hpShine.anchorMax = Vector2.one;
+        hpShine.offsetMin = new Vector2(2, 0); hpShine.offsetMax = new Vector2(-2, -1);
+        hpShine.gameObject.AddComponent<Image>().color = new Color(1, 1, 1, 0.12f);
+
+        // HP text
+        var hpTextRT = HUD_CreateRT("Text", hpBar);
+        hpTextRT.anchorMin = Vector2.zero; hpTextRT.anchorMax = Vector2.one;
+        hpTextRT.offsetMin = new Vector2(4, 0); hpTextRT.offsetMax = new Vector2(-4, 0);
+        var hpBarText = hpTextRT.gameObject.AddComponent<Text>();
+        hpBarText.font = font; hpBarText.fontSize = 10;
+        hpBarText.color = new Color(1, 1, 1, 0.9f);
+        hpBarText.alignment = TextAnchor.MiddleRight;
+        hpBarText.text = "100/100";
+
+        // MP bar (clean blue gradient)
+        var mpBar = HUD_CreateRT("MPBar", charPanel);
+        mpBar.anchorMin = new Vector2(0, 0.12f); mpBar.anchorMax = new Vector2(1, 0.32f);
+        mpBar.offsetMin = new Vector2(72, 0); mpBar.offsetMax = new Vector2(-10, 0);
+        mpBar.gameObject.AddComponent<Image>().sprite = TexToSprite(MakeRoundRectTex(256, 16, 4, new Color(0.04f, 0.05f, 0.07f, 0.95f)));
+
+        var mpFillRT = HUD_CreateRT("Fill", mpBar);
+        mpFillRT.anchorMin = Vector2.zero; mpFillRT.anchorMax = Vector2.one;
+        mpFillRT.offsetMin = new Vector2(1, 1); mpFillRT.offsetMax = new Vector2(-1, -1);
+        var mpFill = mpFillRT.gameObject.AddComponent<Image>();
+        mpFill.sprite = TexToSprite(mpGradient);
+        mpFill.type = Image.Type.Filled;
+        mpFill.fillMethod = Image.FillMethod.Horizontal;
+
+        var mpShine = HUD_CreateRT("Shine", mpBar);
+        mpShine.anchorMin = new Vector2(0, 0.5f); mpShine.anchorMax = Vector2.one;
+        mpShine.offsetMin = new Vector2(2, 0); mpShine.offsetMax = new Vector2(-2, -1);
+        mpShine.gameObject.AddComponent<Image>().color = new Color(1, 1, 1, 0.10f);
+
+        var mpTextRT = HUD_CreateRT("Text", mpBar);
+        mpTextRT.anchorMin = Vector2.zero; mpTextRT.anchorMax = Vector2.one;
+        mpTextRT.offsetMin = new Vector2(4, 0); mpTextRT.offsetMax = new Vector2(-4, 0);
+        var mpBarText = mpTextRT.gameObject.AddComponent<Text>();
+        mpBarText.font = font; mpBarText.fontSize = 9;
+        mpBarText.color = new Color(1, 1, 1, 0.85f);
+        mpBarText.alignment = TextAnchor.MiddleRight;
+        mpBarText.text = "50/50";
+
+        // ========== TOP: XP Bar (sleek, under top edge) ==========
         var expBar = HUD_CreateRT("ExpBar", root);
-        expBar.anchorMin = new Vector2(0, 1);
-        expBar.anchorMax = new Vector2(1, 1);
+        expBar.anchorMin = new Vector2(0, 1); expBar.anchorMax = new Vector2(1, 1);
         expBar.pivot = new Vector2(0.5f, 1);
-        expBar.anchoredPosition = new Vector2(0, 0);
-        expBar.sizeDelta = new Vector2(0, 4);
-        var expBg = expBar.gameObject.AddComponent<Image>();
-        expBg.color = new Color(0.1f, 0.1f, 0.12f, 0.6f);
+        expBar.anchoredPosition = Vector2.zero;
+        expBar.sizeDelta = new Vector2(0, 3);
+        expBar.gameObject.AddComponent<Image>().color = new Color(0.05f, 0.06f, 0.08f, 0.7f);
 
         var expFill = HUD_CreateRT("ExpFill", expBar);
         expFill.anchorMin = Vector2.zero;
-        expFill.anchorMax = new Vector2(0.35f, 1); // 35% exp
+        expFill.anchorMax = new Vector2(0.35f, 1);
         expFill.offsetMin = expFill.offsetMax = Vector2.zero;
         var expFillImg = expFill.gameObject.AddComponent<Image>();
         expFillImg.sprite = TexToSprite(expGradient);
-        expFillImg.color = Color.white;
 
-        // ========== TOP-RIGHT: Circular Minimap ==========
+        // ========== TOP-RIGHT: Clean Minimap ==========
         var minimapFrame = HUD_CreateRT("MinimapFrame", root);
         minimapFrame.anchorMin = minimapFrame.anchorMax = new Vector2(1, 1);
         minimapFrame.pivot = new Vector2(1, 1);
-        minimapFrame.anchoredPosition = new Vector2(-15, -12);
+        minimapFrame.anchoredPosition = new Vector2(-16, -16);
         minimapFrame.sizeDelta = new Vector2(170, 170);
 
-        // Minimap background circle
+        // Minimap background
         var mmBg = minimapFrame.gameObject.AddComponent<Image>();
         mmBg.sprite = circleSpr;
-        mmBg.color = new Color(0.08f, 0.1f, 0.12f, 0.85f);
+        mmBg.color = new Color(0.06f, 0.07f, 0.10f);
 
         // Minimap render
         var minimapInner = HUD_CreateRT("MinimapInner", minimapFrame);
         minimapInner.anchorMin = Vector2.zero; minimapInner.anchorMax = Vector2.one;
-        minimapInner.offsetMin = new Vector2(8, 8);
-        minimapInner.offsetMax = new Vector2(-8, -8);
+        minimapInner.offsetMin = new Vector2(8, 8); minimapInner.offsetMax = new Vector2(-8, -8);
         var minimapRawImg = minimapInner.gameObject.AddComponent<RawImage>();
+        minimapInner.gameObject.AddComponent<UnityEngine.UI.Mask>().showMaskGraphic = true;
 
-        // Circular mask
-        var mmMask = minimapInner.gameObject.AddComponent<UnityEngine.UI.Mask>();
-        mmMask.showMaskGraphic = true;
-        // Need a mask image
-        var mmMaskImg = minimapInner.gameObject.GetComponent<RawImage>();
-
-        // Ring border
+        // Outer ring (subtle)
         var mmRing = HUD_CreateRT("Ring", minimapFrame);
         mmRing.anchorMin = Vector2.zero; mmRing.anchorMax = Vector2.one;
-        mmRing.offsetMin = new Vector2(-2, -2);
-        mmRing.offsetMax = new Vector2(2, 2);
-        mmRing.gameObject.AddComponent<Image>().sprite = ringSpr;
+        mmRing.offsetMin = new Vector2(-2, -2); mmRing.offsetMax = new Vector2(2, 2);
+        mmRing.gameObject.AddComponent<Image>().sprite = TexToSprite(MakeRingTex(256, 0.88f, 0.98f, new Color(0.35f, 0.40f, 0.50f, 0.5f)));
 
-        // Compass labels
-        string[] dirs = {"N", "E", "S", "W"};
-        Vector2[] dirPos = { new Vector2(0, 0.95f), new Vector2(0.95f, 0), new Vector2(0, -0.95f), new Vector2(-0.95f, 0) };
+        // Inner glow ring
+        var mmGlow = HUD_CreateRT("Glow", minimapFrame);
+        mmGlow.anchorMin = Vector2.zero; mmGlow.anchorMax = Vector2.one;
+        mmGlow.offsetMin = new Vector2(3, 3); mmGlow.offsetMax = new Vector2(-3, -3);
+        mmGlow.gameObject.AddComponent<Image>().sprite = TexToSprite(MakeRingTex(256, 0.92f, 0.99f, new Color(0.3f, 0.85f, 0.95f, 0.15f)));
+
+        // Zone name (clean text above minimap)
+        var zoneNameRT = HUD_CreateRT("ZoneName", minimapFrame);
+        zoneNameRT.anchorMin = new Vector2(0, 1); zoneNameRT.anchorMax = new Vector2(1, 1);
+        zoneNameRT.pivot = new Vector2(0.5f, 0);
+        zoneNameRT.anchoredPosition = new Vector2(0, 6);
+        zoneNameRT.sizeDelta = new Vector2(180, 18);
+        var zoneText = zoneNameRT.gameObject.AddComponent<Text>();
+        zoneText.font = font; zoneText.fontSize = 12;
+        zoneText.color = textWhite;
+        zoneText.alignment = TextAnchor.MiddleCenter;
+        zoneText.text = "Astrion Fields";
+
+        // Compass
+        string[] dirs = {"N","E","S","W"};
+        Vector2[] dirPos = { new Vector2(0,0.95f), new Vector2(0.95f,0), new Vector2(0,-0.95f), new Vector2(-0.95f,0) };
         for (int i = 0; i < 4; i++)
         {
             var drt = HUD_CreateRT(dirs[i], minimapFrame);
-            drt.anchorMin = drt.anchorMax = new Vector2(0.5f + dirPos[i].x * 0.5f, 0.5f + dirPos[i].y * 0.5f);
-            drt.sizeDelta = new Vector2(20, 16);
+            drt.anchorMin = drt.anchorMax = new Vector2(0.5f + dirPos[i].x*0.5f, 0.5f + dirPos[i].y*0.5f);
+            drt.sizeDelta = new Vector2(18, 14);
             var dt = drt.gameObject.AddComponent<Text>();
-            dt.font = font; dt.fontSize = 11; dt.fontStyle = FontStyle.Bold;
-            dt.color = i == 0 ? new Color(1f, 0.85f, 0.3f) : new Color(0.7f, 0.7f, 0.7f, 0.6f);
+            dt.font = font; dt.fontSize = 10; dt.fontStyle = FontStyle.Bold;
+            dt.color = i == 0 ? accentCyan : new Color(0.5f, 0.55f, 0.65f, 0.5f);
             dt.alignment = TextAnchor.MiddleCenter; dt.text = dirs[i];
         }
 
@@ -1525,7 +1672,7 @@ public class ProjectSetup
         minimapCam.transform.position = new Vector3(0, spawnY + 80, 0);
         minimapCam.transform.rotation = Quaternion.Euler(90, 0, 0);
         minimapCam.clearFlags = CameraClearFlags.SolidColor;
-        minimapCam.backgroundColor = new Color(0.12f, 0.15f, 0.12f);
+        minimapCam.backgroundColor = new Color(0.10f, 0.12f, 0.10f);
         minimapCam.cullingMask = 1;
         minimapCam.depth = -2;
         minimapCam.farClipPlane = 200f;
@@ -1533,26 +1680,24 @@ public class ProjectSetup
         minimapCam.targetTexture = rt;
         minimapRawImg.texture = rt;
 
-        // Player arrow on minimap
+        // Player dot
         var dotRT = HUD_CreateRT("PlayerDot", minimapFrame);
         dotRT.anchorMin = dotRT.anchorMax = new Vector2(0.5f, 0.5f);
-        dotRT.sizeDelta = new Vector2(14, 14);
-        var dotImg = dotRT.gameObject.AddComponent<Image>();
-        dotImg.sprite = circleSpr;
-        dotImg.color = new Color(0.3f, 1f, 0.4f);
+        dotRT.sizeDelta = new Vector2(10, 10);
+        dotRT.gameObject.AddComponent<Image>().sprite = circleSpr;
+        dotRT.GetComponent<Image>().color = accentCyan;
 
-        // Coordinates below minimap
+        // Coordinates
         var coordsRT = HUD_CreateRT("Coords", minimapFrame);
-        coordsRT.anchorMin = new Vector2(0, 0);
-        coordsRT.anchorMax = new Vector2(1, 0);
+        coordsRT.anchorMin = new Vector2(0, 0); coordsRT.anchorMax = new Vector2(1, 0);
         coordsRT.pivot = new Vector2(0.5f, 1);
         coordsRT.anchoredPosition = new Vector2(0, -6);
-        coordsRT.sizeDelta = new Vector2(0, 18);
+        coordsRT.sizeDelta = new Vector2(0, 16);
         var coordsText = coordsRT.gameObject.AddComponent<Text>();
-        coordsText.font = font; coordsText.fontSize = 12;
-        coordsText.color = new Color(0.65f, 0.63f, 0.58f);
+        coordsText.font = font; coordsText.fontSize = 11;
+        coordsText.color = textGray;
         coordsText.alignment = TextAnchor.MiddleCenter;
-        coordsText.text = "X:0  Z:0";
+        coordsText.text = "0, 0";
 
         // ========== BOTTOM-LEFT: Modern Joystick ==========
         var joyBgRT = HUD_CreateRT("JoystickArea", root);
@@ -1617,12 +1762,16 @@ public class ProjectSetup
         HUD_CreateModernActionBtn(actionRT, "\u2600", s4Tex, circleSpr, font,
             new Vector2(0.72f, 0.78f), 68, 20, new Color(0.9f, 0.7f, 0.2f, 0.12f));
 
-        // ========== RIGHT SIDE: Quick menu icons (vertical) ==========
+        // ========== RIGHT SIDE: Quick menu icons (vertical, mobile only) ==========
+        var mobileMenuGroup = HUD_CreateRT("MobileMenu", root);
+        mobileMenuGroup.anchorMin = Vector2.zero; mobileMenuGroup.anchorMax = Vector2.one;
+        mobileMenuGroup.offsetMin = mobileMenuGroup.offsetMax = Vector2.zero;
+
         string[] menuIcons = { "\u2692", "\u2605", "\u2302", "\u2709" }; // tools, star, house, mail
         string[] menuTips = { "BAG", "SKILL", "MENU", "CHAT" };
         for (int i = 0; i < menuIcons.Length; i++)
         {
-            var mBtn = HUD_CreateRT(menuTips[i], root);
+            var mBtn = HUD_CreateRT(menuTips[i], mobileMenuGroup);
             mBtn.anchorMin = mBtn.anchorMax = new Vector2(1, 1);
             mBtn.pivot = new Vector2(1, 0.5f);
             mBtn.anchoredPosition = new Vector2(-18, -200 - i * 52);
@@ -1661,7 +1810,7 @@ public class ProjectSetup
         chatBar.sizeDelta = new Vector2(300, 30);
 
         var chatBg = chatBar.gameObject.AddComponent<Image>();
-        chatBg.sprite = roundPanelSpr;
+        chatBg.sprite = panelSpr;
         chatBg.type = Image.Type.Sliced;
         chatBg.color = new Color(0.05f, 0.06f, 0.1f, 0.5f);
 
@@ -1674,6 +1823,387 @@ public class ProjectSetup
         ct.color = new Color(0.6f, 0.6f, 0.55f, 0.7f);
         ct.alignment = TextAnchor.MiddleLeft;
         ct.text = "Tap to chat...";
+
+        // ========== DESKTOP: Clean Action Bar (bottom-center) ==========
+        var hotbar = HUD_CreateRT("DesktopHotbar", root);
+        hotbar.anchorMin = new Vector2(0.5f, 0);
+        hotbar.anchorMax = new Vector2(0.5f, 0);
+        hotbar.pivot = new Vector2(0.5f, 0);
+        hotbar.anchoredPosition = new Vector2(0, 10);
+        hotbar.sizeDelta = new Vector2(620, 58);
+        hotbar.gameObject.SetActive(false);
+
+        // Clean dark panel background
+        var hotbarBg = hotbar.gameObject.AddComponent<Image>();
+        hotbarBg.sprite = panelSpr;
+        hotbarBg.type = Image.Type.Sliced;
+        hotbarBg.color = Color.white;
+
+        // Top accent line (subtle cyan glow)
+        var hotbarLine = HUD_CreateRT("TopLine", hotbar);
+        hotbarLine.anchorMin = new Vector2(0.02f, 1); hotbarLine.anchorMax = new Vector2(0.98f, 1);
+        hotbarLine.sizeDelta = new Vector2(0, 1);
+        hotbarLine.anchoredPosition = Vector2.zero;
+        hotbarLine.gameObject.AddComponent<Image>().color = new Color(0.3f, 0.85f, 0.95f, 0.2f);
+
+        // 12 clean action slots
+        string[] hotkeys = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=" };
+        Color[] slotAccents = {
+            new Color(0.9f, 0.25f, 0.2f, 0.6f),   // red
+            new Color(0.25f, 0.5f, 0.95f, 0.6f),   // blue
+            new Color(0.6f, 0.25f, 0.9f, 0.6f),    // purple
+            new Color(0.2f, 0.8f, 0.4f, 0.6f),     // green
+            new Color(0.9f, 0.6f, 0.15f, 0.5f),    // orange
+            new Color(0.85f, 0.3f, 0.55f, 0.4f),   // pink
+            Color.clear, Color.clear, Color.clear,
+            Color.clear, Color.clear, Color.clear,
+        };
+        string[] slotLabels = { "ATK", "ICE", "ARC", "HEL", "FIR", "SHD", "", "", "", "", "", "" };
+
+        float slotSize = 46f;
+        float slotGap = 3f;
+        float totalWidth = 12 * slotSize + 11 * slotGap;
+        float startX = -totalWidth * 0.5f + slotSize * 0.5f;
+
+        for (int i = 0; i < 12; i++)
+        {
+            var slot = HUD_CreateRT($"Slot_{i}", hotbar);
+            slot.anchorMin = slot.anchorMax = new Vector2(0.5f, 0.5f);
+            slot.anchoredPosition = new Vector2(startX + i * (slotSize + slotGap), 0);
+            slot.sizeDelta = new Vector2(slotSize, slotSize);
+
+            // Clean slot background
+            slot.gameObject.AddComponent<Image>().sprite = slotSpr;
+            slot.gameObject.AddComponent<Button>();
+
+            // Subtle border
+            var slotBorder = HUD_CreateRT("Border", slot);
+            slotBorder.anchorMin = Vector2.zero; slotBorder.anchorMax = Vector2.one;
+            slotBorder.offsetMin = new Vector2(-1, -1); slotBorder.offsetMax = new Vector2(1, 1);
+            slotBorder.gameObject.AddComponent<Image>().sprite = slotBorderSpr;
+
+            // Color accent bar at bottom of filled slots
+            if (slotAccents[i].a > 0)
+            {
+                var accentBar = HUD_CreateRT("Accent", slot);
+                accentBar.anchorMin = new Vector2(0.15f, 0); accentBar.anchorMax = new Vector2(0.85f, 0);
+                accentBar.anchoredPosition = new Vector2(0, 2);
+                accentBar.sizeDelta = new Vector2(0, 2);
+                accentBar.gameObject.AddComponent<Image>().color = slotAccents[i];
+            }
+
+            // Highlight overlay
+            var slotHL = HUD_CreateRT("Highlight", slot);
+            slotHL.anchorMin = Vector2.zero; slotHL.anchorMax = Vector2.one;
+            slotHL.offsetMin = new Vector2(2, 2); slotHL.offsetMax = new Vector2(-2, -2);
+            slotHL.gameObject.AddComponent<Image>().color = new Color(1, 1, 1, 0);
+
+            // Skill label (clean text instead of ugly unicode)
+            var slotIcon = HUD_CreateRT("Icon", slot);
+            slotIcon.anchorMin = Vector2.zero; slotIcon.anchorMax = Vector2.one;
+            slotIcon.offsetMin = new Vector2(2, 8); slotIcon.offsetMax = new Vector2(-2, -2);
+            var iconT = slotIcon.gameObject.AddComponent<Text>();
+            iconT.font = font; iconT.fontSize = slotLabels[i].Length > 0 ? 11 : 10;
+            iconT.fontStyle = FontStyle.Bold;
+            iconT.color = slotLabels[i].Length > 0 ? textWhite : new Color(0.35f, 0.38f, 0.45f, 0.4f);
+            iconT.alignment = TextAnchor.MiddleCenter;
+            iconT.text = slotLabels[i].Length > 0 ? slotLabels[i] : "";
+
+            // Hotkey number (top-right, small clean text)
+            var keyLabel = HUD_CreateRT("Key", slot);
+            keyLabel.anchorMin = new Vector2(1, 1); keyLabel.anchorMax = new Vector2(1, 1);
+            keyLabel.pivot = new Vector2(1, 1);
+            keyLabel.anchoredPosition = new Vector2(-3, -2);
+            keyLabel.sizeDelta = new Vector2(14, 12);
+            var keyT = keyLabel.gameObject.AddComponent<Text>();
+            keyT.font = font; keyT.fontSize = 9;
+            keyT.color = textGray;
+            keyT.alignment = TextAnchor.UpperRight;
+            keyT.text = hotkeys[i];
+
+            // Cooldown overlay
+            var cdOverlay = HUD_CreateRT("Cooldown", slot);
+            cdOverlay.anchorMin = Vector2.zero; cdOverlay.anchorMax = Vector2.one;
+            cdOverlay.offsetMin = new Vector2(2, 2); cdOverlay.offsetMax = new Vector2(-2, -2);
+            var cdImg = cdOverlay.gameObject.AddComponent<Image>();
+            cdImg.color = new Color(0, 0, 0, 0);
+            cdImg.type = Image.Type.Filled;
+            cdImg.fillMethod = Image.FillMethod.Radial360;
+            cdImg.fillOrigin = 2;
+            cdImg.fillClockwise = false;
+        }
+
+        // ========== DESKTOP: Clean Chat (bottom-left) ==========
+        var deskChat = HUD_CreateRT("DesktopChat", root);
+        deskChat.anchorMin = deskChat.anchorMax = new Vector2(0, 0);
+        deskChat.pivot = new Vector2(0, 0);
+        deskChat.anchoredPosition = new Vector2(10, 10);
+        deskChat.sizeDelta = new Vector2(380, 200);
+        deskChat.gameObject.SetActive(false);
+
+        // Chat background
+        var deskChatBg = deskChat.gameObject.AddComponent<Image>();
+        deskChatBg.sprite = panelSpr;
+        deskChatBg.type = Image.Type.Sliced;
+        deskChatBg.color = new Color(1, 1, 1, 0.85f);
+
+        // Chat tabs (top)
+        string[] tabNames = { "All", "Party", "Guild", "Whisper" };
+        Color[] tabTextColors = { accentCyan, new Color(0.4f, 0.7f, 1f), new Color(0.4f, 0.9f, 0.5f), new Color(0.9f, 0.5f, 0.9f) };
+        for (int i = 0; i < tabNames.Length; i++)
+        {
+            var tab = HUD_CreateRT(tabNames[i], deskChat);
+            tab.anchorMin = new Vector2(0, 1); tab.anchorMax = new Vector2(0, 1);
+            tab.pivot = new Vector2(0, 1);
+            tab.anchoredPosition = new Vector2(6 + i * 80, -4);
+            tab.sizeDelta = new Vector2(74, 22);
+            tab.gameObject.AddComponent<Image>().sprite = TexToSprite(MakeRoundRectTex(74, 22, 4, i == 0 ? new Color(0.15f, 0.18f, 0.25f, 0.9f) : new Color(0.08f, 0.09f, 0.12f, 0.6f)));
+            tab.gameObject.AddComponent<Button>();
+            var tabTxt = HUD_CreateRT("T", tab);
+            tabTxt.anchorMin = Vector2.zero; tabTxt.anchorMax = Vector2.one;
+            tabTxt.offsetMin = tabTxt.offsetMax = Vector2.zero;
+            var tt = tabTxt.gameObject.AddComponent<Text>();
+            tt.font = font; tt.fontSize = 11;
+            tt.color = i == 0 ? tabTextColors[i] : textGray;
+            tt.alignment = TextAnchor.MiddleCenter;
+            tt.text = tabNames[i];
+        }
+
+        // Chat messages
+        var chatMsgArea = HUD_CreateRT("Messages", deskChat);
+        chatMsgArea.anchorMin = Vector2.zero; chatMsgArea.anchorMax = Vector2.one;
+        chatMsgArea.offsetMin = new Vector2(10, 36);
+        chatMsgArea.offsetMax = new Vector2(-10, -30);
+        var msgText = chatMsgArea.gameObject.AddComponent<Text>();
+        msgText.font = font; msgText.fontSize = 12;
+        msgText.color = new Color(0.85f, 0.87f, 0.92f, 0.95f);
+        msgText.alignment = TextAnchor.LowerLeft;
+        msgText.verticalOverflow = VerticalWrapMode.Truncate;
+        msgText.supportRichText = true;
+        msgText.text = "<color=#5cd9e8>[System]</color> Welcome to Astrion!\n<color=#7abaff>[World]</color> Player1: Looking for party\n<color=#6dd94a>[Guild]</color> Event starts in 5 min\n<color=#5cd9e8>[System]</color> Press Enter to chat";
+
+        // Chat input bar
+        var chatInput = HUD_CreateRT("InputBar", deskChat);
+        chatInput.anchorMin = new Vector2(0, 0); chatInput.anchorMax = new Vector2(1, 0);
+        chatInput.pivot = new Vector2(0.5f, 0);
+        chatInput.anchoredPosition = new Vector2(0, 4);
+        chatInput.sizeDelta = new Vector2(-12, 28);
+        chatInput.gameObject.AddComponent<Image>().sprite = TexToSprite(MakeRoundRectTex(256, 28, 6, new Color(0.04f, 0.05f, 0.07f, 0.95f)));
+
+        var inputTextGo = HUD_CreateRT("InputText", chatInput);
+        inputTextGo.anchorMin = Vector2.zero; inputTextGo.anchorMax = Vector2.one;
+        inputTextGo.offsetMin = new Vector2(10, 2); inputTextGo.offsetMax = new Vector2(-10, -2);
+        var inputText = inputTextGo.gameObject.AddComponent<Text>();
+        inputText.font = font; inputText.fontSize = 12;
+        inputText.color = textWhite;
+        inputText.supportRichText = false;
+
+        var phGo = HUD_CreateRT("Placeholder", chatInput);
+        phGo.anchorMin = Vector2.zero; phGo.anchorMax = Vector2.one;
+        phGo.offsetMin = new Vector2(10, 2); phGo.offsetMax = new Vector2(-10, -2);
+        var phT = phGo.gameObject.AddComponent<Text>();
+        phT.font = font; phT.fontSize = 12;
+        phT.color = new Color(0.4f, 0.42f, 0.48f, 0.5f);
+        phT.alignment = TextAnchor.MiddleLeft;
+        phT.text = "Press Enter to chat...";
+
+        var chatIF = chatInput.gameObject.AddComponent<InputField>();
+        chatIF.textComponent = inputText;
+        chatIF.placeholder = phT;
+
+        // ========== DESKTOP: Clean Menu Bar (bottom-right) ==========
+        var deskMenu = HUD_CreateRT("DesktopMenu", root);
+        deskMenu.anchorMin = deskMenu.anchorMax = new Vector2(1, 0);
+        deskMenu.pivot = new Vector2(1, 0);
+        deskMenu.anchoredPosition = new Vector2(-10, 10);
+        deskMenu.sizeDelta = new Vector2(300, 48);
+        deskMenu.gameObject.SetActive(false);
+
+        var deskMenuBg = deskMenu.gameObject.AddComponent<Image>();
+        deskMenuBg.sprite = panelSpr;
+        deskMenuBg.type = Image.Type.Sliced;
+        deskMenuBg.color = Color.white;
+
+        string[] dMenuLabels = { "BAG", "SKILL", "MAP", "SOCIAL", "QUEST", "MENU" };
+        string[] dMenuKeys =   { "B",   "K",     "M",   "O",      "L",     "ESC" };
+        for (int i = 0; i < dMenuLabels.Length; i++)
+        {
+            var mBtn = HUD_CreateRT(dMenuLabels[i], deskMenu);
+            mBtn.anchorMin = mBtn.anchorMax = new Vector2(0, 0.5f);
+            mBtn.anchoredPosition = new Vector2(14 + i * 48, 0);
+            mBtn.sizeDelta = new Vector2(42, 36);
+            mBtn.gameObject.AddComponent<Image>().sprite = slotSpr;
+            mBtn.gameObject.AddComponent<Button>();
+
+            // Label text
+            var mLabel = HUD_CreateRT("Label", mBtn);
+            mLabel.anchorMin = Vector2.zero; mLabel.anchorMax = Vector2.one;
+            mLabel.offsetMin = new Vector2(0, 6); mLabel.offsetMax = Vector2.zero;
+            var mlT = mLabel.gameObject.AddComponent<Text>();
+            mlT.font = font; mlT.fontSize = 8; mlT.fontStyle = FontStyle.Bold;
+            mlT.color = textGray;
+            mlT.alignment = TextAnchor.MiddleCenter;
+            mlT.text = dMenuLabels[i];
+
+            // Key hint
+            var mKey = HUD_CreateRT("Key", mBtn);
+            mKey.anchorMin = new Vector2(0.5f, 0); mKey.anchorMax = new Vector2(0.5f, 0);
+            mKey.anchoredPosition = new Vector2(0, 5);
+            mKey.sizeDelta = new Vector2(30, 11);
+            var mkT = mKey.gameObject.AddComponent<Text>();
+            mkT.font = font; mkT.fontSize = 8;
+            mkT.color = new Color(0.35f, 0.55f, 0.7f, 0.6f);
+            mkT.alignment = TextAnchor.MiddleCenter;
+            mkT.text = dMenuKeys[i];
+        }
+
+        // ========== DESKTOP: Target Frame (below player frame) ==========
+        var targetPanel = HUD_CreateRT("TargetPanel", root);
+        targetPanel.anchorMin = targetPanel.anchorMax = new Vector2(0, 1);
+        targetPanel.pivot = new Vector2(0, 1);
+        targetPanel.anchoredPosition = new Vector2(16, -96);
+        targetPanel.sizeDelta = new Vector2(240, 50);
+        targetPanel.gameObject.SetActive(false);
+
+        var tpBg = targetPanel.gameObject.AddComponent<Image>();
+        tpBg.sprite = panelSpr;
+        tpBg.type = Image.Type.Sliced;
+        tpBg.color = Color.white;
+
+        // Target portrait
+        var tPortrait = HUD_CreateRT("TPortrait", targetPanel);
+        tPortrait.anchorMin = tPortrait.anchorMax = new Vector2(0, 0.5f);
+        tPortrait.anchoredPosition = new Vector2(28, 0);
+        tPortrait.sizeDelta = new Vector2(34, 34);
+        tPortrait.gameObject.AddComponent<Image>().sprite = circleSpr;
+        tPortrait.GetComponent<Image>().color = new Color(0.18f, 0.10f, 0.10f);
+        var tpRing = HUD_CreateRT("Ring", tPortrait);
+        tpRing.anchorMin = Vector2.zero; tpRing.anchorMax = Vector2.one;
+        tpRing.offsetMin = new Vector2(-2, -2); tpRing.offsetMax = new Vector2(2, 2);
+        tpRing.gameObject.AddComponent<Image>().sprite = TexToSprite(MakeRingTex(64, 0.82f, 0.98f, new Color(0.9f, 0.3f, 0.25f, 0.8f)));
+
+        // Target name
+        var tName = HUD_CreateRT("TargetName", targetPanel);
+        tName.anchorMin = new Vector2(0, 0.58f); tName.anchorMax = new Vector2(1, 1);
+        tName.offsetMin = new Vector2(52, 0); tName.offsetMax = new Vector2(-8, -4);
+        var tnText = tName.gameObject.AddComponent<Text>();
+        tnText.font = font; tnText.fontSize = 12; tnText.fontStyle = FontStyle.Bold;
+        tnText.color = new Color(0.95f, 0.4f, 0.35f);
+        tnText.alignment = TextAnchor.MiddleLeft;
+        tnText.text = "Target";
+
+        // Target level
+        var tLevel = HUD_CreateRT("TargetLevel", targetPanel);
+        tLevel.anchorMin = new Vector2(0, 0.58f); tLevel.anchorMax = new Vector2(1, 1);
+        tLevel.offsetMin = new Vector2(52, 0); tLevel.offsetMax = new Vector2(-8, -4);
+        var tlText = tLevel.gameObject.AddComponent<Text>();
+        tlText.font = font; tlText.fontSize = 10;
+        tlText.color = textGray;
+        tlText.alignment = TextAnchor.MiddleRight;
+        tlText.text = "Lv.?";
+
+        // Target HP bar
+        var tHPBar = HUD_CreateRT("HPBar", targetPanel);
+        tHPBar.anchorMin = new Vector2(0, 0.15f); tHPBar.anchorMax = new Vector2(1, 0.50f);
+        tHPBar.offsetMin = new Vector2(52, 0); tHPBar.offsetMax = new Vector2(-8, 0);
+        tHPBar.gameObject.AddComponent<Image>().sprite = TexToSprite(MakeRoundRectTex(256, 16, 4, new Color(0.04f, 0.05f, 0.07f, 0.95f)));
+        var tHPFill = HUD_CreateRT("Fill", tHPBar);
+        tHPFill.anchorMin = Vector2.zero; tHPFill.anchorMax = Vector2.one;
+        tHPFill.offsetMin = new Vector2(1, 1); tHPFill.offsetMax = new Vector2(-1, -1);
+        var tHPImg = tHPFill.gameObject.AddComponent<Image>();
+        tHPImg.sprite = TexToSprite(MakeGradientBarTex(256, 16, new Color(0.9f, 0.25f, 0.2f), new Color(1f, 0.4f, 0.3f)));
+        tHPImg.type = Image.Type.Filled;
+        tHPImg.fillMethod = Image.FillMethod.Horizontal;
+
+        // ========== DESKTOP: Buff Bar (top-right, below minimap) ==========
+        var buffBar = HUD_CreateRT("BuffBar", root);
+        buffBar.anchorMin = buffBar.anchorMax = new Vector2(1, 1);
+        buffBar.pivot = new Vector2(1, 1);
+        buffBar.anchoredPosition = new Vector2(-16, -196);
+        buffBar.sizeDelta = new Vector2(200, 30);
+        buffBar.gameObject.SetActive(false);
+
+        for (int i = 0; i < 4; i++)
+        {
+            var buffSlot = HUD_CreateRT($"Buff_{i}", buffBar);
+            buffSlot.anchorMin = buffSlot.anchorMax = new Vector2(1, 0.5f);
+            buffSlot.anchoredPosition = new Vector2(-15 - i * 34, 0);
+            buffSlot.sizeDelta = new Vector2(28, 28);
+            buffSlot.gameObject.AddComponent<Image>().sprite = slotSpr;
+
+            // Accent color at bottom
+            Color[] buffAccents = { hpColor1, mpColor1, xpColor1, accentCyan };
+            var bAccent = HUD_CreateRT("Accent", buffSlot);
+            bAccent.anchorMin = new Vector2(0.1f, 0); bAccent.anchorMax = new Vector2(0.9f, 0);
+            bAccent.anchoredPosition = new Vector2(0, 1); bAccent.sizeDelta = new Vector2(0, 2);
+            bAccent.gameObject.AddComponent<Image>().color = new Color(buffAccents[i].r, buffAccents[i].g, buffAccents[i].b, 0.6f);
+
+            // Duration
+            var bDur = HUD_CreateRT("Dur", buffSlot);
+            bDur.anchorMin = Vector2.zero; bDur.anchorMax = Vector2.one;
+            bDur.offsetMin = bDur.offsetMax = Vector2.zero;
+            var bdT = bDur.gameObject.AddComponent<Text>();
+            bdT.font = font; bdT.fontSize = 10; bdT.fontStyle = FontStyle.Bold;
+            bdT.color = textWhite;
+            bdT.alignment = TextAnchor.MiddleCenter;
+            bdT.text = $"{30 - i * 8}";
+        }
+
+        // ========== DESKTOP: FPS Counter ==========
+        var fpsCounter = HUD_CreateRT("FPSCounter", root);
+        fpsCounter.anchorMin = fpsCounter.anchorMax = new Vector2(1, 1);
+        fpsCounter.pivot = new Vector2(1, 1);
+        fpsCounter.anchoredPosition = new Vector2(-200, -16);
+        fpsCounter.sizeDelta = new Vector2(70, 16);
+        fpsCounter.gameObject.SetActive(false);
+        var fpsText = fpsCounter.gameObject.AddComponent<Text>();
+        fpsText.font = font; fpsText.fontSize = 11;
+        fpsText.color = new Color(0.4f, 0.85f, 0.5f, 0.6f);
+        fpsText.alignment = TextAnchor.MiddleRight;
+        fpsText.text = "60 FPS";
+
+        // ========== DESKTOP: Quest Tracker (right side) ==========
+        var questTracker = HUD_CreateRT("QuestTracker", root);
+        questTracker.anchorMin = questTracker.anchorMax = new Vector2(1, 1);
+        questTracker.pivot = new Vector2(1, 1);
+        questTracker.anchoredPosition = new Vector2(-10, -235);
+        questTracker.sizeDelta = new Vector2(230, 150);
+        questTracker.gameObject.SetActive(false);
+
+        var qtBg = questTracker.gameObject.AddComponent<Image>();
+        qtBg.sprite = panelSpr;
+        qtBg.type = Image.Type.Sliced;
+        qtBg.color = new Color(1, 1, 1, 0.7f);
+
+        // Quest header
+        var qtHeader = HUD_CreateRT("QHeader", questTracker);
+        qtHeader.anchorMin = new Vector2(0, 1); qtHeader.anchorMax = new Vector2(1, 1);
+        qtHeader.pivot = new Vector2(0.5f, 1);
+        qtHeader.anchoredPosition = Vector2.zero;
+        qtHeader.sizeDelta = new Vector2(0, 22);
+        var qhT = qtHeader.gameObject.AddComponent<Text>();
+        qhT.font = font; qhT.fontSize = 11; qhT.fontStyle = FontStyle.Bold;
+        qhT.color = accentCyan;
+        qhT.alignment = TextAnchor.MiddleCenter;
+        qhT.text = "OBJECTIVES";
+
+        // Accent line under header
+        var qtLine = HUD_CreateRT("Line", questTracker);
+        qtLine.anchorMin = new Vector2(0.1f, 1); qtLine.anchorMax = new Vector2(0.9f, 1);
+        qtLine.anchoredPosition = new Vector2(0, -23);
+        qtLine.sizeDelta = new Vector2(0, 1);
+        qtLine.gameObject.AddComponent<Image>().color = new Color(0.3f, 0.85f, 0.95f, 0.15f);
+
+        // Quest entries
+        var qtContent = HUD_CreateRT("Content", questTracker);
+        qtContent.anchorMin = Vector2.zero; qtContent.anchorMax = Vector2.one;
+        qtContent.offsetMin = new Vector2(12, 8); qtContent.offsetMax = new Vector2(-12, -28);
+        var qcT = qtContent.gameObject.AddComponent<Text>();
+        qcT.font = font; qcT.fontSize = 11;
+        qcT.color = new Color(0.8f, 0.82f, 0.88f, 0.9f);
+        qcT.alignment = TextAnchor.UpperLeft;
+        qcT.supportRichText = true;
+        qcT.text = "<color=#5cd9e8>The Awakening</color>\n  Explore the world  <color=#555f70>0/3</color>\n  Defeat monsters  <color=#555f70>0/5</color>\n\n<color=#5cd9e8>A New Beginning</color>\n  Talk to the Elder";
 
         // Wire up HUD references
         var so = new UnityEditor.SerializedObject(hudComp);
