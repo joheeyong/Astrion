@@ -1054,215 +1054,335 @@ public class ProjectSetup
     {
         var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
 
-        // === Procedural Terrain (500x500) ===
-        var terrainData = new TerrainData();
-        terrainData.heightmapResolution = 513;
-        terrainData.size = new Vector3(500, 60, 500); // 500x500 field, max height 60
-
-        // Generate rolling hills with Perlin noise
-        int res = terrainData.heightmapResolution;
-        float[,] heights = new float[res, res];
-        for (int y = 0; y < res; y++)
-        {
-            for (int x = 0; x < res; x++)
-            {
-                float nx = (float)x / res;
-                float ny = (float)y / res;
-
-                // Large gentle hills
-                float h = Mathf.PerlinNoise(nx * 3f, ny * 3f) * 0.15f;
-                // Medium bumps
-                h += Mathf.PerlinNoise(nx * 8f + 100, ny * 8f + 100) * 0.06f;
-                // Small detail
-                h += Mathf.PerlinNoise(nx * 20f + 200, ny * 20f + 200) * 0.02f;
-
-                // Flatten the center area (player spawn)
-                float cx = nx - 0.5f;
-                float cy = ny - 0.5f;
-                float distFromCenter = Mathf.Sqrt(cx * cx + cy * cy) * 2f;
-                float flattenFactor = Mathf.Clamp01(distFromCenter * 2f);
-                h *= Mathf.Lerp(0.3f, 1f, flattenFactor);
-
-                // Base height so terrain isn't at y=0
-                h += 0.05f;
-
-                heights[y, x] = h;
-            }
-        }
-        terrainData.SetHeights(0, 0, heights);
-
-        // Create terrain layers (grass + dirt)
-        var grassTex = new Texture2D(64, 64);
-        var dirtTex = new Texture2D(64, 64);
-        for (int y = 0; y < 64; y++)
-        {
-            for (int x = 0; x < 64; x++)
-            {
-                float n = Mathf.PerlinNoise(x * 0.15f, y * 0.15f);
-                grassTex.SetPixel(x, y, Color.Lerp(
-                    new Color(0.22f, 0.45f, 0.12f),
-                    new Color(0.30f, 0.55f, 0.18f), n));
-                dirtTex.SetPixel(x, y, Color.Lerp(
-                    new Color(0.35f, 0.25f, 0.15f),
-                    new Color(0.45f, 0.32f, 0.20f), n));
-            }
-        }
-        grassTex.Apply();
-        dirtTex.Apply();
-
-        var grassLayer = new TerrainLayer { diffuseTexture = grassTex, tileSize = new Vector2(10, 10) };
-        var dirtLayer = new TerrainLayer { diffuseTexture = dirtTex, tileSize = new Vector2(8, 8) };
-        terrainData.terrainLayers = new[] { grassLayer, dirtLayer };
-
-        // Paint dirt on steeper slopes
-        float[,,] alphamaps = new float[terrainData.alphamapWidth, terrainData.alphamapHeight, 2];
-        for (int y = 0; y < terrainData.alphamapHeight; y++)
-        {
-            for (int x = 0; x < terrainData.alphamapWidth; x++)
-            {
-                float normX = (float)x / terrainData.alphamapWidth;
-                float normY = (float)y / terrainData.alphamapHeight;
-                float steepness = terrainData.GetSteepness(normX, normY) / 90f;
-                float dirtWeight = Mathf.Clamp01(steepness * 3f);
-                alphamaps[y, x, 0] = 1f - dirtWeight;
-                alphamaps[y, x, 1] = dirtWeight;
-            }
-        }
-        terrainData.SetAlphamaps(0, 0, alphamaps);
-
-        // Instantiate terrain at origin offset so center is at (0,0,0)
-        var terrainGo = Terrain.CreateTerrainGameObject(terrainData);
-        terrainGo.name = "GameTerrain";
-        terrainGo.transform.position = new Vector3(-250, 0, -250);
-        var terrainComp = terrainGo.GetComponent<Terrain>();
-        terrainComp.materialTemplate = new Material(Shader.Find("Nature/Terrain/Standard"));
-
-        // === Scatter rocks from asset ===
-        string[] rockPaths = {
-            "Assets/Mountain Terrain rocks and tree/Prefab/rock_set_01.prefab",
-            "Assets/Mountain Terrain rocks and tree/Prefab/rock_set_02.prefab",
-            "Assets/Mountain Terrain rocks and tree/Prefab/rock_set_03.prefab",
-            "Assets/Mountain Terrain rocks and tree/Prefab/rock_set_04.prefab"
-        };
-        var rng = new System.Random(42);
-        for (int i = 0; i < 25; i++)
-        {
-            var rockPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(rockPaths[rng.Next(rockPaths.Length)]);
-            if (rockPrefab == null) continue;
-            var rock = (GameObject)PrefabUtility.InstantiatePrefab(rockPrefab);
-            float rx = (float)(rng.NextDouble() * 400 - 200);
-            float rz = (float)(rng.NextDouble() * 400 - 200);
-            // Skip center spawn area
-            if (Mathf.Abs(rx) < 30 && Mathf.Abs(rz) < 30) rx += 50;
-            float ry = terrainComp.SampleHeight(new Vector3(rx, 0, rz));
-            rock.name = $"Rock_{i}";
-            rock.transform.position = new Vector3(rx, ry, rz);
-            float scale = 0.8f + (float)rng.NextDouble() * 1.5f;
-            rock.transform.localScale = Vector3.one * scale;
-            rock.transform.rotation = Quaternion.Euler(0, (float)rng.NextDouble() * 360, 0);
-        }
-
-        // === Scatter trees from asset ===
-        var treePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
-            "Assets/Mountain Terrain rocks and tree/Prefab/tree_01.prefab");
-        if (treePrefab != null)
-        {
-            for (int i = 0; i < 40; i++)
-            {
-                var tree = (GameObject)PrefabUtility.InstantiatePrefab(treePrefab);
-                float tx = (float)(rng.NextDouble() * 400 - 200);
-                float tz = (float)(rng.NextDouble() * 400 - 200);
-                if (Mathf.Abs(tx) < 20 && Mathf.Abs(tz) < 20) tx += 40;
-                float ty = terrainComp.SampleHeight(new Vector3(tx, 0, tz));
-                tree.name = $"Tree_{i}";
-                tree.transform.position = new Vector3(tx, ty, tz);
-                float scale = 0.7f + (float)rng.NextDouble() * 0.8f;
-                tree.transform.localScale = Vector3.one * scale;
-                tree.transform.rotation = Quaternion.Euler(0, (float)rng.NextDouble() * 360, 0);
-            }
-        }
-
-        // === Skybox ===
-        var skyboxMats = AssetDatabase.FindAssets("t:Material", new[] { "Assets/Mountain Terrain rocks and tree/SkyBox" });
-        if (skyboxMats.Length > 0)
-        {
-            var skyMat = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(skyboxMats[0]));
-            if (skyMat != null)
-                RenderSettings.skybox = skyMat;
-        }
-
-        // === Lighting ===
-        RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
-        RenderSettings.ambientSkyColor = new Color(0.5f, 0.6f, 0.75f);
-        RenderSettings.ambientEquatorColor = new Color(0.45f, 0.5f, 0.4f);
-        RenderSettings.ambientGroundColor = new Color(0.2f, 0.18f, 0.15f);
-        RenderSettings.fog = true;
-        RenderSettings.fogColor = new Color(0.65f, 0.75f, 0.85f);
-        RenderSettings.fogMode = FogMode.Linear;
-        RenderSettings.fogStartDistance = 80f;
-        RenderSettings.fogEndDistance = 350f;
-
-        // === Directional Light (sun) ===
+        // Remove default 3D directional light (2D doesn't need it)
         var lights = Object.FindObjectsOfType<Light>();
-        foreach (var light in lights)
-        {
-            if (light.type == LightType.Directional)
-            {
-                light.transform.rotation = Quaternion.Euler(45, -30, 0);
-                light.color = new Color(1f, 0.95f, 0.85f);
-                light.intensity = 1.2f;
-                light.shadows = LightShadows.Soft;
-            }
-        }
+        foreach (var l in lights) if (l.type == LightType.Directional) Object.DestroyImmediate(l.gameObject);
 
-        // === Player (spawn at terrain center) ===
-        float spawnY = terrainComp.SampleHeight(Vector3.zero) + 2f;
-        var playerPrefab2 = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-        playerPrefab2.name = "PlayerPrefab";
-        playerPrefab2.AddComponent<Astrion.Game.SimplePlayerController>();
-        var cc = playerPrefab2.AddComponent<CharacterController>();
-        cc.height = 2f;
-        cc.radius = 0.5f;
-        cc.center = new Vector3(0, 1f, 0);
-        cc.skinWidth = 0.08f;
-        // Remove default Capsule collider (CharacterController handles collision)
-        var defaultCollider = playerPrefab2.GetComponent<CapsuleCollider>();
-        if (defaultCollider != null) Object.DestroyImmediate(defaultCollider);
-        playerPrefab2.transform.position = new Vector3(0, spawnY + 1f, 0);
+        const int GROUND_LAYER = 8;
 
-        // Remote player template
-        var remotePrefab = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-        remotePrefab.name = "RemotePlayerPrefab";
-        var remoteMat = new Material(Shader.Find("Standard"));
-        remoteMat.color = Color.blue;
-        remotePrefab.GetComponent<Renderer>().material = remoteMat;
-        remotePrefab.transform.position = new Vector3(100, 100, 100);
+        // === 2D Sprites (procedurally generated placeholders) ===
+        var skySpr = TexToSprite(Make2DSkyTex(512, 256));
+        var farMountainSpr = TexToSprite(Make2DMountainTex(1024, 256, new Color(0.45f, 0.42f, 0.55f), 0.6f));
+        var midMountainSpr = TexToSprite(Make2DMountainTex(1024, 256, new Color(0.32f, 0.45f, 0.40f), 0.7f));
+        var nearHillSpr = TexToSprite(Make2DMountainTex(1024, 256, new Color(0.20f, 0.42f, 0.28f), 0.85f));
+        var groundSpr = TexToSprite(Make2DGroundTex(256, 64));
+        var platformSpr = TexToSprite(Make2DPlatformTex(256, 32));
+        var ladderSpr = TexToSprite(Make2DLadderTex(64, 256));
+        var playerSpr = TexToSprite(Make2DPlayerTex(64, 96));
+        var remotePlayerSpr = TexToSprite(Make2DPlayerTex(64, 96, true));
 
-        // Diablo-style top-down camera
+        // === Background root ===
+        var bgRoot = new GameObject("Background");
+
+        // Sky (huge tiled background, no parallax)
+        var sky = SpawnSprite("Sky", bgRoot.transform, skySpr, new Vector3(0, 0, 50), new Vector3(40, 25, 1), -10);
+
+        // Parallax layers (3 mountain layers)
+        var farLayer = SpawnSprite("FarMountains", bgRoot.transform, farMountainSpr, new Vector3(0, -1.5f, 40), new Vector3(20, 5, 1), -8);
+        AddParallax(farLayer, new Vector2(0.1f, 0.05f));
+
+        var midLayer = SpawnSprite("MidMountains", bgRoot.transform, midMountainSpr, new Vector3(0, -2.2f, 30), new Vector3(20, 4, 1), -6);
+        AddParallax(midLayer, new Vector2(0.3f, 0.1f));
+
+        var nearLayer = SpawnSprite("NearHills", bgRoot.transform, nearHillSpr, new Vector3(0, -2.8f, 20), new Vector3(20, 3, 1), -4);
+        AddParallax(nearLayer, new Vector2(0.55f, 0.15f));
+
+        // === World root ===
+        var worldRoot = new GameObject("World");
+
+        // Main ground (long flat platform)
+        SpawnGround("Ground_Main", worldRoot.transform, groundSpr,
+            center: new Vector2(0, -3.5f), size: new Vector2(60, 1.5f), layer: GROUND_LAYER, oneWay: false);
+
+        // Side ground extensions
+        SpawnGround("Ground_Left", worldRoot.transform, groundSpr,
+            center: new Vector2(-32, -2.5f), size: new Vector2(6, 1.5f), layer: GROUND_LAYER, oneWay: false);
+        SpawnGround("Ground_Right", worldRoot.transform, groundSpr,
+            center: new Vector2(32, -2.5f), size: new Vector2(6, 1.5f), layer: GROUND_LAYER, oneWay: false);
+
+        // Elevated one-way platforms
+        SpawnGround("Platform_1", worldRoot.transform, platformSpr,
+            center: new Vector2(-12, 0.5f), size: new Vector2(8, 0.5f), layer: GROUND_LAYER, oneWay: true);
+        SpawnGround("Platform_2", worldRoot.transform, platformSpr,
+            center: new Vector2(8, 2.0f), size: new Vector2(8, 0.5f), layer: GROUND_LAYER, oneWay: true);
+        SpawnGround("Platform_3", worldRoot.transform, platformSpr,
+            center: new Vector2(-4, 4.0f), size: new Vector2(10, 0.5f), layer: GROUND_LAYER, oneWay: true);
+        SpawnGround("Platform_4", worldRoot.transform, platformSpr,
+            center: new Vector2(-18, 5.5f), size: new Vector2(6, 0.5f), layer: GROUND_LAYER, oneWay: true);
+        SpawnGround("Platform_5", worldRoot.transform, platformSpr,
+            center: new Vector2(15, 5.0f), size: new Vector2(6, 0.5f), layer: GROUND_LAYER, oneWay: true);
+
+        // Ladders (vertical climbable triggers)
+        SpawnLadder("Ladder_1", worldRoot.transform, ladderSpr, center: new Vector2(-10, -1.3f), size: new Vector2(1f, 3.8f));
+        SpawnLadder("Ladder_2", worldRoot.transform, ladderSpr, center: new Vector2(6, -0.5f), size: new Vector2(1f, 5.2f));
+        SpawnLadder("Ladder_3", worldRoot.transform, ladderSpr, center: new Vector2(-3, 2.3f), size: new Vector2(1f, 3.6f));
+        SpawnLadder("Ladder_4", worldRoot.transform, ladderSpr, center: new Vector2(-17, 2.8f), size: new Vector2(1f, 5.4f));
+
+        // === Player prefab (placeholder chibi sprite) ===
+        var playerPrefab2 = new GameObject("PlayerPrefab");
+        playerPrefab2.transform.position = new Vector3(0, 0f, 0);
+        var pSprite = new GameObject("Sprite");
+        pSprite.transform.SetParent(playerPrefab2.transform, false);
+        var psr = pSprite.AddComponent<SpriteRenderer>();
+        psr.sprite = playerSpr;
+        psr.sortingOrder = 10;
+        var pBox = playerPrefab2.AddComponent<BoxCollider2D>();
+        pBox.size = new Vector2(0.55f, 0.92f);
+        pBox.offset = new Vector2(0, 0);
+        var pRb = playerPrefab2.AddComponent<Rigidbody2D>();
+        pRb.gravityScale = 3f;
+        pRb.constraints = RigidbodyConstraints2D.FreezeRotation;
+        pRb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        pRb.interpolation = RigidbodyInterpolation2D.Interpolate;
+        var pCtrl = playerPrefab2.AddComponent<Astrion.Game.PlayerController2D>();
+        // groundCheck transform at feet
+        var groundCheckGo = new GameObject("GroundCheck");
+        groundCheckGo.transform.SetParent(playerPrefab2.transform, false);
+        groundCheckGo.transform.localPosition = new Vector3(0, -0.48f, 0);
+        // Wire groundCheck and layer via serialized fields
+        var pSo = new SerializedObject(pCtrl);
+        pSo.FindProperty("groundCheck").objectReferenceValue = groundCheckGo.transform;
+        pSo.FindProperty("groundMask").intValue = 1 << GROUND_LAYER;
+        pSo.ApplyModifiedPropertiesWithoutUndo();
+
+        // === Remote player prefab ===
+        var remotePrefab = new GameObject("RemotePlayerPrefab");
+        remotePrefab.transform.position = new Vector3(100, 100, 0); // off-screen
+        var rSprite = new GameObject("Sprite");
+        rSprite.transform.SetParent(remotePrefab.transform, false);
+        var rsr = rSprite.AddComponent<SpriteRenderer>();
+        rsr.sprite = remotePlayerSpr;
+        rsr.sortingOrder = 10;
+
+        // === Orthographic Camera ===
         var mainCam = Camera.main;
         if (mainCam != null)
         {
-            mainCam.gameObject.AddComponent<Astrion.Game.DiabloCamera>();
-            // Match DiabloCamera defaults (pitch 55, distance 12, lookHeight 1.2) so first frame looks right
-            float pitch = 55f;
-            float distance = 12f;
-            Quaternion rot = Quaternion.Euler(pitch, 0f, 0f);
-            Vector3 offset = rot * new Vector3(0f, 0f, -distance);
-            Vector3 lookPoint = new Vector3(0f, spawnY + 1.2f, 0f);
-            mainCam.transform.position = lookPoint + offset;
-            mainCam.transform.rotation = rot;
-            mainCam.farClipPlane = 500f;
+            mainCam.orthographic = true;
+            mainCam.orthographicSize = 6.5f;
+            mainCam.transform.position = new Vector3(0, 0, -10);
+            mainCam.transform.rotation = Quaternion.identity;
+            mainCam.clearFlags = CameraClearFlags.SolidColor;
+            mainCam.backgroundColor = new Color(0.55f, 0.78f, 0.92f); // sky blue fallback
+            mainCam.farClipPlane = 100f;
+            mainCam.gameObject.AddComponent<Astrion.Game.Camera2D>();
         }
 
-        // GameManager
+        // === GameManager ===
         var gameManagerGo = new GameObject("GameManager");
-        gameManagerGo.AddComponent<Astrion.Game.GameManager>();
+        var gm = gameManagerGo.AddComponent<Astrion.Game.GameManager>();
+        // Note: GameManager.playerPrefab field is intentionally left null;
+        // the scene-time PlayerPrefab object is the local player.
+        var gmSo = new SerializedObject(gm);
+        gmSo.FindProperty("remotePlayerPrefab").objectReferenceValue = remotePrefab;
+        gmSo.ApplyModifiedPropertiesWithoutUndo();
 
         // ========== GAME HUD ==========
-        CreateGameHUD(playerPrefab2, spawnY);
+        CreateGameHUD(playerPrefab2, 0f);
 
         EditorSceneManager.SaveScene(scene, "Assets/Scenes/MainScene.unity");
-        Debug.Log("[Astrion] MainScene created and saved.");
+        Debug.Log("[Astrion] MainScene created and saved (2D).");
+    }
+
+    // ---- 2D helper spawners ----
+    private static GameObject SpawnSprite(string name, Transform parent, Sprite sprite, Vector3 pos, Vector3 scale, int sortingOrder)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        go.transform.position = pos;
+        go.transform.localScale = scale;
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = sprite;
+        sr.sortingOrder = sortingOrder;
+        sr.drawMode = SpriteDrawMode.Tiled;
+        sr.size = new Vector2(1, 1);
+        return go;
+    }
+
+    private static void AddParallax(GameObject layer, Vector2 factor)
+    {
+        var p = layer.AddComponent<Astrion.Game.Parallax2D>();
+        var so = new SerializedObject(p);
+        so.FindProperty("parallaxFactor").vector2Value = factor;
+        so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    private static void SpawnGround(string name, Transform parent, Sprite sprite, Vector2 center, Vector2 size, int layer, bool oneWay)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        go.transform.position = new Vector3(center.x, center.y, 0);
+        go.layer = layer;
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = sprite;
+        sr.drawMode = SpriteDrawMode.Tiled;
+        sr.size = size;
+        sr.sortingOrder = 5;
+        var box = go.AddComponent<BoxCollider2D>();
+        box.size = size;
+        if (oneWay) go.AddComponent<Astrion.Game.OneWayPlatform2D>();
+    }
+
+    private static void SpawnLadder(string name, Transform parent, Sprite sprite, Vector2 center, Vector2 size)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        go.transform.position = new Vector3(center.x, center.y, 0);
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = sprite;
+        sr.drawMode = SpriteDrawMode.Tiled;
+        sr.size = size;
+        sr.sortingOrder = 4;
+        var box = go.AddComponent<BoxCollider2D>();
+        box.size = size;
+        box.isTrigger = true;
+        go.AddComponent<Astrion.Game.Ladder2D>();
+    }
+
+    // ---- 2D placeholder texture generators ----
+    private static Texture2D Make2DSkyTex(int w, int h)
+    {
+        var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        Color top = new Color(0.40f, 0.65f, 0.90f);
+        Color bot = new Color(0.78f, 0.88f, 0.95f);
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                float t = (float)y / (h - 1);
+                tex.SetPixel(x, y, Color.Lerp(bot, top, t));
+            }
+        tex.Apply(); return tex;
+    }
+
+    private static Texture2D Make2DMountainTex(int w, int h, Color color, float fillRatio)
+    {
+        var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        // jagged mountain silhouette via noise
+        for (int x = 0; x < w; x++)
+        {
+            float n = Mathf.PerlinNoise(x * 0.012f, 0f);
+            float n2 = Mathf.PerlinNoise(x * 0.05f + 100, 50f) * 0.3f;
+            int peak = (int)((n + n2) * h * fillRatio);
+            for (int y = 0; y < h; y++)
+            {
+                if (y < peak)
+                {
+                    float shade = 0.85f + (y / (float)peak) * 0.25f;
+                    tex.SetPixel(x, y, new Color(color.r * shade, color.g * shade, color.b * shade, 1f));
+                }
+                else
+                {
+                    tex.SetPixel(x, y, new Color(0, 0, 0, 0));
+                }
+            }
+        }
+        tex.Apply(); return tex;
+    }
+
+    private static Texture2D Make2DGroundTex(int w, int h)
+    {
+        var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        int grassTop = h - 10;
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                float n = Mathf.PerlinNoise(x * 0.08f, y * 0.08f);
+                Color c;
+                if (y >= grassTop)
+                    c = Color.Lerp(new Color(0.22f, 0.55f, 0.18f), new Color(0.35f, 0.70f, 0.25f), n);
+                else
+                    c = Color.Lerp(new Color(0.35f, 0.25f, 0.15f), new Color(0.50f, 0.35f, 0.20f), n);
+                tex.SetPixel(x, y, c);
+            }
+        tex.Apply(); return tex;
+    }
+
+    private static Texture2D Make2DPlatformTex(int w, int h)
+    {
+        var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        // wood plank top + dark underside
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                float n = Mathf.PerlinNoise(x * 0.05f, y * 0.3f);
+                Color baseC;
+                if (y >= h - 6) baseC = Color.Lerp(new Color(0.30f, 0.65f, 0.22f), new Color(0.42f, 0.75f, 0.28f), n);
+                else if (y >= h - 14) baseC = Color.Lerp(new Color(0.52f, 0.35f, 0.20f), new Color(0.68f, 0.48f, 0.25f), n);
+                else baseC = Color.Lerp(new Color(0.32f, 0.22f, 0.12f), new Color(0.45f, 0.30f, 0.18f), n);
+                tex.SetPixel(x, y, baseC);
+            }
+        tex.Apply(); return tex;
+    }
+
+    private static Texture2D Make2DLadderTex(int w, int h)
+    {
+        var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        Color rail = new Color(0.58f, 0.38f, 0.20f);
+        Color rung = new Color(0.72f, 0.50f, 0.28f);
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                bool isLeftRail = x >= 4 && x <= 12;
+                bool isRightRail = x >= w - 13 && x <= w - 5;
+                bool isRung = (y % 24) < 6 && x >= 4 && x <= w - 5;
+                if (isRung) tex.SetPixel(x, y, rung);
+                else if (isLeftRail || isRightRail) tex.SetPixel(x, y, rail);
+                else tex.SetPixel(x, y, new Color(0, 0, 0, 0));
+            }
+        tex.Apply(); return tex;
+    }
+
+    private static Texture2D Make2DPlayerTex(int w, int h, bool remote = false)
+    {
+        var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        Color shirt = remote ? new Color(0.30f, 0.45f, 0.85f) : new Color(0.95f, 0.45f, 0.20f);
+        Color pants = new Color(0.20f, 0.22f, 0.30f);
+        Color skin = new Color(1f, 0.85f, 0.72f);
+        Color hair = new Color(0.20f, 0.15f, 0.10f);
+        Color outline = new Color(0.05f, 0.04f, 0.06f);
+
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                // Center column bounds (chibi body)
+                int cx = w / 2;
+                int dx = x - cx;
+                // Head (top 1/3): rounded
+                int headTop = h - 4;
+                int headBot = h * 2 / 3;
+                int torsoTop = headBot;
+                int torsoBot = h / 3;
+                int legBot = 2;
+
+                Color c = new Color(0, 0, 0, 0);
+                if (y >= headBot && y <= headTop)
+                {
+                    int hr = (int)((1 - Mathf.Abs((y - (headTop + headBot) * 0.5f)) / ((headTop - headBot) * 0.5f)) * 14);
+                    if (Mathf.Abs(dx) <= hr) c = skin;
+                    if (Mathf.Abs(dx) <= hr && y > headBot + (headTop - headBot) * 0.7f) c = hair;
+                }
+                else if (y >= torsoBot && y < torsoTop)
+                {
+                    if (Mathf.Abs(dx) <= 14) c = shirt;
+                }
+                else if (y >= legBot && y < torsoBot)
+                {
+                    bool leftLeg = dx >= -12 && dx <= -2;
+                    bool rightLeg = dx >= 2 && dx <= 12;
+                    if (leftLeg || rightLeg) c = pants;
+                }
+
+                if (c.a > 0)
+                {
+                    // Outline
+                    bool isEdge = false;
+                    if (x > 0 && tex.GetPixel(x - 1, y).a == 0) isEdge = true;
+                    if (y > 0 && tex.GetPixel(x, y - 1).a == 0) isEdge = true;
+                    if (isEdge) c = outline;
+                }
+                tex.SetPixel(x, y, c);
+            }
+        tex.Apply(); return tex;
     }
 
     // ---- Procedural texture helpers ----
@@ -1469,40 +1589,25 @@ public class ProjectSetup
     {
         var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
-        // Diablo gothic palette (blood + iron + bone)
-        Color panelDark = new Color(0.04f, 0.03f, 0.02f, 0.92f);
-        Color panelMid = new Color(0.07f, 0.05f, 0.04f, 0.85f);
-        Color borderLight = new Color(0.38f, 0.20f, 0.10f, 0.55f); // rust iron
-        Color accentCyan = new Color(0.85f, 0.18f, 0.10f);          // blood red (was cyan)
-        Color accentBlue = new Color(0.55f, 0.10f, 0.08f);          // deep crimson
-        Color textWhite = new Color(0.88f, 0.83f, 0.72f);           // bone/parchment
-        Color textGray = new Color(0.50f, 0.42f, 0.34f);            // weathered stone
-        Color hpColor1 = new Color(0.55f, 0.05f, 0.04f);            // dark blood
-        Color hpColor2 = new Color(0.92f, 0.20f, 0.10f);            // bright blood
-        Color mpColor1 = new Color(0.10f, 0.08f, 0.40f);            // deep arcane
-        Color mpColor2 = new Color(0.30f, 0.25f, 0.85f);            // bright arcane
-        Color xpColor1 = new Color(0.45f, 0.32f, 0.10f);            // dim brass
-        Color xpColor2 = new Color(0.78f, 0.58f, 0.18f);            // worn brass
-        Color ironDark = new Color(0.16f, 0.14f, 0.12f);
-        Color ironLight = new Color(0.42f, 0.38f, 0.34f);
+        // MapleStory-style cheerful palette
+        Color panelBg = new Color(0.05f, 0.08f, 0.15f, 0.92f);
+        Color textWhite = new Color(1f, 0.98f, 0.92f);
+        Color textMuted = new Color(0.70f, 0.75f, 0.82f);
+        Color slotBg = new Color(0.08f, 0.10f, 0.16f, 0.95f);
 
-        // Pre-generate textures
-        var circleWhite = MakeCircleTex(128, Color.white);
-        var circleSpr = TexToSprite(circleWhite);
-        var panelTex = MakeRoundRectTex(256, 64, 12, panelDark);
-        var panelSpr = TexToSprite(panelTex);
-        var hpGradient = MakeGradientBarTex(256, 16, hpColor1, hpColor2);
-        var mpGradient = MakeGradientBarTex(256, 16, mpColor1, mpColor2);
-        var expGradient = MakeGradientBarTex(256, 8, xpColor1, xpColor2);
-        var ringTex = MakeRingTex(128, 0.85f, 0.98f, accentCyan);
-        var ringSpr = TexToSprite(ringTex);
-        var thinRingSpr = TexToSprite(MakeRingTex(128, 0.90f, 0.98f, new Color(0.5f, 0.55f, 0.65f, 0.4f)));
-        var joystickBgTex = MakeRingTex(256, 0.0f, 0.95f, new Color(1f, 1f, 1f, 0.08f));
-        var joystickOuterTex = MakeRingTex(256, 0.85f, 0.98f, new Color(1f, 1f, 1f, 0.2f));
-        var slotTex = MakeRoundRectTex(64, 64, 6, new Color(0.10f, 0.11f, 0.15f, 0.9f));
-        var slotSpr = TexToSprite(slotTex);
-        var slotBorderTex = MakeRoundRectTex(64, 64, 6, borderLight);
-        var slotBorderSpr = TexToSprite(slotBorderTex);
+        Color hpRed1 = new Color(0.85f, 0.18f, 0.22f);
+        Color hpRed2 = new Color(1.0f, 0.40f, 0.45f);
+        Color mpBlue1 = new Color(0.18f, 0.45f, 0.90f);
+        Color mpBlue2 = new Color(0.45f, 0.72f, 1.0f);
+        Color expGold1 = new Color(0.85f, 0.68f, 0.20f);
+        Color expGold2 = new Color(1.0f, 0.85f, 0.40f);
+
+        var hpGrad = TexToSprite(MakeGradientBarTex(256, 16, hpRed1, hpRed2));
+        var mpGrad = TexToSprite(MakeGradientBarTex(256, 16, mpBlue1, mpBlue2));
+        var expGrad = TexToSprite(MakeGradientBarTex(256, 12, expGold1, expGold2));
+        var panelSpr = TexToSprite(MakeRoundRectTex(256, 64, 10, panelBg));
+        var slotSpr = TexToSprite(MakeRoundRectTex(64, 64, 6, slotBg));
+        var barBgSpr = TexToSprite(MakeRoundRectTex(256, 18, 7, new Color(0.02f, 0.03f, 0.05f, 0.95f)));
 
         // Canvas
         var canvasGo = new GameObject("GameHUD_Canvas");
@@ -1517,800 +1622,245 @@ public class ProjectSetup
         var hudComp = canvasGo.AddComponent<Astrion.UI.GameHUD>();
         var root = canvasGo.GetComponent<RectTransform>();
 
-        // ========== TOP-LEFT: Compact Player Frame (Diablo: portrait + name only; HP/MP moved to orbs) ==========
+        // ========== TOP-LEFT: Character info panel ==========
         var charPanel = HUD_CreateRT("CharPanel", root);
         charPanel.anchorMin = charPanel.anchorMax = new Vector2(0, 1);
         charPanel.pivot = new Vector2(0, 1);
         charPanel.anchoredPosition = new Vector2(16, -16);
-        charPanel.sizeDelta = new Vector2(220, 64);
+        charPanel.sizeDelta = new Vector2(200, 58);
+        var cpBg = charPanel.gameObject.AddComponent<Image>();
+        cpBg.sprite = panelSpr; cpBg.type = Image.Type.Sliced;
 
-        // Panel background (clean dark glass)
-        var charPanelBg = charPanel.gameObject.AddComponent<Image>();
-        charPanelBg.sprite = panelSpr;
-        charPanelBg.type = Image.Type.Sliced;
-        charPanelBg.color = Color.white;
+        // Level badge (gold square, MapleStory style)
+        var lvlBadge = HUD_CreateRT("LvlBadge", charPanel);
+        lvlBadge.anchorMin = lvlBadge.anchorMax = new Vector2(0, 0.5f);
+        lvlBadge.anchoredPosition = new Vector2(32, 0);
+        lvlBadge.sizeDelta = new Vector2(44, 44);
+        var lvlBg = lvlBadge.gameObject.AddComponent<Image>();
+        lvlBg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 8, new Color(0.95f, 0.72f, 0.22f, 1f)));
+        var lvlNumRT = HUD_CreateRT("Num", lvlBadge);
+        lvlNumRT.anchorMin = Vector2.zero; lvlNumRT.anchorMax = Vector2.one;
+        lvlNumRT.offsetMin = lvlNumRT.offsetMax = Vector2.zero;
+        var lvlNumText = lvlNumRT.gameObject.AddComponent<Text>();
+        lvlNumText.font = font; lvlNumText.fontSize = 22; lvlNumText.fontStyle = FontStyle.Bold;
+        lvlNumText.color = new Color(0.18f, 0.10f, 0.04f);
+        lvlNumText.alignment = TextAnchor.MiddleCenter; lvlNumText.text = "1";
 
-        // Portrait (clean circle)
-        var portrait = HUD_CreateRT("Portrait", charPanel);
-        portrait.anchorMin = portrait.anchorMax = new Vector2(0, 0.5f);
-        portrait.anchoredPosition = new Vector2(38, 0);
-        portrait.sizeDelta = new Vector2(50, 50);
-        var portraitImg = portrait.gameObject.AddComponent<Image>();
-        portraitImg.sprite = circleSpr;
-        portraitImg.color = new Color(0.14f, 0.16f, 0.22f);
-
-        // Portrait ring (thin cyan glow)
-        var portraitRing = HUD_CreateRT("Ring", portrait);
-        portraitRing.anchorMin = Vector2.zero; portraitRing.anchorMax = Vector2.one;
-        portraitRing.offsetMin = new Vector2(-3, -3); portraitRing.offsetMax = new Vector2(3, 3);
-        portraitRing.gameObject.AddComponent<Image>().sprite = ringSpr;
-
-        // Class letter in portrait
-        var classIcon = HUD_CreateRT("ClassIcon", portrait);
-        classIcon.anchorMin = Vector2.zero; classIcon.anchorMax = Vector2.one;
-        classIcon.offsetMin = classIcon.offsetMax = Vector2.zero;
-        var ciText = classIcon.gameObject.AddComponent<Text>();
-        ciText.font = font; ciText.fontSize = 22; ciText.fontStyle = FontStyle.Bold;
-        ciText.color = accentCyan; ciText.alignment = TextAnchor.MiddleCenter;
-        ciText.text = "W"; // Warrior
-
-        // Level badge
-        var lvlBadge = HUD_CreateRT("LvlBadge", portrait);
-        lvlBadge.anchorMin = lvlBadge.anchorMax = new Vector2(1, 0);
-        lvlBadge.anchoredPosition = new Vector2(4, -2);
-        lvlBadge.sizeDelta = new Vector2(22, 22);
-        lvlBadge.gameObject.AddComponent<Image>().sprite = circleSpr;
-        lvlBadge.GetComponent<Image>().color = panelDark;
-        var lvlRing = HUD_CreateRT("Ring", lvlBadge);
-        lvlRing.anchorMin = Vector2.zero; lvlRing.anchorMax = Vector2.one;
-        lvlRing.offsetMin = new Vector2(-1, -1); lvlRing.offsetMax = new Vector2(1, 1);
-        lvlRing.gameObject.AddComponent<Image>().sprite = thinRingSpr;
-        var lvlText = HUD_CreateRT("LvlText", lvlBadge);
-        lvlText.anchorMin = Vector2.zero; lvlText.anchorMax = Vector2.one;
-        lvlText.offsetMin = lvlText.offsetMax = Vector2.zero;
-        var lvlT = lvlText.gameObject.AddComponent<Text>();
-        lvlT.font = font; lvlT.fontSize = 11; lvlT.fontStyle = FontStyle.Bold;
-        lvlT.color = textWhite; lvlT.alignment = TextAnchor.MiddleCenter;
-        lvlT.text = "1";
-
-        // Name text (full vertical area now since HP/MP moved to orbs)
+        // Char name
         var nameRT = HUD_CreateRT("CharName", charPanel);
-        nameRT.anchorMin = new Vector2(0, 0.5f); nameRT.anchorMax = new Vector2(1, 1);
-        nameRT.offsetMin = new Vector2(72, 0); nameRT.offsetMax = new Vector2(-10, -4);
+        nameRT.anchorMin = new Vector2(0, 0.55f); nameRT.anchorMax = new Vector2(1, 1);
+        nameRT.offsetMin = new Vector2(64, 0); nameRT.offsetMax = new Vector2(-8, -4);
         var nameText = nameRT.gameObject.AddComponent<Text>();
-        nameText.font = font; nameText.fontSize = 14; nameText.fontStyle = FontStyle.Bold;
+        nameText.font = font; nameText.fontSize = 15; nameText.fontStyle = FontStyle.Bold;
         nameText.color = textWhite;
-        nameText.text = "Character"; nameText.alignment = TextAnchor.LowerLeft;
+        nameText.text = "Adventurer"; nameText.alignment = TextAnchor.LowerLeft;
 
-        // Level/class subtext
+        // Char level/class
         var levelRT = HUD_CreateRT("CharLevel", charPanel);
-        levelRT.anchorMin = new Vector2(0, 0); levelRT.anchorMax = new Vector2(1, 0.5f);
-        levelRT.offsetMin = new Vector2(72, 4); levelRT.offsetMax = new Vector2(-10, 0);
+        levelRT.anchorMin = new Vector2(0, 0); levelRT.anchorMax = new Vector2(1, 0.55f);
+        levelRT.offsetMin = new Vector2(64, 4); levelRT.offsetMax = new Vector2(-8, 0);
         var levelText = levelRT.gameObject.AddComponent<Text>();
         levelText.font = font; levelText.fontSize = 11;
-        levelText.color = textGray;
+        levelText.color = textMuted;
         levelText.text = "Lv.1 Warrior"; levelText.alignment = TextAnchor.UpperLeft;
 
-        // ========== BOTTOM-LEFT: HP Orb (Diablo signature) ==========
-        var hpOrbTex = MakeOrbTex(256, hpColor2, hpColor1);
-        var mpOrbTex = MakeOrbTex(256, mpColor2, mpColor1);
-        var orbFrameTex = MakeOrbFrameTex(256, ironDark, ironLight);
-        var orbFrameSpr = TexToSprite(orbFrameTex);
-
-        const float ORB_SIZE = 160f;
-        const float ORB_MARGIN = 24f;
-
-        var hpOrb = HUD_CreateRT("HPOrb", root);
-        hpOrb.anchorMin = hpOrb.anchorMax = new Vector2(0, 0);
-        hpOrb.pivot = new Vector2(0, 0);
-        hpOrb.anchoredPosition = new Vector2(ORB_MARGIN, ORB_MARGIN);
-        hpOrb.sizeDelta = new Vector2(ORB_SIZE, ORB_SIZE);
-
-        // Dark socket behind the orb (inset shadow)
-        var hpSocket = HUD_CreateRT("Socket", hpOrb);
-        hpSocket.anchorMin = Vector2.zero; hpSocket.anchorMax = Vector2.one;
-        hpSocket.offsetMin = new Vector2(8, 8); hpSocket.offsetMax = new Vector2(-8, -8);
-        var hpSocketImg = hpSocket.gameObject.AddComponent<Image>();
-        hpSocketImg.sprite = circleSpr;
-        hpSocketImg.color = new Color(0.02f, 0.01f, 0.01f, 0.95f);
-
-        // Liquid fill (vertical fill from bottom — looks like blood rising)
-        var hpFillRT = HUD_CreateRT("Fill", hpOrb);
-        hpFillRT.anchorMin = Vector2.zero; hpFillRT.anchorMax = Vector2.one;
-        hpFillRT.offsetMin = new Vector2(8, 8); hpFillRT.offsetMax = new Vector2(-8, -8);
-        var hpFill = hpFillRT.gameObject.AddComponent<Image>();
-        hpFill.sprite = TexToSprite(hpOrbTex);
-        hpFill.type = Image.Type.Filled;
-        hpFill.fillMethod = Image.FillMethod.Vertical;
-        hpFill.fillOrigin = (int)Image.OriginVertical.Bottom;
-        hpFill.fillAmount = 1f;
-
-        // Iron frame ring (drawn on top)
-        var hpFrame = HUD_CreateRT("Frame", hpOrb);
-        hpFrame.anchorMin = Vector2.zero; hpFrame.anchorMax = Vector2.one;
-        hpFrame.offsetMin = hpFrame.offsetMax = Vector2.zero;
-        hpFrame.gameObject.AddComponent<Image>().sprite = orbFrameSpr;
-
-        // HP text overlay (centered on orb)
-        var hpTextRT = HUD_CreateRT("Text", hpOrb);
-        hpTextRT.anchorMin = Vector2.zero; hpTextRT.anchorMax = Vector2.one;
-        hpTextRT.offsetMin = hpTextRT.offsetMax = Vector2.zero;
-        var hpBarText = hpTextRT.gameObject.AddComponent<Text>();
-        hpBarText.font = font; hpBarText.fontSize = 16; hpBarText.fontStyle = FontStyle.Bold;
-        hpBarText.color = new Color(1f, 0.95f, 0.85f, 0.95f);
-        hpBarText.alignment = TextAnchor.MiddleCenter;
-        hpBarText.text = "100/100";
-        var hpShadow = hpTextRT.gameObject.AddComponent<Shadow>();
-        hpShadow.effectColor = new Color(0, 0, 0, 0.95f);
-        hpShadow.effectDistance = new Vector2(1, -1);
-
-        // ========== BOTTOM-RIGHT: MP Orb ==========
-        var mpOrb = HUD_CreateRT("MPOrb", root);
-        mpOrb.anchorMin = mpOrb.anchorMax = new Vector2(1, 0);
-        mpOrb.pivot = new Vector2(1, 0);
-        mpOrb.anchoredPosition = new Vector2(-ORB_MARGIN, ORB_MARGIN);
-        mpOrb.sizeDelta = new Vector2(ORB_SIZE, ORB_SIZE);
-
-        var mpSocket = HUD_CreateRT("Socket", mpOrb);
-        mpSocket.anchorMin = Vector2.zero; mpSocket.anchorMax = Vector2.one;
-        mpSocket.offsetMin = new Vector2(8, 8); mpSocket.offsetMax = new Vector2(-8, -8);
-        var mpSocketImg = mpSocket.gameObject.AddComponent<Image>();
-        mpSocketImg.sprite = circleSpr;
-        mpSocketImg.color = new Color(0.02f, 0.01f, 0.01f, 0.95f);
-
-        var mpFillRT = HUD_CreateRT("Fill", mpOrb);
-        mpFillRT.anchorMin = Vector2.zero; mpFillRT.anchorMax = Vector2.one;
-        mpFillRT.offsetMin = new Vector2(8, 8); mpFillRT.offsetMax = new Vector2(-8, -8);
-        var mpFill = mpFillRT.gameObject.AddComponent<Image>();
-        mpFill.sprite = TexToSprite(mpOrbTex);
-        mpFill.type = Image.Type.Filled;
-        mpFill.fillMethod = Image.FillMethod.Vertical;
-        mpFill.fillOrigin = (int)Image.OriginVertical.Bottom;
-        mpFill.fillAmount = 1f;
-
-        var mpFrame = HUD_CreateRT("Frame", mpOrb);
-        mpFrame.anchorMin = Vector2.zero; mpFrame.anchorMax = Vector2.one;
-        mpFrame.offsetMin = mpFrame.offsetMax = Vector2.zero;
-        mpFrame.gameObject.AddComponent<Image>().sprite = orbFrameSpr;
-
-        var mpTextRT = HUD_CreateRT("Text", mpOrb);
-        mpTextRT.anchorMin = Vector2.zero; mpTextRT.anchorMax = Vector2.one;
-        mpTextRT.offsetMin = mpTextRT.offsetMax = Vector2.zero;
-        var mpBarText = mpTextRT.gameObject.AddComponent<Text>();
-        mpBarText.font = font; mpBarText.fontSize = 16; mpBarText.fontStyle = FontStyle.Bold;
-        mpBarText.color = new Color(0.85f, 0.92f, 1f, 0.95f);
-        mpBarText.alignment = TextAnchor.MiddleCenter;
-        mpBarText.text = "50/50";
-        var mpShadow = mpTextRT.gameObject.AddComponent<Shadow>();
-        mpShadow.effectColor = new Color(0, 0, 0, 0.95f);
-        mpShadow.effectDistance = new Vector2(1, -1);
-
-        // ========== TOP: XP Bar (sleek, under top edge) ==========
-        var expBar = HUD_CreateRT("ExpBar", root);
-        expBar.anchorMin = new Vector2(0, 1); expBar.anchorMax = new Vector2(1, 1);
-        expBar.pivot = new Vector2(0.5f, 1);
-        expBar.anchoredPosition = Vector2.zero;
-        expBar.sizeDelta = new Vector2(0, 3);
-        expBar.gameObject.AddComponent<Image>().color = new Color(0.05f, 0.06f, 0.08f, 0.7f);
-
-        var expFill = HUD_CreateRT("ExpFill", expBar);
-        expFill.anchorMin = Vector2.zero;
-        expFill.anchorMax = new Vector2(0.35f, 1);
-        expFill.offsetMin = expFill.offsetMax = Vector2.zero;
-        var expFillImg = expFill.gameObject.AddComponent<Image>();
-        expFillImg.sprite = TexToSprite(expGradient);
-
-        // ========== TOP-RIGHT: Clean Minimap ==========
-        var minimapFrame = HUD_CreateRT("MinimapFrame", root);
-        minimapFrame.anchorMin = minimapFrame.anchorMax = new Vector2(1, 1);
-        minimapFrame.pivot = new Vector2(1, 1);
-        minimapFrame.anchoredPosition = new Vector2(-16, -16);
-        minimapFrame.sizeDelta = new Vector2(170, 170);
-
-        // Minimap background
-        var mmBg = minimapFrame.gameObject.AddComponent<Image>();
-        mmBg.sprite = circleSpr;
-        mmBg.color = new Color(0.06f, 0.07f, 0.10f);
-
-        // Minimap render
-        var minimapInner = HUD_CreateRT("MinimapInner", minimapFrame);
-        minimapInner.anchorMin = Vector2.zero; minimapInner.anchorMax = Vector2.one;
-        minimapInner.offsetMin = new Vector2(8, 8); minimapInner.offsetMax = new Vector2(-8, -8);
-        var minimapRawImg = minimapInner.gameObject.AddComponent<RawImage>();
-        minimapInner.gameObject.AddComponent<UnityEngine.UI.Mask>().showMaskGraphic = true;
-
-        // Outer ring (subtle)
-        var mmRing = HUD_CreateRT("Ring", minimapFrame);
-        mmRing.anchorMin = Vector2.zero; mmRing.anchorMax = Vector2.one;
-        mmRing.offsetMin = new Vector2(-2, -2); mmRing.offsetMax = new Vector2(2, 2);
-        mmRing.gameObject.AddComponent<Image>().sprite = TexToSprite(MakeRingTex(256, 0.88f, 0.98f, new Color(0.35f, 0.40f, 0.50f, 0.5f)));
-
-        // Inner glow ring
-        var mmGlow = HUD_CreateRT("Glow", minimapFrame);
-        mmGlow.anchorMin = Vector2.zero; mmGlow.anchorMax = Vector2.one;
-        mmGlow.offsetMin = new Vector2(3, 3); mmGlow.offsetMax = new Vector2(-3, -3);
-        mmGlow.gameObject.AddComponent<Image>().sprite = TexToSprite(MakeRingTex(256, 0.92f, 0.99f, new Color(0.3f, 0.85f, 0.95f, 0.15f)));
-
-        // Zone name (clean text above minimap)
-        var zoneNameRT = HUD_CreateRT("ZoneName", minimapFrame);
-        zoneNameRT.anchorMin = new Vector2(0, 1); zoneNameRT.anchorMax = new Vector2(1, 1);
-        zoneNameRT.pivot = new Vector2(0.5f, 0);
-        zoneNameRT.anchoredPosition = new Vector2(0, 6);
-        zoneNameRT.sizeDelta = new Vector2(180, 18);
-        var zoneText = zoneNameRT.gameObject.AddComponent<Text>();
-        zoneText.font = font; zoneText.fontSize = 12;
-        zoneText.color = textWhite;
-        zoneText.alignment = TextAnchor.MiddleCenter;
-        zoneText.text = "Astrion Fields";
-
-        // Compass
-        string[] dirs = {"N","E","S","W"};
-        Vector2[] dirPos = { new Vector2(0,0.95f), new Vector2(0.95f,0), new Vector2(0,-0.95f), new Vector2(-0.95f,0) };
-        for (int i = 0; i < 4; i++)
-        {
-            var drt = HUD_CreateRT(dirs[i], minimapFrame);
-            drt.anchorMin = drt.anchorMax = new Vector2(0.5f + dirPos[i].x*0.5f, 0.5f + dirPos[i].y*0.5f);
-            drt.sizeDelta = new Vector2(18, 14);
-            var dt = drt.gameObject.AddComponent<Text>();
-            dt.font = font; dt.fontSize = 10; dt.fontStyle = FontStyle.Bold;
-            dt.color = i == 0 ? accentCyan : new Color(0.5f, 0.55f, 0.65f, 0.5f);
-            dt.alignment = TextAnchor.MiddleCenter; dt.text = dirs[i];
-        }
-
-        // Minimap camera
-        var minimapCamGo = new GameObject("MinimapCamera");
-        var minimapCam = minimapCamGo.AddComponent<Camera>();
-        minimapCam.orthographic = true;
-        minimapCam.orthographicSize = 60;
-        minimapCam.transform.position = new Vector3(0, spawnY + 80, 0);
-        minimapCam.transform.rotation = Quaternion.Euler(90, 0, 0);
-        minimapCam.clearFlags = CameraClearFlags.SolidColor;
-        minimapCam.backgroundColor = new Color(0.10f, 0.12f, 0.10f);
-        minimapCam.cullingMask = 1;
-        minimapCam.depth = -2;
-        minimapCam.farClipPlane = 200f;
-        var rt = new RenderTexture(256, 256, 16);
-        minimapCam.targetTexture = rt;
-        minimapRawImg.texture = rt;
-
-        // Player dot
-        var dotRT = HUD_CreateRT("PlayerDot", minimapFrame);
-        dotRT.anchorMin = dotRT.anchorMax = new Vector2(0.5f, 0.5f);
-        dotRT.sizeDelta = new Vector2(10, 10);
-        dotRT.gameObject.AddComponent<Image>().sprite = circleSpr;
-        dotRT.GetComponent<Image>().color = accentCyan;
-
-        // Coordinates
-        var coordsRT = HUD_CreateRT("Coords", minimapFrame);
-        coordsRT.anchorMin = new Vector2(0, 0); coordsRT.anchorMax = new Vector2(1, 0);
-        coordsRT.pivot = new Vector2(0.5f, 1);
-        coordsRT.anchoredPosition = new Vector2(0, -6);
-        coordsRT.sizeDelta = new Vector2(0, 16);
-        var coordsText = coordsRT.gameObject.AddComponent<Text>();
-        coordsText.font = font; coordsText.fontSize = 11;
-        coordsText.color = textGray;
-        coordsText.alignment = TextAnchor.MiddleCenter;
-        coordsText.text = "0, 0";
-
-        // ========== BOTTOM-LEFT: Modern Joystick ==========
-        var joyBgRT = HUD_CreateRT("JoystickArea", root);
-        joyBgRT.anchorMin = joyBgRT.anchorMax = new Vector2(0, 0);
-        joyBgRT.pivot = new Vector2(0, 0);
-        joyBgRT.anchoredPosition = new Vector2(25, 40);
-        joyBgRT.sizeDelta = new Vector2(240, 240);
-
-        // Outer ring
-        var joyOuter = joyBgRT.gameObject.AddComponent<Image>();
-        joyOuter.sprite = TexToSprite(joystickOuterTex);
-        joyOuter.color = Color.white;
-
-        // Inner fill
-        var joyInner = HUD_CreateRT("JoyInnerBg", joyBgRT);
-        joyInner.anchorMin = Vector2.zero; joyInner.anchorMax = Vector2.one;
-        joyInner.offsetMin = joyInner.offsetMax = Vector2.zero;
-        joyInner.gameObject.AddComponent<Image>().sprite = TexToSprite(joystickBgTex);
-
-        // Handle
-        var joyHandleRT = HUD_CreateRT("JoystickHandle", joyBgRT);
-        joyHandleRT.anchorMin = joyHandleRT.anchorMax = new Vector2(0.5f, 0.5f);
-        joyHandleRT.sizeDelta = new Vector2(85, 85);
-        var handleImg = joyHandleRT.gameObject.AddComponent<Image>();
-        handleImg.sprite = circleSpr;
-        handleImg.color = new Color(0.9f, 0.88f, 0.82f, 0.3f);
-
-        // Handle inner dot
-        var joyDot = HUD_CreateRT("HandleDot", joyHandleRT);
-        joyDot.anchorMin = joyDot.anchorMax = new Vector2(0.5f, 0.5f);
-        joyDot.sizeDelta = new Vector2(30, 30);
-        joyDot.gameObject.AddComponent<Image>().sprite = circleSpr;
-        joyDot.GetComponent<Image>().color = new Color(1, 1, 1, 0.25f);
-
-        canvasGo.AddComponent<Astrion.Game.Joystick>();
-        canvasGo.AddComponent<Astrion.Game.JoystickInitializer>();
-
-        // ========== BOTTOM-RIGHT: Action Buttons (arc layout) ==========
-        var actionRT = HUD_CreateRT("ActionArea", root);
-        actionRT.anchorMin = actionRT.anchorMax = new Vector2(1, 0);
-        actionRT.pivot = new Vector2(1, 0);
-        actionRT.anchoredPosition = new Vector2(-20, 35);
-        actionRT.sizeDelta = new Vector2(300, 300);
-
-        // Main attack button (large circle)
-        var atkCircleTex = MakeCircleTex(128, new Color(0.9f, 0.2f, 0.15f, 0.85f));
-        HUD_CreateModernActionBtn(actionRT, "\u2694", atkCircleTex, circleSpr, font,
-            new Vector2(0.7f, 0.32f), 110, 30, new Color(1f, 0.3f, 0.2f, 0.15f));
-
-        // Skill buttons in arc
-        var s1Tex = MakeCircleTex(128, new Color(0.15f, 0.4f, 0.9f, 0.75f));
-        var s2Tex = MakeCircleTex(128, new Color(0.55f, 0.15f, 0.85f, 0.75f));
-        var s3Tex = MakeCircleTex(128, new Color(0.1f, 0.7f, 0.35f, 0.75f));
-        var s4Tex = MakeCircleTex(128, new Color(0.85f, 0.55f, 0.1f, 0.75f));
-
-        HUD_CreateModernActionBtn(actionRT, "\u2604", s1Tex, circleSpr, font,
-            new Vector2(0.18f, 0.15f), 78, 22, new Color(0.3f, 0.5f, 1f, 0.12f));
-        HUD_CreateModernActionBtn(actionRT, "\u2726", s2Tex, circleSpr, font,
-            new Vector2(0.08f, 0.55f), 78, 22, new Color(0.6f, 0.3f, 0.9f, 0.12f));
-        HUD_CreateModernActionBtn(actionRT, "\u2748", s3Tex, circleSpr, font,
-            new Vector2(0.38f, 0.78f), 78, 22, new Color(0.2f, 0.8f, 0.4f, 0.12f));
-        HUD_CreateModernActionBtn(actionRT, "\u2600", s4Tex, circleSpr, font,
-            new Vector2(0.72f, 0.78f), 68, 20, new Color(0.9f, 0.7f, 0.2f, 0.12f));
-
-        // ========== RIGHT SIDE: Quick menu icons (vertical, mobile only) ==========
-        var mobileMenuGroup = HUD_CreateRT("MobileMenu", root);
-        mobileMenuGroup.anchorMin = Vector2.zero; mobileMenuGroup.anchorMax = Vector2.one;
-        mobileMenuGroup.offsetMin = mobileMenuGroup.offsetMax = Vector2.zero;
-
-        string[] menuIcons = { "\u2692", "\u2605", "\u2302", "\u2709" }; // tools, star, house, mail
-        string[] menuTips = { "BAG", "SKILL", "MENU", "CHAT" };
-        for (int i = 0; i < menuIcons.Length; i++)
-        {
-            var mBtn = HUD_CreateRT(menuTips[i], mobileMenuGroup);
-            mBtn.anchorMin = mBtn.anchorMax = new Vector2(1, 1);
-            mBtn.pivot = new Vector2(1, 0.5f);
-            mBtn.anchoredPosition = new Vector2(-18, -200 - i * 52);
-            mBtn.sizeDelta = new Vector2(44, 44);
-
-            var mBg = mBtn.gameObject.AddComponent<Image>();
-            mBg.sprite = circleSpr;
-            mBg.color = new Color(0.08f, 0.1f, 0.14f, 0.75f);
-            mBtn.gameObject.AddComponent<Button>();
-
-            // Ring
-            var mRing = HUD_CreateRT("Ring", mBtn);
-            mRing.anchorMin = Vector2.zero; mRing.anchorMax = Vector2.one;
-            mRing.offsetMin = new Vector2(-2, -2);
-            mRing.offsetMax = new Vector2(2, 2);
-            var mRingImg = mRing.gameObject.AddComponent<Image>();
-            mRingImg.sprite = ringSpr;
-            mRingImg.color = new Color(1, 1, 1, 0.4f);
-
-            var mTxt = HUD_CreateRT("Icon", mBtn);
-            mTxt.anchorMin = Vector2.zero; mTxt.anchorMax = Vector2.one;
-            mTxt.offsetMin = mTxt.offsetMax = Vector2.zero;
-            var mt = mTxt.gameObject.AddComponent<Text>();
-            mt.font = font; mt.fontSize = 20;
-            mt.color = new Color(0.85f, 0.82f, 0.75f);
-            mt.alignment = TextAnchor.MiddleCenter;
-            mt.text = menuIcons[i];
-        }
-
-        // ========== BOTTOM-CENTER: Chat bar (minimal) ==========
-        var chatBar = HUD_CreateRT("ChatBar", root);
-        chatBar.anchorMin = new Vector2(0, 0);
-        chatBar.anchorMax = new Vector2(0, 0);
-        chatBar.pivot = new Vector2(0, 0);
-        chatBar.anchoredPosition = new Vector2(25, 300);
-        chatBar.sizeDelta = new Vector2(300, 30);
-
-        var chatBg = chatBar.gameObject.AddComponent<Image>();
-        chatBg.sprite = panelSpr;
-        chatBg.type = Image.Type.Sliced;
-        chatBg.color = new Color(0.05f, 0.06f, 0.1f, 0.5f);
-
-        var chatTxt = HUD_CreateRT("ChatText", chatBar);
-        chatTxt.anchorMin = Vector2.zero; chatTxt.anchorMax = Vector2.one;
-        chatTxt.offsetMin = new Vector2(10, 0);
-        chatTxt.offsetMax = new Vector2(-10, 0);
-        var ct = chatTxt.gameObject.AddComponent<Text>();
-        ct.font = font; ct.fontSize = 13;
-        ct.color = new Color(0.6f, 0.6f, 0.55f, 0.7f);
-        ct.alignment = TextAnchor.MiddleLeft;
-        ct.text = "Tap to chat...";
-
-        // ========== DESKTOP: Clean Action Bar (bottom-center) ==========
-        var hotbar = HUD_CreateRT("DesktopHotbar", root);
-        hotbar.anchorMin = new Vector2(0.5f, 0);
-        hotbar.anchorMax = new Vector2(0.5f, 0);
-        hotbar.pivot = new Vector2(0.5f, 0);
-        hotbar.anchoredPosition = new Vector2(0, 10);
-        hotbar.sizeDelta = new Vector2(620, 58);
-        hotbar.gameObject.SetActive(false);
-
-        // Clean dark panel background
-        var hotbarBg = hotbar.gameObject.AddComponent<Image>();
-        hotbarBg.sprite = panelSpr;
-        hotbarBg.type = Image.Type.Sliced;
-        hotbarBg.color = Color.white;
-
-        // Top accent line (subtle cyan glow)
-        var hotbarLine = HUD_CreateRT("TopLine", hotbar);
-        hotbarLine.anchorMin = new Vector2(0.02f, 1); hotbarLine.anchorMax = new Vector2(0.98f, 1);
-        hotbarLine.sizeDelta = new Vector2(0, 1);
-        hotbarLine.anchoredPosition = Vector2.zero;
-        hotbarLine.gameObject.AddComponent<Image>().color = new Color(0.3f, 0.85f, 0.95f, 0.2f);
-
-        // 12 clean action slots
-        string[] hotkeys = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=" };
-        Color[] slotAccents = {
-            new Color(0.9f, 0.25f, 0.2f, 0.6f),   // red
-            new Color(0.25f, 0.5f, 0.95f, 0.6f),   // blue
-            new Color(0.6f, 0.25f, 0.9f, 0.6f),    // purple
-            new Color(0.2f, 0.8f, 0.4f, 0.6f),     // green
-            new Color(0.9f, 0.6f, 0.15f, 0.5f),    // orange
-            new Color(0.85f, 0.3f, 0.55f, 0.4f),   // pink
-            Color.clear, Color.clear, Color.clear,
-            Color.clear, Color.clear, Color.clear,
-        };
-        string[] slotLabels = { "ATK", "ICE", "ARC", "HEL", "FIR", "SHD", "", "", "", "", "", "" };
-
-        float slotSize = 46f;
-        float slotGap = 3f;
-        float totalWidth = 12 * slotSize + 11 * slotGap;
-        float startX = -totalWidth * 0.5f + slotSize * 0.5f;
-
-        for (int i = 0; i < 12; i++)
-        {
-            var slot = HUD_CreateRT($"Slot_{i}", hotbar);
-            slot.anchorMin = slot.anchorMax = new Vector2(0.5f, 0.5f);
-            slot.anchoredPosition = new Vector2(startX + i * (slotSize + slotGap), 0);
-            slot.sizeDelta = new Vector2(slotSize, slotSize);
-
-            // Clean slot background
-            slot.gameObject.AddComponent<Image>().sprite = slotSpr;
-            slot.gameObject.AddComponent<Button>();
-
-            // Subtle border
-            var slotBorder = HUD_CreateRT("Border", slot);
-            slotBorder.anchorMin = Vector2.zero; slotBorder.anchorMax = Vector2.one;
-            slotBorder.offsetMin = new Vector2(-1, -1); slotBorder.offsetMax = new Vector2(1, 1);
-            slotBorder.gameObject.AddComponent<Image>().sprite = slotBorderSpr;
-
-            // Color accent bar at bottom of filled slots
-            if (slotAccents[i].a > 0)
-            {
-                var accentBar = HUD_CreateRT("Accent", slot);
-                accentBar.anchorMin = new Vector2(0.15f, 0); accentBar.anchorMax = new Vector2(0.85f, 0);
-                accentBar.anchoredPosition = new Vector2(0, 2);
-                accentBar.sizeDelta = new Vector2(0, 2);
-                accentBar.gameObject.AddComponent<Image>().color = slotAccents[i];
-            }
-
-            // Highlight overlay
-            var slotHL = HUD_CreateRT("Highlight", slot);
-            slotHL.anchorMin = Vector2.zero; slotHL.anchorMax = Vector2.one;
-            slotHL.offsetMin = new Vector2(2, 2); slotHL.offsetMax = new Vector2(-2, -2);
-            slotHL.gameObject.AddComponent<Image>().color = new Color(1, 1, 1, 0);
-
-            // Skill label (clean text instead of ugly unicode)
-            var slotIcon = HUD_CreateRT("Icon", slot);
-            slotIcon.anchorMin = Vector2.zero; slotIcon.anchorMax = Vector2.one;
-            slotIcon.offsetMin = new Vector2(2, 8); slotIcon.offsetMax = new Vector2(-2, -2);
-            var iconT = slotIcon.gameObject.AddComponent<Text>();
-            iconT.font = font; iconT.fontSize = slotLabels[i].Length > 0 ? 11 : 10;
-            iconT.fontStyle = FontStyle.Bold;
-            iconT.color = slotLabels[i].Length > 0 ? textWhite : new Color(0.35f, 0.38f, 0.45f, 0.4f);
-            iconT.alignment = TextAnchor.MiddleCenter;
-            iconT.text = slotLabels[i].Length > 0 ? slotLabels[i] : "";
-
-            // Hotkey number (top-right, small clean text)
-            var keyLabel = HUD_CreateRT("Key", slot);
-            keyLabel.anchorMin = new Vector2(1, 1); keyLabel.anchorMax = new Vector2(1, 1);
-            keyLabel.pivot = new Vector2(1, 1);
-            keyLabel.anchoredPosition = new Vector2(-3, -2);
-            keyLabel.sizeDelta = new Vector2(14, 12);
-            var keyT = keyLabel.gameObject.AddComponent<Text>();
-            keyT.font = font; keyT.fontSize = 9;
-            keyT.color = textGray;
-            keyT.alignment = TextAnchor.UpperRight;
-            keyT.text = hotkeys[i];
-
-            // Cooldown overlay
-            var cdOverlay = HUD_CreateRT("Cooldown", slot);
-            cdOverlay.anchorMin = Vector2.zero; cdOverlay.anchorMax = Vector2.one;
-            cdOverlay.offsetMin = new Vector2(2, 2); cdOverlay.offsetMax = new Vector2(-2, -2);
-            var cdImg = cdOverlay.gameObject.AddComponent<Image>();
-            cdImg.color = new Color(0, 0, 0, 0);
-            cdImg.type = Image.Type.Filled;
-            cdImg.fillMethod = Image.FillMethod.Radial360;
-            cdImg.fillOrigin = 2;
-            cdImg.fillClockwise = false;
-        }
-
-        // ========== DESKTOP: Clean Chat (bottom-left) ==========
-        var deskChat = HUD_CreateRT("DesktopChat", root);
-        deskChat.anchorMin = deskChat.anchorMax = new Vector2(0, 0);
-        deskChat.pivot = new Vector2(0, 0);
-        deskChat.anchoredPosition = new Vector2(10, 10);
-        deskChat.sizeDelta = new Vector2(380, 200);
-        deskChat.gameObject.SetActive(false);
-
-        // Chat background
-        var deskChatBg = deskChat.gameObject.AddComponent<Image>();
-        deskChatBg.sprite = panelSpr;
-        deskChatBg.type = Image.Type.Sliced;
-        deskChatBg.color = new Color(1, 1, 1, 0.85f);
-
-        // Chat tabs (top)
-        string[] tabNames = { "All", "Party", "Guild", "Whisper" };
-        Color[] tabTextColors = { accentCyan, new Color(0.4f, 0.7f, 1f), new Color(0.4f, 0.9f, 0.5f), new Color(0.9f, 0.5f, 0.9f) };
-        for (int i = 0; i < tabNames.Length; i++)
-        {
-            var tab = HUD_CreateRT(tabNames[i], deskChat);
-            tab.anchorMin = new Vector2(0, 1); tab.anchorMax = new Vector2(0, 1);
-            tab.pivot = new Vector2(0, 1);
-            tab.anchoredPosition = new Vector2(6 + i * 80, -4);
-            tab.sizeDelta = new Vector2(74, 22);
-            tab.gameObject.AddComponent<Image>().sprite = TexToSprite(MakeRoundRectTex(74, 22, 4, i == 0 ? new Color(0.15f, 0.18f, 0.25f, 0.9f) : new Color(0.08f, 0.09f, 0.12f, 0.6f)));
-            tab.gameObject.AddComponent<Button>();
-            var tabTxt = HUD_CreateRT("T", tab);
-            tabTxt.anchorMin = Vector2.zero; tabTxt.anchorMax = Vector2.one;
-            tabTxt.offsetMin = tabTxt.offsetMax = Vector2.zero;
-            var tt = tabTxt.gameObject.AddComponent<Text>();
-            tt.font = font; tt.fontSize = 11;
-            tt.color = i == 0 ? tabTextColors[i] : textGray;
-            tt.alignment = TextAnchor.MiddleCenter;
-            tt.text = tabNames[i];
-        }
-
-        // Chat messages
-        var chatMsgArea = HUD_CreateRT("Messages", deskChat);
-        chatMsgArea.anchorMin = Vector2.zero; chatMsgArea.anchorMax = Vector2.one;
-        chatMsgArea.offsetMin = new Vector2(10, 36);
-        chatMsgArea.offsetMax = new Vector2(-10, -30);
-        var msgText = chatMsgArea.gameObject.AddComponent<Text>();
-        msgText.font = font; msgText.fontSize = 12;
-        msgText.color = new Color(0.85f, 0.87f, 0.92f, 0.95f);
-        msgText.alignment = TextAnchor.LowerLeft;
-        msgText.verticalOverflow = VerticalWrapMode.Truncate;
-        msgText.supportRichText = true;
-        msgText.text = "<color=#5cd9e8>[System]</color> Welcome to Astrion!\n<color=#7abaff>[World]</color> Player1: Looking for party\n<color=#6dd94a>[Guild]</color> Event starts in 5 min\n<color=#5cd9e8>[System]</color> Press Enter to chat";
-
-        // Chat input bar
-        var chatInput = HUD_CreateRT("InputBar", deskChat);
-        chatInput.anchorMin = new Vector2(0, 0); chatInput.anchorMax = new Vector2(1, 0);
-        chatInput.pivot = new Vector2(0.5f, 0);
-        chatInput.anchoredPosition = new Vector2(0, 4);
-        chatInput.sizeDelta = new Vector2(-12, 28);
-        chatInput.gameObject.AddComponent<Image>().sprite = TexToSprite(MakeRoundRectTex(256, 28, 6, new Color(0.04f, 0.05f, 0.07f, 0.95f)));
-
-        var inputTextGo = HUD_CreateRT("InputText", chatInput);
-        inputTextGo.anchorMin = Vector2.zero; inputTextGo.anchorMax = Vector2.one;
-        inputTextGo.offsetMin = new Vector2(10, 2); inputTextGo.offsetMax = new Vector2(-10, -2);
-        var inputText = inputTextGo.gameObject.AddComponent<Text>();
-        inputText.font = font; inputText.fontSize = 12;
-        inputText.color = textWhite;
-        inputText.supportRichText = false;
-
-        var phGo = HUD_CreateRT("Placeholder", chatInput);
-        phGo.anchorMin = Vector2.zero; phGo.anchorMax = Vector2.one;
-        phGo.offsetMin = new Vector2(10, 2); phGo.offsetMax = new Vector2(-10, -2);
-        var phT = phGo.gameObject.AddComponent<Text>();
-        phT.font = font; phT.fontSize = 12;
-        phT.color = new Color(0.4f, 0.42f, 0.48f, 0.5f);
-        phT.alignment = TextAnchor.MiddleLeft;
-        phT.text = "Press Enter to chat...";
-
-        var chatIF = chatInput.gameObject.AddComponent<InputField>();
-        chatIF.textComponent = inputText;
-        chatIF.placeholder = phT;
-
-        // ========== DESKTOP: Clean Menu Bar (bottom-right) ==========
-        var deskMenu = HUD_CreateRT("DesktopMenu", root);
-        deskMenu.anchorMin = deskMenu.anchorMax = new Vector2(1, 0);
-        deskMenu.pivot = new Vector2(1, 0);
-        deskMenu.anchoredPosition = new Vector2(-10, 10);
-        deskMenu.sizeDelta = new Vector2(300, 48);
-        deskMenu.gameObject.SetActive(false);
-
-        var deskMenuBg = deskMenu.gameObject.AddComponent<Image>();
-        deskMenuBg.sprite = panelSpr;
-        deskMenuBg.type = Image.Type.Sliced;
-        deskMenuBg.color = Color.white;
-
-        string[] dMenuLabels = { "BAG", "SKILL", "MAP", "SOCIAL", "QUEST", "MENU" };
-        string[] dMenuKeys =   { "B",   "K",     "M",   "O",      "L",     "ESC" };
-        for (int i = 0; i < dMenuLabels.Length; i++)
-        {
-            var mBtn = HUD_CreateRT(dMenuLabels[i], deskMenu);
-            mBtn.anchorMin = mBtn.anchorMax = new Vector2(0, 0.5f);
-            mBtn.anchoredPosition = new Vector2(14 + i * 48, 0);
-            mBtn.sizeDelta = new Vector2(42, 36);
-            mBtn.gameObject.AddComponent<Image>().sprite = slotSpr;
-            mBtn.gameObject.AddComponent<Button>();
-
-            // Label text
-            var mLabel = HUD_CreateRT("Label", mBtn);
-            mLabel.anchorMin = Vector2.zero; mLabel.anchorMax = Vector2.one;
-            mLabel.offsetMin = new Vector2(0, 6); mLabel.offsetMax = Vector2.zero;
-            var mlT = mLabel.gameObject.AddComponent<Text>();
-            mlT.font = font; mlT.fontSize = 8; mlT.fontStyle = FontStyle.Bold;
-            mlT.color = textGray;
-            mlT.alignment = TextAnchor.MiddleCenter;
-            mlT.text = dMenuLabels[i];
-
-            // Key hint
-            var mKey = HUD_CreateRT("Key", mBtn);
-            mKey.anchorMin = new Vector2(0.5f, 0); mKey.anchorMax = new Vector2(0.5f, 0);
-            mKey.anchoredPosition = new Vector2(0, 5);
-            mKey.sizeDelta = new Vector2(30, 11);
-            var mkT = mKey.gameObject.AddComponent<Text>();
-            mkT.font = font; mkT.fontSize = 8;
-            mkT.color = new Color(0.35f, 0.55f, 0.7f, 0.6f);
-            mkT.alignment = TextAnchor.MiddleCenter;
-            mkT.text = dMenuKeys[i];
-        }
-
-        // ========== DESKTOP: Target Frame (below player frame) ==========
-        var targetPanel = HUD_CreateRT("TargetPanel", root);
-        targetPanel.anchorMin = targetPanel.anchorMax = new Vector2(0, 1);
-        targetPanel.pivot = new Vector2(0, 1);
-        targetPanel.anchoredPosition = new Vector2(16, -96);
-        targetPanel.sizeDelta = new Vector2(240, 50);
-        targetPanel.gameObject.SetActive(false);
-
-        var tpBg = targetPanel.gameObject.AddComponent<Image>();
-        tpBg.sprite = panelSpr;
-        tpBg.type = Image.Type.Sliced;
-        tpBg.color = Color.white;
-
-        // Target portrait
-        var tPortrait = HUD_CreateRT("TPortrait", targetPanel);
-        tPortrait.anchorMin = tPortrait.anchorMax = new Vector2(0, 0.5f);
-        tPortrait.anchoredPosition = new Vector2(28, 0);
-        tPortrait.sizeDelta = new Vector2(34, 34);
-        tPortrait.gameObject.AddComponent<Image>().sprite = circleSpr;
-        tPortrait.GetComponent<Image>().color = new Color(0.18f, 0.10f, 0.10f);
-        var tpRing = HUD_CreateRT("Ring", tPortrait);
-        tpRing.anchorMin = Vector2.zero; tpRing.anchorMax = Vector2.one;
-        tpRing.offsetMin = new Vector2(-2, -2); tpRing.offsetMax = new Vector2(2, 2);
-        tpRing.gameObject.AddComponent<Image>().sprite = TexToSprite(MakeRingTex(64, 0.82f, 0.98f, new Color(0.9f, 0.3f, 0.25f, 0.8f)));
-
-        // Target name
-        var tName = HUD_CreateRT("TargetName", targetPanel);
-        tName.anchorMin = new Vector2(0, 0.58f); tName.anchorMax = new Vector2(1, 1);
-        tName.offsetMin = new Vector2(52, 0); tName.offsetMax = new Vector2(-8, -4);
-        var tnText = tName.gameObject.AddComponent<Text>();
-        tnText.font = font; tnText.fontSize = 12; tnText.fontStyle = FontStyle.Bold;
-        tnText.color = new Color(0.95f, 0.4f, 0.35f);
-        tnText.alignment = TextAnchor.MiddleLeft;
-        tnText.text = "Target";
-
-        // Target level
-        var tLevel = HUD_CreateRT("TargetLevel", targetPanel);
-        tLevel.anchorMin = new Vector2(0, 0.58f); tLevel.anchorMax = new Vector2(1, 1);
-        tLevel.offsetMin = new Vector2(52, 0); tLevel.offsetMax = new Vector2(-8, -4);
-        var tlText = tLevel.gameObject.AddComponent<Text>();
-        tlText.font = font; tlText.fontSize = 10;
-        tlText.color = textGray;
-        tlText.alignment = TextAnchor.MiddleRight;
-        tlText.text = "Lv.?";
-
-        // Target HP bar
-        var tHPBar = HUD_CreateRT("HPBar", targetPanel);
-        tHPBar.anchorMin = new Vector2(0, 0.15f); tHPBar.anchorMax = new Vector2(1, 0.50f);
-        tHPBar.offsetMin = new Vector2(52, 0); tHPBar.offsetMax = new Vector2(-8, 0);
-        tHPBar.gameObject.AddComponent<Image>().sprite = TexToSprite(MakeRoundRectTex(256, 16, 4, new Color(0.04f, 0.05f, 0.07f, 0.95f)));
-        var tHPFill = HUD_CreateRT("Fill", tHPBar);
-        tHPFill.anchorMin = Vector2.zero; tHPFill.anchorMax = Vector2.one;
-        tHPFill.offsetMin = new Vector2(1, 1); tHPFill.offsetMax = new Vector2(-1, -1);
-        var tHPImg = tHPFill.gameObject.AddComponent<Image>();
-        tHPImg.sprite = TexToSprite(MakeGradientBarTex(256, 16, new Color(0.9f, 0.25f, 0.2f), new Color(1f, 0.4f, 0.3f)));
-        tHPImg.type = Image.Type.Filled;
-        tHPImg.fillMethod = Image.FillMethod.Horizontal;
-
-        // ========== DESKTOP: Buff Bar (top-right, below minimap) ==========
-        var buffBar = HUD_CreateRT("BuffBar", root);
-        buffBar.anchorMin = buffBar.anchorMax = new Vector2(1, 1);
-        buffBar.pivot = new Vector2(1, 1);
-        buffBar.anchoredPosition = new Vector2(-16, -196);
-        buffBar.sizeDelta = new Vector2(200, 30);
-        buffBar.gameObject.SetActive(false);
-
-        for (int i = 0; i < 4; i++)
-        {
-            var buffSlot = HUD_CreateRT($"Buff_{i}", buffBar);
-            buffSlot.anchorMin = buffSlot.anchorMax = new Vector2(1, 0.5f);
-            buffSlot.anchoredPosition = new Vector2(-15 - i * 34, 0);
-            buffSlot.sizeDelta = new Vector2(28, 28);
-            buffSlot.gameObject.AddComponent<Image>().sprite = slotSpr;
-
-            // Accent color at bottom
-            Color[] buffAccents = { hpColor1, mpColor1, xpColor1, accentCyan };
-            var bAccent = HUD_CreateRT("Accent", buffSlot);
-            bAccent.anchorMin = new Vector2(0.1f, 0); bAccent.anchorMax = new Vector2(0.9f, 0);
-            bAccent.anchoredPosition = new Vector2(0, 1); bAccent.sizeDelta = new Vector2(0, 2);
-            bAccent.gameObject.AddComponent<Image>().color = new Color(buffAccents[i].r, buffAccents[i].g, buffAccents[i].b, 0.6f);
-
-            // Duration
-            var bDur = HUD_CreateRT("Dur", buffSlot);
-            bDur.anchorMin = Vector2.zero; bDur.anchorMax = Vector2.one;
-            bDur.offsetMin = bDur.offsetMax = Vector2.zero;
-            var bdT = bDur.gameObject.AddComponent<Text>();
-            bdT.font = font; bdT.fontSize = 10; bdT.fontStyle = FontStyle.Bold;
-            bdT.color = textWhite;
-            bdT.alignment = TextAnchor.MiddleCenter;
-            bdT.text = $"{30 - i * 8}";
-        }
-
-        // ========== DESKTOP: FPS Counter ==========
-        var fpsCounter = HUD_CreateRT("FPSCounter", root);
-        fpsCounter.anchorMin = fpsCounter.anchorMax = new Vector2(1, 1);
-        fpsCounter.pivot = new Vector2(1, 1);
-        fpsCounter.anchoredPosition = new Vector2(-200, -16);
-        fpsCounter.sizeDelta = new Vector2(70, 16);
-        fpsCounter.gameObject.SetActive(false);
-        var fpsText = fpsCounter.gameObject.AddComponent<Text>();
-        fpsText.font = font; fpsText.fontSize = 11;
-        fpsText.color = new Color(0.4f, 0.85f, 0.5f, 0.6f);
+        // ========== TOP-RIGHT: Coords + FPS ==========
+        var coordsRT = HUD_CreateRT("CoordsPanel", root);
+        coordsRT.anchorMin = coordsRT.anchorMax = new Vector2(1, 1);
+        coordsRT.pivot = new Vector2(1, 1);
+        coordsRT.anchoredPosition = new Vector2(-16, -16);
+        coordsRT.sizeDelta = new Vector2(150, 30);
+        var coordsBg = coordsRT.gameObject.AddComponent<Image>();
+        coordsBg.sprite = panelSpr; coordsBg.type = Image.Type.Sliced;
+        var coordsTextRT = HUD_CreateRT("Text", coordsRT);
+        coordsTextRT.anchorMin = Vector2.zero; coordsTextRT.anchorMax = Vector2.one;
+        coordsTextRT.offsetMin = coordsTextRT.offsetMax = Vector2.zero;
+        var coordsText = coordsTextRT.gameObject.AddComponent<Text>();
+        coordsText.font = font; coordsText.fontSize = 12;
+        coordsText.color = textWhite; coordsText.alignment = TextAnchor.MiddleCenter;
+        coordsText.text = "X: 0.0  Y: 0.0";
+
+        var fpsRT = HUD_CreateRT("FPSCounter", root);
+        fpsRT.anchorMin = fpsRT.anchorMax = new Vector2(1, 1);
+        fpsRT.pivot = new Vector2(1, 1);
+        fpsRT.anchoredPosition = new Vector2(-16, -52);
+        fpsRT.sizeDelta = new Vector2(120, 22);
+        var fpsText = fpsRT.gameObject.AddComponent<Text>();
+        fpsText.font = font; fpsText.fontSize = 12;
+        fpsText.color = new Color(0.7f, 0.85f, 0.45f);
         fpsText.alignment = TextAnchor.MiddleRight;
         fpsText.text = "60 FPS";
 
-        // ========== DESKTOP: Quest Tracker (right side) ==========
-        var questTracker = HUD_CreateRT("QuestTracker", root);
-        questTracker.anchorMin = questTracker.anchorMax = new Vector2(1, 1);
-        questTracker.pivot = new Vector2(1, 1);
-        questTracker.anchoredPosition = new Vector2(-10, -235);
-        questTracker.sizeDelta = new Vector2(230, 150);
-        questTracker.gameObject.SetActive(false);
+        // ========== BOTTOM-CENTER: Action bar (HP/MP/EXP + hotbar) ==========
+        var actionRoot = HUD_CreateRT("ActionRoot", root);
+        actionRoot.anchorMin = actionRoot.anchorMax = new Vector2(0.5f, 0);
+        actionRoot.pivot = new Vector2(0.5f, 0);
+        actionRoot.anchoredPosition = new Vector2(0, 12);
+        actionRoot.sizeDelta = new Vector2(680, 138);
 
-        var qtBg = questTracker.gameObject.AddComponent<Image>();
-        qtBg.sprite = panelSpr;
-        qtBg.type = Image.Type.Sliced;
-        qtBg.color = new Color(1, 1, 1, 0.7f);
+        var arBg = actionRoot.gameObject.AddComponent<Image>();
+        arBg.sprite = panelSpr; arBg.type = Image.Type.Sliced;
 
-        // Quest header
-        var qtHeader = HUD_CreateRT("QHeader", questTracker);
-        qtHeader.anchorMin = new Vector2(0, 1); qtHeader.anchorMax = new Vector2(1, 1);
-        qtHeader.pivot = new Vector2(0.5f, 1);
-        qtHeader.anchoredPosition = Vector2.zero;
-        qtHeader.sizeDelta = new Vector2(0, 22);
-        var qhT = qtHeader.gameObject.AddComponent<Text>();
-        qhT.font = font; qhT.fontSize = 11; qhT.fontStyle = FontStyle.Bold;
-        qhT.color = accentCyan;
-        qhT.alignment = TextAnchor.MiddleCenter;
-        qhT.text = "OBJECTIVES";
+        // Bars row (HP | MP | EXP)
+        Image hpFill = CreateMapleBar(actionRoot, "HPBar", new Vector2(14, 100), new Vector2(212, 22),
+            hpGrad, barBgSpr, font, "100/100", out Text hpBarText);
+        Image mpFill = CreateMapleBar(actionRoot, "MPBar", new Vector2(234, 100), new Vector2(212, 22),
+            mpGrad, barBgSpr, font, "50/50", out Text mpBarText);
+        Image expFill = CreateMapleBar(actionRoot, "EXPBar", new Vector2(454, 100), new Vector2(212, 22),
+            expGrad, barBgSpr, font, "35.0%", out Text expBarText);
 
-        // Accent line under header
-        var qtLine = HUD_CreateRT("Line", questTracker);
-        qtLine.anchorMin = new Vector2(0.1f, 1); qtLine.anchorMax = new Vector2(0.9f, 1);
-        qtLine.anchoredPosition = new Vector2(0, -23);
-        qtLine.sizeDelta = new Vector2(0, 1);
-        qtLine.gameObject.AddComponent<Image>().color = new Color(0.3f, 0.85f, 0.95f, 0.15f);
+        // Hotbar slots
+        float slotSize = 58f;
+        float slotGap = 6f;
+        float totalW = slotSize * 10 + slotGap * 9;
+        float startX = (actionRoot.sizeDelta.x - totalW) * 0.5f;
+        for (int i = 0; i < 10; i++)
+        {
+            var slot = HUD_CreateRT($"Slot_{i}", actionRoot);
+            slot.anchorMin = slot.anchorMax = new Vector2(0, 0);
+            slot.pivot = new Vector2(0, 0);
+            slot.anchoredPosition = new Vector2(startX + i * (slotSize + slotGap), 14);
+            slot.sizeDelta = new Vector2(slotSize, slotSize);
+            var slotImg = slot.gameObject.AddComponent<Image>();
+            slotImg.sprite = slotSpr; slotImg.type = Image.Type.Sliced;
 
-        // Quest entries
-        var qtContent = HUD_CreateRT("Content", questTracker);
-        qtContent.anchorMin = Vector2.zero; qtContent.anchorMax = Vector2.one;
-        qtContent.offsetMin = new Vector2(12, 8); qtContent.offsetMax = new Vector2(-12, -28);
-        var qcT = qtContent.gameObject.AddComponent<Text>();
-        qcT.font = font; qcT.fontSize = 11;
-        qcT.color = new Color(0.8f, 0.82f, 0.88f, 0.9f);
-        qcT.alignment = TextAnchor.UpperLeft;
-        qcT.supportRichText = true;
-        qcT.text = "<color=#5cd9e8>The Awakening</color>\n  Explore the world  <color=#555f70>0/3</color>\n  Defeat monsters  <color=#555f70>0/5</color>\n\n<color=#5cd9e8>A New Beginning</color>\n  Talk to the Elder";
+            var num = HUD_CreateRT("Num", slot);
+            num.anchorMin = num.anchorMax = new Vector2(0, 1);
+            num.pivot = new Vector2(0, 1);
+            num.anchoredPosition = new Vector2(5, -3);
+            num.sizeDelta = new Vector2(20, 18);
+            var numT = num.gameObject.AddComponent<Text>();
+            numT.font = font; numT.fontSize = 12; numT.fontStyle = FontStyle.Bold;
+            numT.color = new Color(1f, 0.88f, 0.45f);
+            numT.alignment = TextAnchor.UpperLeft;
+            numT.text = ((i + 1) % 10).ToString();
+        }
 
-        // Wire up HUD references
+        // ========== BOTTOM-LEFT: Chat panel ==========
+        var chatPanel = HUD_CreateRT("ChatPanel", root);
+        chatPanel.anchorMin = chatPanel.anchorMax = new Vector2(0, 0);
+        chatPanel.pivot = new Vector2(0, 0);
+        chatPanel.anchoredPosition = new Vector2(16, 160);
+        chatPanel.sizeDelta = new Vector2(360, 150);
+        var cBg = chatPanel.gameObject.AddComponent<Image>();
+        cBg.sprite = panelSpr; cBg.type = Image.Type.Sliced;
+        cBg.color = new Color(1, 1, 1, 0.85f);
+
+        var msgRT = HUD_CreateRT("Messages", chatPanel);
+        msgRT.anchorMin = new Vector2(0, 0.28f); msgRT.anchorMax = new Vector2(1, 1);
+        msgRT.offsetMin = new Vector2(10, 4); msgRT.offsetMax = new Vector2(-10, -8);
+        var msgT = msgRT.gameObject.AddComponent<Text>();
+        msgT.font = font; msgT.fontSize = 12;
+        msgT.color = new Color(0.92f, 0.94f, 0.97f, 0.95f);
+        msgT.alignment = TextAnchor.LowerLeft; msgT.supportRichText = true;
+        msgT.text = "<color=#80a8ff>[System]</color> Welcome to Astrion!";
+
+        var inputBarRT = HUD_CreateRT("InputBar", chatPanel);
+        inputBarRT.anchorMin = new Vector2(0, 0); inputBarRT.anchorMax = new Vector2(1, 0.28f);
+        inputBarRT.offsetMin = new Vector2(8, 6); inputBarRT.offsetMax = new Vector2(-8, -2);
+        var inputBg = inputBarRT.gameObject.AddComponent<Image>();
+        inputBg.sprite = TexToSprite(MakeRoundRectTex(256, 32, 6, new Color(0.04f, 0.06f, 0.10f, 0.95f)));
+        var inputField = inputBarRT.gameObject.AddComponent<InputField>();
+        var inputTextRT = HUD_CreateRT("Text", inputBarRT);
+        inputTextRT.anchorMin = Vector2.zero; inputTextRT.anchorMax = Vector2.one;
+        inputTextRT.offsetMin = new Vector2(8, 4); inputTextRT.offsetMax = new Vector2(-8, -4);
+        var inputText = inputTextRT.gameObject.AddComponent<Text>();
+        inputText.font = font; inputText.fontSize = 12;
+        inputText.color = textWhite; inputText.alignment = TextAnchor.MiddleLeft;
+        var placeholderRT = HUD_CreateRT("Placeholder", inputBarRT);
+        placeholderRT.anchorMin = Vector2.zero; placeholderRT.anchorMax = Vector2.one;
+        placeholderRT.offsetMin = new Vector2(8, 4); placeholderRT.offsetMax = new Vector2(-8, -4);
+        var placeholderText = placeholderRT.gameObject.AddComponent<Text>();
+        placeholderText.font = font; placeholderText.fontSize = 12;
+        placeholderText.color = new Color(0.5f, 0.55f, 0.62f, 0.6f);
+        placeholderText.alignment = TextAnchor.MiddleLeft;
+        placeholderText.text = "Press [Enter] to chat...";
+        inputField.textComponent = inputText;
+        inputField.placeholder = placeholderText;
+
+        // ========== MOBILE: Joystick + Jump button ==========
+        var joyArea = HUD_CreateRT("JoystickArea", root);
+        joyArea.anchorMin = joyArea.anchorMax = new Vector2(0, 0);
+        joyArea.pivot = new Vector2(0, 0);
+        joyArea.anchoredPosition = new Vector2(80, 80);
+        joyArea.sizeDelta = new Vector2(200, 200);
+        var joyBgImg = joyArea.gameObject.AddComponent<Image>();
+        joyBgImg.sprite = TexToSprite(MakeRingTex(256, 0.0f, 0.95f, new Color(1, 1, 1, 0.10f)));
+        var joyHandle = HUD_CreateRT("JoystickHandle", joyArea);
+        joyHandle.anchorMin = joyHandle.anchorMax = new Vector2(0.5f, 0.5f);
+        joyHandle.anchoredPosition = Vector2.zero;
+        joyHandle.sizeDelta = new Vector2(90, 90);
+        var joyHandleImg = joyHandle.gameObject.AddComponent<Image>();
+        joyHandleImg.sprite = TexToSprite(MakeCircleTex(128, new Color(1, 1, 1, 0.6f)));
+
+        joyArea.gameObject.AddComponent<Astrion.Game.Joystick>();
+        joyArea.gameObject.AddComponent<Astrion.Game.JoystickInitializer>();
+
+        var jumpBtn = HUD_CreateRT("MobileJumpBtn", root);
+        jumpBtn.anchorMin = jumpBtn.anchorMax = new Vector2(1, 0);
+        jumpBtn.pivot = new Vector2(1, 0);
+        jumpBtn.anchoredPosition = new Vector2(-80, 100);
+        jumpBtn.sizeDelta = new Vector2(130, 130);
+        var jumpBtnImg = jumpBtn.gameObject.AddComponent<Image>();
+        jumpBtnImg.sprite = TexToSprite(MakeCircleTex(128, new Color(0.95f, 0.50f, 0.20f, 0.90f)));
+        var jumpLabel = HUD_CreateRT("Label", jumpBtn);
+        jumpLabel.anchorMin = Vector2.zero; jumpLabel.anchorMax = Vector2.one;
+        jumpLabel.offsetMin = jumpLabel.offsetMax = Vector2.zero;
+        var jumpLabelText = jumpLabel.gameObject.AddComponent<Text>();
+        jumpLabelText.font = font; jumpLabelText.fontSize = 22; jumpLabelText.fontStyle = FontStyle.Bold;
+        jumpLabelText.color = textWhite; jumpLabelText.alignment = TextAnchor.MiddleCenter;
+        jumpLabelText.text = "JUMP";
+
+        // Wire HUD references
         var so = new UnityEditor.SerializedObject(hudComp);
         so.FindProperty("hpFill").objectReferenceValue = hpFill;
         so.FindProperty("mpFill").objectReferenceValue = mpFill;
+        so.FindProperty("expFill").objectReferenceValue = expFill;
         so.FindProperty("hpText").objectReferenceValue = hpBarText;
         so.FindProperty("mpText").objectReferenceValue = mpBarText;
+        so.FindProperty("expText").objectReferenceValue = expBarText;
         so.FindProperty("charNameText").objectReferenceValue = nameText;
         so.FindProperty("charLevelText").objectReferenceValue = levelText;
         so.FindProperty("coordsText").objectReferenceValue = coordsText;
-        so.FindProperty("minimapImage").objectReferenceValue = minimapRawImg;
         so.ApplyModifiedPropertiesWithoutUndo();
+    }
 
-        hudComp.SetMinimapCamera(minimapCam);
+    private static Image CreateMapleBar(RectTransform parent, string name, Vector2 pos, Vector2 size,
+        Sprite fillSpr, Sprite bgSpr, Font font, string defaultText, out Text valText)
+    {
+        var bar = HUD_CreateRT(name, parent);
+        bar.anchorMin = bar.anchorMax = new Vector2(0, 0);
+        bar.pivot = new Vector2(0, 0);
+        bar.anchoredPosition = pos;
+        bar.sizeDelta = size;
+
+        var bg = bar.gameObject.AddComponent<Image>();
+        bg.sprite = bgSpr; bg.type = Image.Type.Sliced;
+
+        var fillRT = HUD_CreateRT("Fill", bar);
+        fillRT.anchorMin = Vector2.zero; fillRT.anchorMax = Vector2.one;
+        fillRT.offsetMin = new Vector2(2, 2); fillRT.offsetMax = new Vector2(-2, -2);
+        var fill = fillRT.gameObject.AddComponent<Image>();
+        fill.sprite = fillSpr;
+        fill.type = Image.Type.Filled;
+        fill.fillMethod = Image.FillMethod.Horizontal;
+        fill.fillAmount = 1f;
+
+        var shineRT = HUD_CreateRT("Shine", bar);
+        shineRT.anchorMin = new Vector2(0, 0.5f); shineRT.anchorMax = Vector2.one;
+        shineRT.offsetMin = new Vector2(3, 0); shineRT.offsetMax = new Vector2(-3, -1);
+        shineRT.gameObject.AddComponent<Image>().color = new Color(1, 1, 1, 0.20f);
+
+        var valRT = HUD_CreateRT("Text", bar);
+        valRT.anchorMin = Vector2.zero; valRT.anchorMax = Vector2.one;
+        valRT.offsetMin = new Vector2(6, 0); valRT.offsetMax = new Vector2(-6, 0);
+        valText = valRT.gameObject.AddComponent<Text>();
+        valText.font = font; valText.fontSize = 11; valText.fontStyle = FontStyle.Bold;
+        valText.color = new Color(1, 1, 1, 0.95f);
+        valText.alignment = TextAnchor.MiddleCenter;
+        valText.text = defaultText;
+
+        return fill;
     }
 
     private static RectTransform HUD_CreateRT(string name, RectTransform parent)
