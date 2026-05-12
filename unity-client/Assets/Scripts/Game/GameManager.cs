@@ -26,8 +26,21 @@ namespace Astrion.Game
             NetworkManager.Instance.OnPacketReceived += HandlePacket;
 
             // Spawn local player immediately (already authenticated via LoginScene)
-            _localPlayer = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
-            _localPlayer.name = "LocalPlayer";
+            if (playerPrefab != null)
+            {
+                _localPlayer = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
+                _localPlayer.name = "LocalPlayer";
+            }
+
+            EnsureCameraFollow();
+        }
+
+        private void EnsureCameraFollow()
+        {
+            var cam = Camera.main;
+            if (cam == null) return;
+            if (cam.GetComponent<DiabloCamera>() == null)
+                cam.gameObject.AddComponent<DiabloCamera>();
         }
 
         private void HandlePacket(GamePacket packet)

@@ -5,17 +5,17 @@ using UnityEngine.UI;
 
 public class ProjectSetup
 {
-    // Fantasy RPG color palette
-    private static readonly Color AccentGold = new Color(0.85f, 0.72f, 0.40f, 1f);       // warm gold
-    private static readonly Color AccentGoldDim = new Color(0.85f, 0.72f, 0.40f, 0.25f);
-    private static readonly Color AccentGreen = new Color(0.45f, 0.78f, 0.55f, 1f);       // emerald
-    private static readonly Color PanelBg = new Color(0.02f, 0.03f, 0.05f, 0.82f);        // deep dark
-    private static readonly Color PanelInner = new Color(0.05f, 0.07f, 0.10f, 0.6f);      // inner layer
-    private static readonly Color FieldBg = new Color(0.04f, 0.05f, 0.08f, 0.9f);         // dark field
-    private static readonly Color FieldBorder = new Color(0.55f, 0.50f, 0.35f, 0.4f);     // gold border
-    private static readonly Color TextLight = new Color(0.92f, 0.90f, 0.85f, 1f);         // warm white
-    private static readonly Color TextMuted = new Color(0.55f, 0.53f, 0.48f, 1f);         // stone gray
-    private static readonly Color BtnColor = new Color(0.35f, 0.60f, 0.30f, 1f);          // forest green btn
+    // Diablo-style color palette (gothic blood + iron)
+    private static readonly Color AccentGold = new Color(0.78f, 0.18f, 0.10f, 1f);       // blood red (was gold accent)
+    private static readonly Color AccentGoldDim = new Color(0.78f, 0.18f, 0.10f, 0.25f);
+    private static readonly Color AccentGreen = new Color(0.55f, 0.10f, 0.08f, 1f);       // deep crimson (was emerald accent)
+    private static readonly Color PanelBg = new Color(0.04f, 0.03f, 0.02f, 0.92f);        // near-black charcoal
+    private static readonly Color PanelInner = new Color(0.07f, 0.05f, 0.04f, 0.7f);      // inner stone
+    private static readonly Color FieldBg = new Color(0.06f, 0.04f, 0.03f, 0.95f);        // dark parchment
+    private static readonly Color FieldBorder = new Color(0.40f, 0.20f, 0.10f, 0.55f);    // rusted iron border
+    private static readonly Color TextLight = new Color(0.88f, 0.83f, 0.72f, 1f);         // bone/parchment white
+    private static readonly Color TextMuted = new Color(0.50f, 0.42f, 0.34f, 1f);         // weathered stone
+    private static readonly Color BtnColor = new Color(0.45f, 0.08f, 0.06f, 1f);          // dried blood button
 
     [MenuItem("Astrion/Setup Project")]
     public static void Setup()
@@ -1403,6 +1403,62 @@ public class ProjectSetup
         tex.Apply(); return tex;
     }
 
+    // Diablo-style sphere orb: radial gradient (bright center, dark rim) with circular alpha
+    private static Texture2D MakeOrbTex(int size, Color innerColor, Color outerColor)
+    {
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        float c = size * 0.5f;
+        for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float d = Vector2.Distance(new Vector2(x, y), new Vector2(c, c)) / c;
+                float alpha = Mathf.Clamp01(1f - Mathf.Pow(d, 6));
+                // Liquid sphere shading: bright at upper-left, fading to dark at rim
+                float dx = (x - c * 0.6f) / c;
+                float dy = (c * 1.4f - y) / c;
+                float lightDist = Mathf.Sqrt(dx * dx + dy * dy);
+                float shade = Mathf.Clamp01(1f - lightDist * 0.55f);
+                float rimDarken = Mathf.Pow(d, 2.5f);
+                Color col = Color.Lerp(innerColor, outerColor, rimDarken);
+                col = new Color(
+                    Mathf.Clamp01(col.r * (0.7f + shade * 0.6f)),
+                    Mathf.Clamp01(col.g * (0.7f + shade * 0.6f)),
+                    Mathf.Clamp01(col.b * (0.7f + shade * 0.6f)),
+                    col.a * alpha);
+                tex.SetPixel(x, y, col);
+            }
+        tex.Apply(); return tex;
+    }
+
+    // Iron ring frame around orb (thick weathered metal border)
+    private static Texture2D MakeOrbFrameTex(int size, Color ironDark, Color ironLight)
+    {
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        float c = size * 0.5f;
+        float outer = 0.99f, inner = 0.78f;
+        for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float d = Vector2.Distance(new Vector2(x, y), new Vector2(c, c)) / c;
+                if (d < inner || d > outer) { tex.SetPixel(x, y, new Color(0, 0, 0, 0)); continue; }
+                float t = (d - inner) / (outer - inner);
+                // bevel: outer rim darker, mid lighter, inner rim darker
+                float bevel = 1f - Mathf.Abs(t - 0.45f) * 1.6f;
+                bevel = Mathf.Clamp01(bevel);
+                Color metal = Color.Lerp(ironDark, ironLight, bevel);
+                // Position-based highlight (top-left brighter)
+                float angle = Mathf.Atan2(y - c, x - c);
+                float hi = Mathf.Cos(angle - Mathf.PI * 0.75f) * 0.18f;
+                metal = new Color(
+                    Mathf.Clamp01(metal.r + hi),
+                    Mathf.Clamp01(metal.g + hi),
+                    Mathf.Clamp01(metal.b + hi),
+                    1f);
+                tex.SetPixel(x, y, metal);
+            }
+        tex.Apply(); return tex;
+    }
+
     private static Sprite TexToSprite(Texture2D tex)
     {
         return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
@@ -1413,20 +1469,22 @@ public class ProjectSetup
     {
         var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
-        // Modern clean palette (Lost Ark / Genshin-inspired)
-        Color panelDark = new Color(0.06f, 0.07f, 0.10f, 0.85f);
-        Color panelMid = new Color(0.10f, 0.11f, 0.15f, 0.75f);
-        Color borderLight = new Color(0.40f, 0.45f, 0.55f, 0.3f);
-        Color accentCyan = new Color(0.30f, 0.85f, 0.95f);
-        Color accentBlue = new Color(0.35f, 0.55f, 1.0f);
-        Color textWhite = new Color(0.95f, 0.95f, 0.97f);
-        Color textGray = new Color(0.55f, 0.58f, 0.65f);
-        Color hpColor1 = new Color(0.18f, 0.78f, 0.45f);
-        Color hpColor2 = new Color(0.30f, 0.92f, 0.55f);
-        Color mpColor1 = new Color(0.25f, 0.45f, 0.95f);
-        Color mpColor2 = new Color(0.45f, 0.65f, 1.0f);
-        Color xpColor1 = new Color(0.85f, 0.65f, 0.15f);
-        Color xpColor2 = new Color(1.0f, 0.82f, 0.30f);
+        // Diablo gothic palette (blood + iron + bone)
+        Color panelDark = new Color(0.04f, 0.03f, 0.02f, 0.92f);
+        Color panelMid = new Color(0.07f, 0.05f, 0.04f, 0.85f);
+        Color borderLight = new Color(0.38f, 0.20f, 0.10f, 0.55f); // rust iron
+        Color accentCyan = new Color(0.85f, 0.18f, 0.10f);          // blood red (was cyan)
+        Color accentBlue = new Color(0.55f, 0.10f, 0.08f);          // deep crimson
+        Color textWhite = new Color(0.88f, 0.83f, 0.72f);           // bone/parchment
+        Color textGray = new Color(0.50f, 0.42f, 0.34f);            // weathered stone
+        Color hpColor1 = new Color(0.55f, 0.05f, 0.04f);            // dark blood
+        Color hpColor2 = new Color(0.92f, 0.20f, 0.10f);            // bright blood
+        Color mpColor1 = new Color(0.10f, 0.08f, 0.40f);            // deep arcane
+        Color mpColor2 = new Color(0.30f, 0.25f, 0.85f);            // bright arcane
+        Color xpColor1 = new Color(0.45f, 0.32f, 0.10f);            // dim brass
+        Color xpColor2 = new Color(0.78f, 0.58f, 0.18f);            // worn brass
+        Color ironDark = new Color(0.16f, 0.14f, 0.12f);
+        Color ironLight = new Color(0.42f, 0.38f, 0.34f);
 
         // Pre-generate textures
         var circleWhite = MakeCircleTex(128, Color.white);
@@ -1459,12 +1517,12 @@ public class ProjectSetup
         var hudComp = canvasGo.AddComponent<Astrion.UI.GameHUD>();
         var root = canvasGo.GetComponent<RectTransform>();
 
-        // ========== TOP-LEFT: Clean Player Frame ==========
+        // ========== TOP-LEFT: Compact Player Frame (Diablo: portrait + name only; HP/MP moved to orbs) ==========
         var charPanel = HUD_CreateRT("CharPanel", root);
         charPanel.anchorMin = charPanel.anchorMax = new Vector2(0, 1);
         charPanel.pivot = new Vector2(0, 1);
         charPanel.anchoredPosition = new Vector2(16, -16);
-        charPanel.sizeDelta = new Vector2(280, 70);
+        charPanel.sizeDelta = new Vector2(220, 64);
 
         // Panel background (clean dark glass)
         var charPanelBg = charPanel.gameObject.AddComponent<Image>();
@@ -1515,82 +1573,117 @@ public class ProjectSetup
         lvlT.color = textWhite; lvlT.alignment = TextAnchor.MiddleCenter;
         lvlT.text = "1";
 
-        // Name text
+        // Name text (full vertical area now since HP/MP moved to orbs)
         var nameRT = HUD_CreateRT("CharName", charPanel);
-        nameRT.anchorMin = new Vector2(0, 0.68f); nameRT.anchorMax = new Vector2(1, 1);
-        nameRT.offsetMin = new Vector2(72, 0); nameRT.offsetMax = new Vector2(-10, -6);
+        nameRT.anchorMin = new Vector2(0, 0.5f); nameRT.anchorMax = new Vector2(1, 1);
+        nameRT.offsetMin = new Vector2(72, 0); nameRT.offsetMax = new Vector2(-10, -4);
         var nameText = nameRT.gameObject.AddComponent<Text>();
         nameText.font = font; nameText.fontSize = 14; nameText.fontStyle = FontStyle.Bold;
         nameText.color = textWhite;
-        nameText.text = "Character"; nameText.alignment = TextAnchor.MiddleLeft;
+        nameText.text = "Character"; nameText.alignment = TextAnchor.LowerLeft;
 
         // Level/class subtext
         var levelRT = HUD_CreateRT("CharLevel", charPanel);
-        levelRT.anchorMin = new Vector2(0, 0.68f); levelRT.anchorMax = new Vector2(1, 1);
-        levelRT.offsetMin = new Vector2(72, 0); levelRT.offsetMax = new Vector2(-10, -6);
+        levelRT.anchorMin = new Vector2(0, 0); levelRT.anchorMax = new Vector2(1, 0.5f);
+        levelRT.offsetMin = new Vector2(72, 4); levelRT.offsetMax = new Vector2(-10, 0);
         var levelText = levelRT.gameObject.AddComponent<Text>();
-        levelText.font = font; levelText.fontSize = 10;
+        levelText.font = font; levelText.fontSize = 11;
         levelText.color = textGray;
-        levelText.text = "Lv.1 Warrior"; levelText.alignment = TextAnchor.MiddleRight;
+        levelText.text = "Lv.1 Warrior"; levelText.alignment = TextAnchor.UpperLeft;
 
-        // HP bar (clean green gradient with rounded corners)
-        var hpBar = HUD_CreateRT("HPBar", charPanel);
-        hpBar.anchorMin = new Vector2(0, 0.38f); hpBar.anchorMax = new Vector2(1, 0.62f);
-        hpBar.offsetMin = new Vector2(72, 0); hpBar.offsetMax = new Vector2(-10, 0);
-        var hpBg = hpBar.gameObject.AddComponent<Image>();
-        hpBg.sprite = TexToSprite(MakeRoundRectTex(256, 16, 6, new Color(0.04f, 0.05f, 0.07f, 0.95f)));
+        // ========== BOTTOM-LEFT: HP Orb (Diablo signature) ==========
+        var hpOrbTex = MakeOrbTex(256, hpColor2, hpColor1);
+        var mpOrbTex = MakeOrbTex(256, mpColor2, mpColor1);
+        var orbFrameTex = MakeOrbFrameTex(256, ironDark, ironLight);
+        var orbFrameSpr = TexToSprite(orbFrameTex);
 
-        var hpFillRT = HUD_CreateRT("Fill", hpBar);
+        const float ORB_SIZE = 160f;
+        const float ORB_MARGIN = 24f;
+
+        var hpOrb = HUD_CreateRT("HPOrb", root);
+        hpOrb.anchorMin = hpOrb.anchorMax = new Vector2(0, 0);
+        hpOrb.pivot = new Vector2(0, 0);
+        hpOrb.anchoredPosition = new Vector2(ORB_MARGIN, ORB_MARGIN);
+        hpOrb.sizeDelta = new Vector2(ORB_SIZE, ORB_SIZE);
+
+        // Dark socket behind the orb (inset shadow)
+        var hpSocket = HUD_CreateRT("Socket", hpOrb);
+        hpSocket.anchorMin = Vector2.zero; hpSocket.anchorMax = Vector2.one;
+        hpSocket.offsetMin = new Vector2(8, 8); hpSocket.offsetMax = new Vector2(-8, -8);
+        var hpSocketImg = hpSocket.gameObject.AddComponent<Image>();
+        hpSocketImg.sprite = circleSpr;
+        hpSocketImg.color = new Color(0.02f, 0.01f, 0.01f, 0.95f);
+
+        // Liquid fill (vertical fill from bottom — looks like blood rising)
+        var hpFillRT = HUD_CreateRT("Fill", hpOrb);
         hpFillRT.anchorMin = Vector2.zero; hpFillRT.anchorMax = Vector2.one;
-        hpFillRT.offsetMin = new Vector2(1, 1); hpFillRT.offsetMax = new Vector2(-1, -1);
+        hpFillRT.offsetMin = new Vector2(8, 8); hpFillRT.offsetMax = new Vector2(-8, -8);
         var hpFill = hpFillRT.gameObject.AddComponent<Image>();
-        hpFill.sprite = TexToSprite(hpGradient);
+        hpFill.sprite = TexToSprite(hpOrbTex);
         hpFill.type = Image.Type.Filled;
-        hpFill.fillMethod = Image.FillMethod.Horizontal;
+        hpFill.fillMethod = Image.FillMethod.Vertical;
+        hpFill.fillOrigin = (int)Image.OriginVertical.Bottom;
+        hpFill.fillAmount = 1f;
 
-        // HP shine (glass effect top half)
-        var hpShine = HUD_CreateRT("Shine", hpBar);
-        hpShine.anchorMin = new Vector2(0, 0.5f); hpShine.anchorMax = Vector2.one;
-        hpShine.offsetMin = new Vector2(2, 0); hpShine.offsetMax = new Vector2(-2, -1);
-        hpShine.gameObject.AddComponent<Image>().color = new Color(1, 1, 1, 0.12f);
+        // Iron frame ring (drawn on top)
+        var hpFrame = HUD_CreateRT("Frame", hpOrb);
+        hpFrame.anchorMin = Vector2.zero; hpFrame.anchorMax = Vector2.one;
+        hpFrame.offsetMin = hpFrame.offsetMax = Vector2.zero;
+        hpFrame.gameObject.AddComponent<Image>().sprite = orbFrameSpr;
 
-        // HP text
-        var hpTextRT = HUD_CreateRT("Text", hpBar);
+        // HP text overlay (centered on orb)
+        var hpTextRT = HUD_CreateRT("Text", hpOrb);
         hpTextRT.anchorMin = Vector2.zero; hpTextRT.anchorMax = Vector2.one;
-        hpTextRT.offsetMin = new Vector2(4, 0); hpTextRT.offsetMax = new Vector2(-4, 0);
+        hpTextRT.offsetMin = hpTextRT.offsetMax = Vector2.zero;
         var hpBarText = hpTextRT.gameObject.AddComponent<Text>();
-        hpBarText.font = font; hpBarText.fontSize = 10;
-        hpBarText.color = new Color(1, 1, 1, 0.9f);
-        hpBarText.alignment = TextAnchor.MiddleRight;
+        hpBarText.font = font; hpBarText.fontSize = 16; hpBarText.fontStyle = FontStyle.Bold;
+        hpBarText.color = new Color(1f, 0.95f, 0.85f, 0.95f);
+        hpBarText.alignment = TextAnchor.MiddleCenter;
         hpBarText.text = "100/100";
+        var hpShadow = hpTextRT.gameObject.AddComponent<Shadow>();
+        hpShadow.effectColor = new Color(0, 0, 0, 0.95f);
+        hpShadow.effectDistance = new Vector2(1, -1);
 
-        // MP bar (clean blue gradient)
-        var mpBar = HUD_CreateRT("MPBar", charPanel);
-        mpBar.anchorMin = new Vector2(0, 0.12f); mpBar.anchorMax = new Vector2(1, 0.32f);
-        mpBar.offsetMin = new Vector2(72, 0); mpBar.offsetMax = new Vector2(-10, 0);
-        mpBar.gameObject.AddComponent<Image>().sprite = TexToSprite(MakeRoundRectTex(256, 16, 4, new Color(0.04f, 0.05f, 0.07f, 0.95f)));
+        // ========== BOTTOM-RIGHT: MP Orb ==========
+        var mpOrb = HUD_CreateRT("MPOrb", root);
+        mpOrb.anchorMin = mpOrb.anchorMax = new Vector2(1, 0);
+        mpOrb.pivot = new Vector2(1, 0);
+        mpOrb.anchoredPosition = new Vector2(-ORB_MARGIN, ORB_MARGIN);
+        mpOrb.sizeDelta = new Vector2(ORB_SIZE, ORB_SIZE);
 
-        var mpFillRT = HUD_CreateRT("Fill", mpBar);
+        var mpSocket = HUD_CreateRT("Socket", mpOrb);
+        mpSocket.anchorMin = Vector2.zero; mpSocket.anchorMax = Vector2.one;
+        mpSocket.offsetMin = new Vector2(8, 8); mpSocket.offsetMax = new Vector2(-8, -8);
+        var mpSocketImg = mpSocket.gameObject.AddComponent<Image>();
+        mpSocketImg.sprite = circleSpr;
+        mpSocketImg.color = new Color(0.02f, 0.01f, 0.01f, 0.95f);
+
+        var mpFillRT = HUD_CreateRT("Fill", mpOrb);
         mpFillRT.anchorMin = Vector2.zero; mpFillRT.anchorMax = Vector2.one;
-        mpFillRT.offsetMin = new Vector2(1, 1); mpFillRT.offsetMax = new Vector2(-1, -1);
+        mpFillRT.offsetMin = new Vector2(8, 8); mpFillRT.offsetMax = new Vector2(-8, -8);
         var mpFill = mpFillRT.gameObject.AddComponent<Image>();
-        mpFill.sprite = TexToSprite(mpGradient);
+        mpFill.sprite = TexToSprite(mpOrbTex);
         mpFill.type = Image.Type.Filled;
-        mpFill.fillMethod = Image.FillMethod.Horizontal;
+        mpFill.fillMethod = Image.FillMethod.Vertical;
+        mpFill.fillOrigin = (int)Image.OriginVertical.Bottom;
+        mpFill.fillAmount = 1f;
 
-        var mpShine = HUD_CreateRT("Shine", mpBar);
-        mpShine.anchorMin = new Vector2(0, 0.5f); mpShine.anchorMax = Vector2.one;
-        mpShine.offsetMin = new Vector2(2, 0); mpShine.offsetMax = new Vector2(-2, -1);
-        mpShine.gameObject.AddComponent<Image>().color = new Color(1, 1, 1, 0.10f);
+        var mpFrame = HUD_CreateRT("Frame", mpOrb);
+        mpFrame.anchorMin = Vector2.zero; mpFrame.anchorMax = Vector2.one;
+        mpFrame.offsetMin = mpFrame.offsetMax = Vector2.zero;
+        mpFrame.gameObject.AddComponent<Image>().sprite = orbFrameSpr;
 
-        var mpTextRT = HUD_CreateRT("Text", mpBar);
+        var mpTextRT = HUD_CreateRT("Text", mpOrb);
         mpTextRT.anchorMin = Vector2.zero; mpTextRT.anchorMax = Vector2.one;
-        mpTextRT.offsetMin = new Vector2(4, 0); mpTextRT.offsetMax = new Vector2(-4, 0);
+        mpTextRT.offsetMin = mpTextRT.offsetMax = Vector2.zero;
         var mpBarText = mpTextRT.gameObject.AddComponent<Text>();
-        mpBarText.font = font; mpBarText.fontSize = 9;
-        mpBarText.color = new Color(1, 1, 1, 0.85f);
-        mpBarText.alignment = TextAnchor.MiddleRight;
+        mpBarText.font = font; mpBarText.fontSize = 16; mpBarText.fontStyle = FontStyle.Bold;
+        mpBarText.color = new Color(0.85f, 0.92f, 1f, 0.95f);
+        mpBarText.alignment = TextAnchor.MiddleCenter;
         mpBarText.text = "50/50";
+        var mpShadow = mpTextRT.gameObject.AddComponent<Shadow>();
+        mpShadow.effectColor = new Color(0, 0, 0, 0.95f);
+        mpShadow.effectDistance = new Vector2(1, -1);
 
         // ========== TOP: XP Bar (sleek, under top edge) ==========
         var expBar = HUD_CreateRT("ExpBar", root);
