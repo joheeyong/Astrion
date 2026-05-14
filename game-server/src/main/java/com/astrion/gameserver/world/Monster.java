@@ -14,6 +14,8 @@ public class Monster {
     public int direction = 1; // +1 or -1
     public boolean dead = false;
     public long respawnAt = 0L;
+    public int expReward = 30; // EXP given to last hitter on death
+    public String lastHitterId = "";
 
     // Broadcast throttling
     public long lastBroadcastAt = 0L;

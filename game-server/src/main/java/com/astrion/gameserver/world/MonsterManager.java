@@ -122,11 +122,18 @@ public class MonsterManager {
         if (m == null || m.dead) return;
         int applied = Math.min(m.hp, Math.max(1, damage));
         m.hp = Math.max(0, m.hp - applied);
+        m.lastHitterId = attacker.getPlayerId();
         if (m.hp <= 0) {
             m.dead = true;
             m.respawnAt = System.currentTimeMillis() + RESPAWN_DELAY_MS;
             broadcastDie(m, applied);
-            log.info("Monster {} killed by {} for {} dmg (respawn in {}s)", m.id, attacker.getPlayerId(), applied, RESPAWN_DELAY_MS / 1000);
+            // Award EXP to the killing blower
+            try {
+                String json = "{\"exp\":" + m.expReward + "}";
+                attacker.getChannel().writeAndFlush(new GamePacket(PacketType.EXP_GAINED, json));
+            } catch (Exception e) { /* ignore */ }
+            log.info("Monster {} killed by {} for {} dmg (+{} exp; respawn in {}s)",
+                m.id, attacker.getPlayerId(), applied, m.expReward, RESPAWN_DELAY_MS / 1000);
         } else {
             broadcastHp(m, applied);
         }

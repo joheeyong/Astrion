@@ -30,7 +30,8 @@ public enum PacketType {
     MONSTER_MOVE(0x91),
     MONSTER_DIE(0x92),
     MONSTER_HP(0x93),
-    SKILL_BROADCAST(0x94);
+    SKILL_BROADCAST(0x94),
+    EXP_GAINED(0x95);
 
     private final int code;
 

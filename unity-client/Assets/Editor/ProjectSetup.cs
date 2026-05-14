@@ -1186,6 +1186,9 @@ public class ProjectSetup
         var groundSpr = TexToSprite(Make2DGroundTex(256, 64));
         var platformSpr = TexToSprite(Make2DPlatformTex(256, 32));
         var ladderSpr = TexToSprite(Make2DLadderTex(64, 256));
+
+        // Beacon-of-Winds island vista (artist-painted backdrop)
+        Sprite islandBgSpr = LoadSpriteAsset("Assets/Scenes/main_bg.png");
         // Medieval peasant adventurer (forest green tunic + leather)
         var localParts = MakePlayerParts(
             shirt: new Color(0.30f, 0.48f, 0.22f),
@@ -1200,18 +1203,24 @@ public class ProjectSetup
         // === Background root ===
         var bgRoot = new GameObject("Background");
 
-        // Sky (huge tiled background, no parallax)
-        var sky = SpawnSprite("Sky", bgRoot.transform, skySpr, new Vector3(0, 0, 50), new Vector3(40, 25, 1), -10);
-
-        // Parallax layers (3 mountain layers)
-        var farLayer = SpawnSprite("FarMountains", bgRoot.transform, farMountainSpr, new Vector3(0, -1.5f, 40), new Vector3(20, 5, 1), -8);
-        AddParallax(farLayer, new Vector2(0.1f, 0.05f));
-
-        var midLayer = SpawnSprite("MidMountains", bgRoot.transform, midMountainSpr, new Vector3(0, -2.2f, 30), new Vector3(20, 4, 1), -6);
-        AddParallax(midLayer, new Vector2(0.3f, 0.1f));
-
-        var nearLayer = SpawnSprite("NearHills", bgRoot.transform, nearHillSpr, new Vector3(0, -2.8f, 20), new Vector3(20, 3, 1), -4);
-        AddParallax(nearLayer, new Vector2(0.55f, 0.15f));
+        if (islandBgSpr != null)
+        {
+            // Single artist backdrop — anchored to camera (parallax 1,1) so it always fills the view.
+            // Image is 1536x1024 @ 100 PPU (15.36 x 10.24 units native); scale 2.5 → 38.4 x 25.6, comfortably covers ortho size 6.5.
+            var island = SpawnSpriteSimple("IslandBackdrop", bgRoot.transform, islandBgSpr, new Vector3(0, 0, 50), new Vector3(2.5f, 2.5f, 1), -10);
+            AddParallax(island, new Vector2(1f, 1f));
+        }
+        else
+        {
+            // Fallback: procedural sky + 3 parallax mountain layers
+            SpawnSprite("Sky", bgRoot.transform, skySpr, new Vector3(0, 0, 50), new Vector3(40, 25, 1), -10);
+            var farLayer = SpawnSprite("FarMountains", bgRoot.transform, farMountainSpr, new Vector3(0, -1.5f, 40), new Vector3(20, 5, 1), -8);
+            AddParallax(farLayer, new Vector2(0.1f, 0.05f));
+            var midLayer = SpawnSprite("MidMountains", bgRoot.transform, midMountainSpr, new Vector3(0, -2.2f, 30), new Vector3(20, 4, 1), -6);
+            AddParallax(midLayer, new Vector2(0.3f, 0.1f));
+            var nearLayer = SpawnSprite("NearHills", bgRoot.transform, nearHillSpr, new Vector3(0, -2.8f, 20), new Vector3(20, 3, 1), -4);
+            AddParallax(nearLayer, new Vector2(0.55f, 0.15f));
+        }
 
         // === World root ===
         var worldRoot = new GameObject("World");
@@ -1670,6 +1679,32 @@ public class ProjectSetup
         var so = new SerializedObject(p);
         so.FindProperty("parallaxFactor").vector2Value = factor;
         so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    private static GameObject SpawnSpriteSimple(string name, Transform parent, Sprite sprite, Vector3 pos, Vector3 scale, int sortingOrder)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        go.transform.position = pos;
+        go.transform.localScale = scale;
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = sprite;
+        sr.sortingOrder = sortingOrder;
+        sr.drawMode = SpriteDrawMode.Simple;
+        return go;
+    }
+
+    private static Sprite LoadSpriteAsset(string assetPath)
+    {
+        if (!System.IO.File.Exists(assetPath)) return null;
+        var importer = AssetImporter.GetAtPath(assetPath) as TextureImporter;
+        if (importer != null && importer.textureType != TextureImporterType.Sprite)
+        {
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.SaveAndReimport();
+        }
+        return AssetDatabase.LoadAssetAtPath<Sprite>(assetPath);
     }
 
     private static void SpawnGround(string name, Transform parent, Sprite sprite, Vector2 center, Vector2 size, int layer, bool oneWay)

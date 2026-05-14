@@ -73,10 +73,39 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         PlayerSession session = worldManager.getSession(ctx.channel());
         if (session == null) return;
         JsonNode node = mapper.readTree(packet.getPayload());
-        String zoneId = node.has("zoneId") ? node.get("zoneId").asText() : "";
-        session.setZoneId(zoneId);
-        log.info("Player {} entered zone: {}", session.getPlayerId(), zoneId);
+        String newZone = node.has("zoneId") ? node.get("zoneId").asText() : "";
+        String oldZone = session.getZoneId();
+
+        if (!java.util.Objects.equals(oldZone, newZone)) {
+            // Tell players in old zone this one is gone
+            if (oldZone != null && !oldZone.isEmpty()) {
+                String despawnData = "{\"playerId\":\"" + session.getPlayerId() + "\"}";
+                worldManager.broadcastToZone(oldZone,
+                    new GamePacket(PacketType.DESPAWN_PLAYER, despawnData));
+            }
+            session.setZoneId(newZone);
+            // Announce this player to the new zone
+            String spawnData = mapper.writeValueAsString(new SpawnData(session.getPlayerId(), session.getPosition()));
+            worldManager.broadcastToZone(newZone,
+                new GamePacket(PacketType.SPAWN_PLAYER, spawnData));
+            // Send back a snapshot of existing players in this zone (so the new arrival sees them)
+            sendPlayerSnapshot(session);
+        }
+
+        log.info("Player {} entered zone: {}", session.getPlayerId(), newZone);
         monsterManager.onPlayerEnteredZone(session);
+    }
+
+    private void sendPlayerSnapshot(PlayerSession self) throws Exception {
+        String selfId = self.getPlayerId();
+        String zoneId = self.getZoneId();
+        if (zoneId == null || zoneId.isEmpty()) return;
+        for (PlayerSession other : worldManager.getAllSessions()) {
+            if (other.getPlayerId().equals(selfId)) continue;
+            if (!zoneId.equals(other.getZoneId())) continue;
+            String spawnData = mapper.writeValueAsString(new SpawnData(other.getPlayerId(), other.getPosition()));
+            self.getChannel().writeAndFlush(new GamePacket(PacketType.SPAWN_PLAYER, spawnData));
+        }
     }
 
     private void handleMonsterHit(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
@@ -143,16 +172,12 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             return;
         }
 
-        // Login success
+        // Login success — actual SPAWN_PLAYER broadcast happens on ZONE_ENTER
         PlayerSession session = worldManager.addPlayer(username, ctx.channel());
         redisManager.setPlayerOnline(username);
 
         String result = mapper.writeValueAsString(new LoginResult(true, username, "OK"));
         ctx.writeAndFlush(new GamePacket(PacketType.LOGIN_RESULT, result));
-
-        // Notify others
-        String spawnData = mapper.writeValueAsString(new SpawnData(username, session.getPosition()));
-        worldManager.broadcastAll(new GamePacket(PacketType.SPAWN_PLAYER, spawnData), username);
 
         log.info("Player {} logged in", username);
     }

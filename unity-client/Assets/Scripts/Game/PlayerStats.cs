@@ -52,13 +52,64 @@ namespace Astrion.Game
                 if (psm.IsLoaded) RestoreFromState();
                 else psm.OnLoaded += RestoreFromState;
             }
+            if (NetworkManager.Instance != null)
+                NetworkManager.Instance.OnPacketReceived += HandlePacket;
         }
 
         private void OnDestroy()
         {
             var psm = PlayerStateManager.Instance;
             if (psm != null) psm.OnLoaded -= RestoreFromState;
+            if (NetworkManager.Instance != null)
+                NetworkManager.Instance.OnPacketReceived -= HandlePacket;
             if (Instance == this) Instance = null;
+        }
+
+        private void HandlePacket(GamePacket packet)
+        {
+            if (packet.Type != PacketType.ExpGained) return;
+            try
+            {
+                var d = JsonUtility.FromJson<ExpPayload>(packet.Payload);
+                if (d != null && d.exp > 0) AddExp(d.exp);
+            }
+            catch (System.Exception e) { Debug.LogWarning($"[PlayerStats] EXP parse error: {e.Message}"); }
+        }
+
+        [System.Serializable] private class ExpPayload { public int exp; }
+
+        public int ExpForNextLevel(int level) => 50 * Mathf.Max(1, level);
+
+        public void AddExp(int amount)
+        {
+            if (amount <= 0) return;
+            int before = Exp;
+            int prevLevel = Level;
+            Exp += amount;
+            while (Exp >= ExpForNextLevel(Level))
+            {
+                Exp -= ExpForNextLevel(Level);
+                LevelUp();
+            }
+            _dirty = true;
+            OnChanged?.Invoke();
+            // Persist immediately on EVERY exp gain (not just level-up):
+            // SaveAttributes covers Exp/Level/Stats, FlushSave covers HP/MP changes from level-up.
+            SaveAttributes();
+            FlushSave();
+            Debug.Log($"[PlayerStats] +{amount} EXP  ({before}→{Exp}/{ExpForNextLevel(Level)})" +
+                      (Level != prevLevel ? $"  LEVEL UP! Lv.{prevLevel}→Lv.{Level}" : "") +
+                      "  [saved]");
+        }
+
+        private void LevelUp()
+        {
+            Level++;
+            StatPoints += 5;
+            MaxHp += 10;
+            MaxMp += 5;
+            Hp = MaxHp;   // full restore on level up
+            Mp = MaxMp;
         }
 
         private void RestoreFromState()

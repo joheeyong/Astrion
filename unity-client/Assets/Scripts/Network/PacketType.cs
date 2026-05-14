@@ -31,6 +31,7 @@ namespace Astrion.Network
         MonsterMove = 0x91,
         MonsterDie = 0x92,
         MonsterHp = 0x93,
-        SkillBroadcast = 0x94
+        SkillBroadcast = 0x94,
+        ExpGained = 0x95
     }
 }

@@ -141,7 +141,10 @@ namespace Astrion.Game
         private void OnChatMessage(string payload)
         {
             var data = JsonUtility.FromJson<ChatData>(payload);
+            if (data == null || string.IsNullOrEmpty(data.message)) return;
             Debug.Log($"[Chat] {data.playerId}: {data.message}");
+            var hud = Astrion.UI.GameHUD.Instance;
+            if (hud != null) hud.AppendChatLine(data.playerId, data.message);
         }
 
         private void OnDestroy()

@@ -85,8 +85,9 @@ namespace Astrion.Game
             if (h < -0.1f) SetFacing(false);
             else if (h > 0.1f) SetFacing(true);
 
-            // Skill: Star Bolt (Q key)
-            if (Input.GetKeyDown(KeyCode.Q) && Time.time - _lastSkillTime >= skillCooldown)
+            // Skill: Star Bolt (Q key) — suppressed while typing in chat
+            if (!Astrion.UI.GameHUD.IsChatFocused
+                && Input.GetKeyDown(KeyCode.Q) && Time.time - _lastSkillTime >= skillCooldown)
             {
                 FireStarBolt();
                 _lastSkillTime = Time.time;
@@ -158,6 +159,11 @@ namespace Astrion.Game
             }
             else
             {
+                if (Astrion.UI.GameHUD.IsChatFocused)
+                {
+                    h = 0; v = 0; jump = false;
+                    return;
+                }
                 h = Input.GetAxisRaw("Horizontal");
                 v = Input.GetAxisRaw("Vertical");
                 jump = Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.LeftAlt);
