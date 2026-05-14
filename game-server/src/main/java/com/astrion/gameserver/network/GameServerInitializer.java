@@ -2,6 +2,7 @@ package com.astrion.gameserver.network;
 
 import com.astrion.gameserver.handler.GamePacketHandler;
 import com.astrion.gameserver.redis.RedisManager;
+import com.astrion.gameserver.world.MonsterManager;
 import com.astrion.gameserver.world.WorldManager;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
@@ -14,10 +15,12 @@ public class GameServerInitializer extends ChannelInitializer<SocketChannel> {
 
     private final WorldManager worldManager;
     private final RedisManager redisManager;
+    private final MonsterManager monsterManager;
 
-    public GameServerInitializer(WorldManager worldManager, RedisManager redisManager) {
+    public GameServerInitializer(WorldManager worldManager, RedisManager redisManager, MonsterManager monsterManager) {
         this.worldManager = worldManager;
         this.redisManager = redisManager;
+        this.monsterManager = monsterManager;
     }
 
     @Override
@@ -32,6 +35,6 @@ public class GameServerInitializer extends ChannelInitializer<SocketChannel> {
         pipeline.addLast(new PacketEncoder());
 
         // Game logic handler
-        pipeline.addLast(new GamePacketHandler(worldManager, redisManager));
+        pipeline.addLast(new GamePacketHandler(worldManager, redisManager, monsterManager));
     }
 }

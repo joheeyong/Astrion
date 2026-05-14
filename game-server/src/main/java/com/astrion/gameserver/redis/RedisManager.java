@@ -90,6 +90,15 @@ public class RedisManager {
         return false;
     }
 
+    // Per-player game state (quest progress, collected items, etc.) — stored as JSON blob
+    public void savePlayerState(String playerId, String json) {
+        commands.set("player:state:" + playerId, json);
+    }
+
+    public String getPlayerState(String playerId) {
+        return commands.get("player:state:" + playerId);
+    }
+
     // Generic key-value
     public void set(String key, String value) {
         commands.set(key, value);

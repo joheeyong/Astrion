@@ -113,6 +113,11 @@ namespace Astrion.UI
                 PlayerPrefs.SetString("playerId", result.playerId);
                 PlayerPrefs.Save();
 
+                // Request persisted game state (quest progress, collected items) from server.
+                // Server must support STATE_REQUEST (0x09); see PlayerStateManager.ServerSupportsState
+                // as the runtime guard.
+                PlayerStateManager.Instance?.RequestLoad();
+
                 NetworkManager.Instance.OnPacketReceived -= HandlePacket;
                 SceneManager.LoadScene("CharacterSelectScene");
             }

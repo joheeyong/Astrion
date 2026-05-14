@@ -4,6 +4,7 @@ import com.astrion.common.model.Position;
 import com.astrion.common.packet.GamePacket;
 import com.astrion.common.packet.PacketType;
 import com.astrion.gameserver.redis.RedisManager;
+import com.astrion.gameserver.world.MonsterManager;
 import com.astrion.gameserver.world.PlayerSession;
 import com.astrion.gameserver.world.WorldManager;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -25,10 +26,12 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
 
     private final WorldManager worldManager;
     private final RedisManager redisManager;
+    private final MonsterManager monsterManager;
 
-    public GamePacketHandler(WorldManager worldManager, RedisManager redisManager) {
+    public GamePacketHandler(WorldManager worldManager, RedisManager redisManager, MonsterManager monsterManager) {
         this.worldManager = worldManager;
         this.redisManager = redisManager;
+        this.monsterManager = monsterManager;
     }
 
     @Override
@@ -41,8 +44,62 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             case CHARACTER_LIST -> handleCharacterList(ctx, packet);
             case CHARACTER_CREATE -> handleCharacterCreate(ctx, packet);
             case CHARACTER_DELETE -> handleCharacterDelete(ctx, packet);
+            case STATE_REQUEST -> handleStateRequest(ctx, packet);
+            case STATE_SAVE -> handleStateSave(ctx, packet);
+            case ZONE_ENTER -> handleZoneEnter(ctx, packet);
+            case MONSTER_HIT -> handleMonsterHit(ctx, packet);
+            case SKILL_CAST -> handleSkillCast(ctx, packet);
             default -> log.warn("Unhandled packet type: {}", packet.getType());
         }
+    }
+
+    private void handleSkillCast(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession session = worldManager.getSession(ctx.channel());
+        if (session == null) return;
+        JsonNode node = mapper.readTree(packet.getPayload());
+        float x = (float) node.get("x").asDouble();
+        float y = (float) node.get("y").asDouble();
+        int dir = node.has("dir") ? node.get("dir").asInt() : 1;
+        String skillType = node.has("type") ? node.get("type").asText() : "starbolt";
+        String broadcastPayload = mapper.writeValueAsString(
+            new SkillCastBroadcast(session.getPlayerId(), x, y, dir, skillType));
+        worldManager.broadcastToZone(session.getZoneId(),
+            new GamePacket(PacketType.SKILL_BROADCAST, broadcastPayload));
+    }
+
+    record SkillCastBroadcast(String playerId, float x, float y, int dir, String type) {}
+
+    private void handleZoneEnter(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession session = worldManager.getSession(ctx.channel());
+        if (session == null) return;
+        JsonNode node = mapper.readTree(packet.getPayload());
+        String zoneId = node.has("zoneId") ? node.get("zoneId").asText() : "";
+        session.setZoneId(zoneId);
+        log.info("Player {} entered zone: {}", session.getPlayerId(), zoneId);
+        monsterManager.onPlayerEnteredZone(session);
+    }
+
+    private void handleMonsterHit(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession session = worldManager.getSession(ctx.channel());
+        if (session == null) return;
+        JsonNode node = mapper.readTree(packet.getPayload());
+        String monsterId = node.get("id").asText();
+        int damage = node.has("damage") ? node.get("damage").asInt() : 1;
+        monsterManager.onMonsterHit(session, monsterId, damage);
+    }
+
+    private void handleStateRequest(ChannelHandlerContext ctx, GamePacket packet) {
+        PlayerSession session = worldManager.getSession(ctx.channel());
+        if (session == null) return;
+        String json = redisManager.getPlayerState(session.getPlayerId());
+        if (json == null) json = "{}";
+        ctx.writeAndFlush(new GamePacket(PacketType.STATE_DATA, json));
+    }
+
+    private void handleStateSave(ChannelHandlerContext ctx, GamePacket packet) {
+        PlayerSession session = worldManager.getSession(ctx.channel());
+        if (session == null) return;
+        redisManager.savePlayerState(session.getPlayerId(), packet.getPayload());
     }
 
     private void handleLogin(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
@@ -124,11 +181,12 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
                 (float) node.get("y").asDouble(),
                 (float) node.get("z").asDouble()
         );
+        int facing = node.has("facing") ? node.get("facing").asInt() : 1;
 
         session.setPosition(newPos);
         redisManager.updatePlayerPosition(session.getPlayerId(), newPos);
 
-        String moveData = mapper.writeValueAsString(new MoveData(session.getPlayerId(), newPos));
+        String moveData = mapper.writeValueAsString(new MoveData(session.getPlayerId(), newPos, facing));
         worldManager.broadcastNearby(newPos, BROADCAST_RANGE,
                 new GamePacket(PacketType.PLAYER_MOVED, moveData), session.getPlayerId());
     }
@@ -244,7 +302,7 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
     // DTO records
     record LoginResult(boolean success, String playerId, String message) {}
     record SpawnData(String playerId, Position position) {}
-    record MoveData(String playerId, Position position) {}
+    record MoveData(String playerId, Position position, int facing) {}
     record ChatData(String playerId, String message) {}
     record CharacterCreateResult(boolean success, String message) {}
 }

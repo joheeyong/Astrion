@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using Astrion.Game;
 
 namespace Astrion.UI
 {
@@ -16,8 +17,6 @@ namespace Astrion.UI
         [SerializeField] private Text coordsText;
 
         private Transform _player;
-        private float _maxHp = 100f, _currentHp = 100f;
-        private float _maxMp = 50f, _currentMp = 50f;
         private float _currentExp = 0.35f;
 
         private InputField _chatInputField;
@@ -33,6 +32,10 @@ namespace Astrion.UI
             string charClass = PlayerPrefs.GetString("characterClass", "Warrior");
             if (charNameText) charNameText.text = charName;
             if (charLevelText) charLevelText.text = $"Lv.1 {charClass}";
+
+            // Subscribe to live stat changes
+            if (PlayerStats.Instance != null)
+                PlayerStats.Instance.OnChanged += UpdateBars;
             UpdateBars();
 
             bool isMobile = Application.isMobilePlatform;
@@ -114,11 +117,16 @@ namespace Astrion.UI
 
         private void UpdateBars()
         {
-            if (hpFill) hpFill.fillAmount = _currentHp / _maxHp;
-            if (mpFill) mpFill.fillAmount = _currentMp / _maxMp;
+            var stats = PlayerStats.Instance;
+            int curHp = stats != null ? stats.Hp : 100;
+            int maxHp = stats != null ? stats.MaxHp : 100;
+            int curMp = stats != null ? stats.Mp : 50;
+            int maxMp = stats != null ? stats.MaxMp : 50;
+            if (hpFill) hpFill.fillAmount = maxHp > 0 ? (float)curHp / maxHp : 0f;
+            if (mpFill) mpFill.fillAmount = maxMp > 0 ? (float)curMp / maxMp : 0f;
             if (expFill) expFill.fillAmount = _currentExp;
-            if (hpText) hpText.text = $"{(int)_currentHp}/{(int)_maxHp}";
-            if (mpText) mpText.text = $"{(int)_currentMp}/{(int)_maxMp}";
+            if (hpText) hpText.text = $"{curHp}/{maxHp}";
+            if (mpText) mpText.text = $"{curMp}/{maxMp}";
             if (expText) expText.text = $"{_currentExp * 100f:F1}%";
         }
     }

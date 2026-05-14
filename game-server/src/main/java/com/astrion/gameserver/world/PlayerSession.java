@@ -7,6 +7,7 @@ public class PlayerSession {
     private final String playerId;
     private final Channel channel;
     private Position position;
+    private String zoneId = "";
 
     public PlayerSession(String playerId, Channel channel) {
         this.playerId = playerId;
@@ -18,4 +19,6 @@ public class PlayerSession {
     public Channel getChannel() { return channel; }
     public Position getPosition() { return position; }
     public void setPosition(Position position) { this.position = position; }
+    public String getZoneId() { return zoneId; }
+    public void setZoneId(String zoneId) { this.zoneId = zoneId == null ? "" : zoneId; }
 }

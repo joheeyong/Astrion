@@ -13,14 +13,24 @@ namespace Astrion.Game
         [SerializeField] private Transform groundCheck;
         [SerializeField] private float groundCheckRadius = 0.18f;
         [SerializeField] private Joystick joystick;
+        [SerializeField] private GameObject starBoltPrefab;
+        [SerializeField] private float skillCooldown = 0.45f;
+        [SerializeField] private float homingRange = 9f;
+
+        private float _lastSkillTime = -10f;
 
         private Rigidbody2D _rb;
-        private SpriteRenderer _sr;
+        private Transform _spriteContainer;
         private bool _isGrounded;
         private bool _onLadder;
         private bool _climbing;
         private float _baseGravity;
         private Collider2D _currentLadder;
+        private bool _facingRight = true;
+
+        public bool IsGrounded => _isGrounded;
+        public bool IsClimbing => _climbing;
+        public bool FacingRight => _facingRight;
 
         private void Awake()
         {
@@ -30,7 +40,7 @@ namespace Astrion.Game
             _rb.constraints = RigidbodyConstraints2D.FreezeRotation;
             _rb.interpolation = RigidbodyInterpolation2D.Interpolate;
             _baseGravity = _rb.gravityScale;
-            _sr = GetComponentInChildren<SpriteRenderer>();
+            _spriteContainer = transform.Find("SpriteContainer");
         }
 
         private void Update()
@@ -72,10 +82,68 @@ namespace Astrion.Game
                 }
             }
 
-            if (_sr != null)
+            if (h < -0.1f) SetFacing(false);
+            else if (h > 0.1f) SetFacing(true);
+
+            // Skill: Star Bolt (Q key)
+            if (Input.GetKeyDown(KeyCode.Q) && Time.time - _lastSkillTime >= skillCooldown)
             {
-                if (h < -0.1f) _sr.flipX = true;
-                else if (h > 0.1f) _sr.flipX = false;
+                FireStarBolt();
+                _lastSkillTime = Time.time;
+            }
+        }
+
+        private void FireStarBolt()
+        {
+            if (starBoltPrefab == null) return;
+            var stats = PlayerStats.Instance;
+            if (stats != null && !stats.ConsumeMp(3)) return;
+            Vector3 origin = transform.position + new Vector3(_facingRight ? 0.35f : -0.35f, 0.15f, 0f);
+            int dir = _facingRight ? 1 : -1;
+
+            var go = Instantiate(starBoltPrefab, origin, Quaternion.identity);
+            go.SetActive(true);
+            var bolt = go.GetComponent<StarBolt2D>();
+            if (bolt != null) bolt.Init(dir, FindHomingTarget(origin));
+
+            // Broadcast to zone — others render visual-only copy
+            var nm = Astrion.Network.NetworkManager.Instance;
+            if (nm != null && nm.IsConnected)
+            {
+                string payload = "{\"x\":" + origin.x.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)
+                    + ",\"y\":" + origin.y.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)
+                    + ",\"dir\":" + dir + ",\"type\":\"starbolt\"}";
+                nm.SendPacket(Astrion.Network.PacketType.SkillCast, payload);
+            }
+        }
+
+        private Transform FindHomingTarget(Vector2 origin)
+        {
+            var monsters = Object.FindObjectsOfType<ServerMonster2D>();
+            Transform best = null;
+            float bestDist = float.MaxValue;
+            float facing = _facingRight ? 1f : -1f;
+            foreach (var m in monsters)
+            {
+                if (m == null) continue;
+                Vector2 to = (Vector2)m.transform.position - origin;
+                if (to.x * facing < 0f) continue; // not in front
+                float d = to.magnitude;
+                if (d > homingRange) continue;
+                if (d < bestDist) { bestDist = d; best = m.transform; }
+            }
+            return best;
+        }
+
+        private void SetFacing(bool right)
+        {
+            if (_facingRight == right) return;
+            _facingRight = right;
+            if (_spriteContainer != null)
+            {
+                var s = _spriteContainer.localScale;
+                s.x = right ? Mathf.Abs(s.x) : -Mathf.Abs(s.x);
+                _spriteContainer.localScale = s;
             }
         }
 

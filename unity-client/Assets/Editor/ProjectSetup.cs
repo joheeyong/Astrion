@@ -5,17 +5,17 @@ using UnityEngine.UI;
 
 public class ProjectSetup
 {
-    // Diablo-style color palette (gothic blood + iron)
-    private static readonly Color AccentGold = new Color(0.78f, 0.18f, 0.10f, 1f);       // blood red (was gold accent)
-    private static readonly Color AccentGoldDim = new Color(0.78f, 0.18f, 0.10f, 0.25f);
-    private static readonly Color AccentGreen = new Color(0.55f, 0.10f, 0.08f, 1f);       // deep crimson (was emerald accent)
-    private static readonly Color PanelBg = new Color(0.04f, 0.03f, 0.02f, 0.92f);        // near-black charcoal
-    private static readonly Color PanelInner = new Color(0.07f, 0.05f, 0.04f, 0.7f);      // inner stone
-    private static readonly Color FieldBg = new Color(0.06f, 0.04f, 0.03f, 0.95f);        // dark parchment
-    private static readonly Color FieldBorder = new Color(0.40f, 0.20f, 0.10f, 0.55f);    // rusted iron border
-    private static readonly Color TextLight = new Color(0.88f, 0.83f, 0.72f, 1f);         // bone/parchment white
-    private static readonly Color TextMuted = new Color(0.50f, 0.42f, 0.34f, 1f);         // weathered stone
-    private static readonly Color BtnColor = new Color(0.45f, 0.08f, 0.06f, 1f);          // dried blood button
+    // Medieval European color palette (heraldic + parchment + iron)
+    private static readonly Color AccentGold = new Color(0.85f, 0.65f, 0.22f, 1f);       // gold leaf
+    private static readonly Color AccentGoldDim = new Color(0.85f, 0.65f, 0.22f, 0.30f);
+    private static readonly Color AccentGreen = new Color(0.30f, 0.50f, 0.22f, 1f);       // heraldic vert
+    private static readonly Color PanelBg = new Color(0.10f, 0.08f, 0.06f, 0.92f);        // dark leather
+    private static readonly Color PanelInner = new Color(0.13f, 0.10f, 0.07f, 0.7f);      // tanned leather
+    private static readonly Color FieldBg = new Color(0.08f, 0.06f, 0.04f, 0.95f);        // dark parchment
+    private static readonly Color FieldBorder = new Color(0.42f, 0.32f, 0.20f, 0.6f);     // bronze border
+    private static readonly Color TextLight = new Color(0.92f, 0.86f, 0.72f, 1f);         // aged parchment
+    private static readonly Color TextMuted = new Color(0.55f, 0.48f, 0.38f, 1f);         // sepia ink
+    private static readonly Color BtnColor = new Color(0.42f, 0.28f, 0.15f, 1f);          // oak button
 
     [MenuItem("Astrion/Setup Project")]
     public static void Setup()
@@ -25,13 +25,14 @@ public class ProjectSetup
         CreateCharacterSelectScene();
         CreateCharacterCreateScene();
         CreateMainScene();
+        CreateForgottenWoodsScene();
         Debug.Log("[Astrion] Project setup complete!");
     }
 
     [MenuItem("Astrion/Build Android (Debug)")]
     public static void BuildAndroid()
     {
-        var scenes = new[] { "Assets/Scenes/LoginScene.unity", "Assets/Scenes/CharacterSelectScene.unity", "Assets/Scenes/CharacterCreateScene.unity", "Assets/Scenes/MainScene.unity" };
+        var scenes = new[] { "Assets/Scenes/LoginScene.unity", "Assets/Scenes/CharacterSelectScene.unity", "Assets/Scenes/CharacterCreateScene.unity", "Assets/Scenes/MainScene.unity", "Assets/Scenes/ForgottenWoodsScene.unity" };
         PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, "com.astrion.game");
         PlayerSettings.productName = "Astrion";
         PlayerSettings.companyName = "Astrion";
@@ -46,7 +47,7 @@ public class ProjectSetup
     [MenuItem("Astrion/Build macOS (Debug)")]
     public static void BuildMacOS()
     {
-        var scenes = new[] { "Assets/Scenes/LoginScene.unity", "Assets/Scenes/CharacterSelectScene.unity", "Assets/Scenes/CharacterCreateScene.unity", "Assets/Scenes/MainScene.unity" };
+        var scenes = new[] { "Assets/Scenes/LoginScene.unity", "Assets/Scenes/CharacterSelectScene.unity", "Assets/Scenes/CharacterCreateScene.unity", "Assets/Scenes/MainScene.unity", "Assets/Scenes/ForgottenWoodsScene.unity" };
         PlayerSettings.productName = "Astrion";
         PlayerSettings.companyName = "Astrion";
         PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Standalone, "com.astrion.game");
@@ -63,7 +64,7 @@ public class ProjectSetup
     [MenuItem("Astrion/Build Windows (Debug)")]
     public static void BuildWindows()
     {
-        var scenes = new[] { "Assets/Scenes/LoginScene.unity", "Assets/Scenes/CharacterSelectScene.unity", "Assets/Scenes/CharacterCreateScene.unity", "Assets/Scenes/MainScene.unity" };
+        var scenes = new[] { "Assets/Scenes/LoginScene.unity", "Assets/Scenes/CharacterSelectScene.unity", "Assets/Scenes/CharacterCreateScene.unity", "Assets/Scenes/MainScene.unity", "Assets/Scenes/ForgottenWoodsScene.unity" };
         PlayerSettings.productName = "Astrion";
         PlayerSettings.companyName = "Astrion";
         PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Standalone, "com.astrion.game");
@@ -80,7 +81,7 @@ public class ProjectSetup
     [MenuItem("Astrion/Build iOS (Debug)")]
     public static void BuildIOS()
     {
-        var scenes = new[] { "Assets/Scenes/LoginScene.unity", "Assets/Scenes/CharacterSelectScene.unity", "Assets/Scenes/CharacterCreateScene.unity", "Assets/Scenes/MainScene.unity" };
+        var scenes = new[] { "Assets/Scenes/LoginScene.unity", "Assets/Scenes/CharacterSelectScene.unity", "Assets/Scenes/CharacterCreateScene.unity", "Assets/Scenes/MainScene.unity", "Assets/Scenes/ForgottenWoodsScene.unity" };
         PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.iOS, "com.astrion.game");
         PlayerSettings.productName = "Astrion";
         PlayerSettings.companyName = "Astrion";
@@ -124,6 +125,18 @@ public class ProjectSetup
         // NetworkManager
         var networkGo = new GameObject("NetworkManager");
         networkGo.AddComponent<Astrion.Network.NetworkManager>();
+
+        // PlayerStateManager (persists across scenes via DontDestroyOnLoad)
+        var stateGo = new GameObject("PlayerStateManager");
+        stateGo.AddComponent<Astrion.Network.PlayerStateManager>();
+
+        // MonsterNetworkManager (DDOL — handles MONSTER_SPAWN/MOVE/DIE/HP across scenes)
+        var monNetGo = new GameObject("MonsterNetworkManager");
+        monNetGo.AddComponent<Astrion.Network.MonsterNetworkManager>();
+
+        // PlayerStats (DDOL — HP/MP runtime + passive regen + autosave)
+        var statsGo = new GameObject("PlayerStats");
+        statsGo.AddComponent<Astrion.Game.PlayerStats>();
 
         // Canvas
         var canvasGo = new GameObject("Canvas");
@@ -683,6 +696,106 @@ public class ProjectSetup
         enterText.color = new Color(1f, 1f, 0.95f);
         StretchFull(enterTextGo);
 
+        // ===== DELETE BUTTON =====
+        var deleteGo = CreateUIElement("DeleteButton", canvasGo.transform);
+        var deleteImg = deleteGo.AddComponent<Image>();
+        deleteImg.color = new Color(0.55f, 0.12f, 0.10f, 0.92f);
+        var deleteBtn = deleteGo.AddComponent<Button>();
+        var dColors = deleteBtn.colors;
+        dColors.highlightedColor = new Color(0.78f, 0.18f, 0.16f, 1f);
+        dColors.pressedColor = new Color(0.42f, 0.06f, 0.06f, 1f);
+        dColors.disabledColor = new Color(0.18f, 0.10f, 0.10f, 0.5f);
+        deleteBtn.colors = dColors;
+        var dRect = deleteGo.GetComponent<RectTransform>();
+        dRect.anchorMin = new Vector2(0.45f, 0.005f);
+        dRect.anchorMax = new Vector2(0.78f, 0.07f);
+        dRect.offsetMin = Vector2.zero;
+        dRect.offsetMax = new Vector2(-40, 0);
+
+        var deleteTextGo = CreateUIElement("Text", deleteGo.transform);
+        var deleteText = deleteTextGo.AddComponent<Text>();
+        deleteText.text = "DELETE  CHARACTER";
+        deleteText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        deleteText.fontSize = 14;
+        deleteText.fontStyle = FontStyle.Bold;
+        deleteText.alignment = TextAnchor.MiddleCenter;
+        deleteText.color = new Color(1f, 0.92f, 0.82f);
+        StretchFull(deleteTextGo);
+
+        // ===== CONFIRM PANEL (modal) =====
+        var confirmPanelGo = CreateUIElement("ConfirmPanel", canvasGo.transform);
+        var confirmDim = confirmPanelGo.AddComponent<Image>();
+        confirmDim.color = new Color(0, 0, 0, 0.65f);
+        var cpRect = confirmPanelGo.GetComponent<RectTransform>();
+        cpRect.anchorMin = Vector2.zero; cpRect.anchorMax = Vector2.one;
+        cpRect.offsetMin = cpRect.offsetMax = Vector2.zero;
+
+        var confirmBoxGo = CreateUIElement("Box", confirmPanelGo.transform);
+        var confirmBoxImg = confirmBoxGo.AddComponent<Image>();
+        confirmBoxImg.color = new Color(0.10f, 0.08f, 0.06f, 0.98f);
+        var cbol = confirmBoxGo.AddComponent<Outline>();
+        cbol.effectColor = new Color(0.85f, 0.65f, 0.22f, 0.8f);
+        cbol.effectDistance = new Vector2(2, 2);
+        var cbRect = confirmBoxGo.GetComponent<RectTransform>();
+        cbRect.anchorMin = cbRect.anchorMax = new Vector2(0.5f, 0.5f);
+        cbRect.pivot = new Vector2(0.5f, 0.5f);
+        cbRect.sizeDelta = new Vector2(420, 220);
+        cbRect.anchoredPosition = Vector2.zero;
+
+        var confirmTextGo = CreateUIElement("Text", confirmBoxGo.transform);
+        var confirmText = confirmTextGo.AddComponent<Text>();
+        confirmText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        confirmText.fontSize = 15;
+        confirmText.fontStyle = FontStyle.Bold;
+        confirmText.alignment = TextAnchor.MiddleCenter;
+        confirmText.color = TextLight;
+        confirmText.text = "\uc815\ub9d0 \uce90\ub9ad\ud130\ub97c \uc0ad\uc81c\ud558\uc2dc\uaca0\uc2b5\ub2c8\uae4c?";
+        var ctRect = confirmTextGo.GetComponent<RectTransform>();
+        ctRect.anchorMin = new Vector2(0, 0.4f); ctRect.anchorMax = new Vector2(1, 1);
+        ctRect.offsetMin = new Vector2(20, 0); ctRect.offsetMax = new Vector2(-20, -10);
+
+        // Yes button (red)
+        var yesGo = CreateUIElement("YesButton", confirmBoxGo.transform);
+        var yesImg = yesGo.AddComponent<Image>();
+        yesImg.color = new Color(0.78f, 0.18f, 0.16f, 0.95f);
+        var yesBtn = yesGo.AddComponent<Button>();
+        var yColors = yesBtn.colors;
+        yColors.highlightedColor = new Color(0.92f, 0.28f, 0.24f, 1f);
+        yesBtn.colors = yColors;
+        var yRect = yesGo.GetComponent<RectTransform>();
+        yRect.anchorMin = new Vector2(0.1f, 0.1f); yRect.anchorMax = new Vector2(0.46f, 0.32f);
+        yRect.offsetMin = yRect.offsetMax = Vector2.zero;
+        var yTextGo = CreateUIElement("Text", yesGo.transform);
+        var yText = yTextGo.AddComponent<Text>();
+        yText.text = "\uc0ad\uc81c";
+        yText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        yText.fontSize = 16; yText.fontStyle = FontStyle.Bold;
+        yText.alignment = TextAnchor.MiddleCenter;
+        yText.color = new Color(1f, 0.96f, 0.90f);
+        StretchFull(yTextGo);
+
+        // No button (gray)
+        var noGo = CreateUIElement("NoButton", confirmBoxGo.transform);
+        var noImg = noGo.AddComponent<Image>();
+        noImg.color = new Color(0.32f, 0.28f, 0.22f, 0.95f);
+        var noBtn = noGo.AddComponent<Button>();
+        var nColors = noBtn.colors;
+        nColors.highlightedColor = new Color(0.48f, 0.42f, 0.32f, 1f);
+        noBtn.colors = nColors;
+        var nRect = noGo.GetComponent<RectTransform>();
+        nRect.anchorMin = new Vector2(0.54f, 0.1f); nRect.anchorMax = new Vector2(0.9f, 0.32f);
+        nRect.offsetMin = nRect.offsetMax = Vector2.zero;
+        var nTextGo = CreateUIElement("Text", noGo.transform);
+        var nText = nTextGo.AddComponent<Text>();
+        nText.text = "\ucde8\uc18c";
+        nText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        nText.fontSize = 16; nText.fontStyle = FontStyle.Bold;
+        nText.alignment = TextAnchor.MiddleCenter;
+        nText.color = new Color(1f, 0.96f, 0.90f);
+        StretchFull(nTextGo);
+
+        confirmPanelGo.SetActive(false);
+
         // ===== Wire CharacterSelectUI =====
         var csUIGo = new GameObject("CharacterSelectUI");
         var csUI = csUIGo.AddComponent<Astrion.UI.CharacterSelectUI>();
@@ -691,8 +804,13 @@ public class ProjectSetup
         so.FindProperty("slotContainer").objectReferenceValue = slotContainer.transform;
         so.FindProperty("enterButton").objectReferenceValue = enterBtn;
         so.FindProperty("createButton").objectReferenceValue = createBtn;
+        so.FindProperty("deleteButton").objectReferenceValue = deleteBtn;
         so.FindProperty("selectedInfoName").objectReferenceValue = infoNameText;
         so.FindProperty("selectedInfoDetail").objectReferenceValue = infoDetailText;
+        so.FindProperty("confirmPanel").objectReferenceValue = confirmPanelGo;
+        so.FindProperty("confirmText").objectReferenceValue = confirmText;
+        so.FindProperty("confirmYesButton").objectReferenceValue = yesBtn;
+        so.FindProperty("confirmNoButton").objectReferenceValue = noBtn;
 
         so.ApplyModifiedPropertiesWithoutUndo();
 
@@ -1062,14 +1180,22 @@ public class ProjectSetup
 
         // === 2D Sprites (procedurally generated placeholders) ===
         var skySpr = TexToSprite(Make2DSkyTex(512, 256));
-        var farMountainSpr = TexToSprite(Make2DMountainTex(1024, 256, new Color(0.45f, 0.42f, 0.55f), 0.6f));
-        var midMountainSpr = TexToSprite(Make2DMountainTex(1024, 256, new Color(0.32f, 0.45f, 0.40f), 0.7f));
-        var nearHillSpr = TexToSprite(Make2DMountainTex(1024, 256, new Color(0.20f, 0.42f, 0.28f), 0.85f));
+        var farMountainSpr = TexToSprite(Make2DMountainTex(1024, 256, new Color(0.32f, 0.30f, 0.42f), 0.6f));   // distant slate
+        var midMountainSpr = TexToSprite(Make2DMountainTex(1024, 256, new Color(0.28f, 0.32f, 0.26f), 0.7f));   // deep forest
+        var nearHillSpr   = TexToSprite(Make2DMountainTex(1024, 256, new Color(0.32f, 0.38f, 0.22f), 0.85f));   // pasture green
         var groundSpr = TexToSprite(Make2DGroundTex(256, 64));
         var platformSpr = TexToSprite(Make2DPlatformTex(256, 32));
         var ladderSpr = TexToSprite(Make2DLadderTex(64, 256));
-        var playerSpr = TexToSprite(Make2DPlayerTex(64, 96));
-        var remotePlayerSpr = TexToSprite(Make2DPlayerTex(64, 96, true));
+        // Medieval peasant adventurer (forest green tunic + leather)
+        var localParts = MakePlayerParts(
+            shirt: new Color(0.30f, 0.48f, 0.22f),
+            hair:  new Color(0.32f, 0.22f, 0.12f),
+            pants: new Color(0.38f, 0.26f, 0.16f));
+        // Remote players: heraldic crimson tunic (distinct from local)
+        var remoteParts = MakePlayerParts(
+            shirt: new Color(0.62f, 0.16f, 0.16f),
+            hair:  new Color(0.32f, 0.22f, 0.12f),
+            pants: new Color(0.38f, 0.26f, 0.16f));
 
         // === Background root ===
         var bgRoot = new GameObject("Background");
@@ -1118,41 +1244,237 @@ public class ProjectSetup
         SpawnLadder("Ladder_3", worldRoot.transform, ladderSpr, center: new Vector2(-3, 2.3f), size: new Vector2(1f, 3.6f));
         SpawnLadder("Ladder_4", worldRoot.transform, ladderSpr, center: new Vector2(-17, 2.8f), size: new Vector2(1f, 5.4f));
 
-        // === Player prefab (placeholder chibi sprite) ===
+        // Portal to Forgotten Woods (right edge of map)
+        SpawnPortal("Portal_ForgottenWoods", worldRoot.transform,
+            position: new Vector2(28f, -2.0f), size: new Vector2(1.4f, 2.6f),
+            targetScene: "ForgottenWoodsScene");
+
+        // === Player prefab (multi-part body for animation) ===
         var playerPrefab2 = new GameObject("PlayerPrefab");
         playerPrefab2.transform.position = new Vector3(0, 0f, 0);
-        var pSprite = new GameObject("Sprite");
-        pSprite.transform.SetParent(playerPrefab2.transform, false);
-        var psr = pSprite.AddComponent<SpriteRenderer>();
-        psr.sprite = playerSpr;
-        psr.sortingOrder = 10;
+        BuildPlayerVisual(playerPrefab2, localParts, out var pBody, out var pLArm, out var pRArm, out var pLLeg, out var pRLeg);
         var pBox = playerPrefab2.AddComponent<BoxCollider2D>();
-        pBox.size = new Vector2(0.55f, 0.92f);
-        pBox.offset = new Vector2(0, 0);
+        pBox.size = new Vector2(0.40f, 0.84f);
+        pBox.offset = new Vector2(0, 0.02f);
         var pRb = playerPrefab2.AddComponent<Rigidbody2D>();
         pRb.gravityScale = 3f;
         pRb.constraints = RigidbodyConstraints2D.FreezeRotation;
         pRb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
         pRb.interpolation = RigidbodyInterpolation2D.Interpolate;
         var pCtrl = playerPrefab2.AddComponent<Astrion.Game.PlayerController2D>();
-        // groundCheck transform at feet
+        var pAnim = playerPrefab2.AddComponent<Astrion.Game.PlayerAnimator2D>();
         var groundCheckGo = new GameObject("GroundCheck");
         groundCheckGo.transform.SetParent(playerPrefab2.transform, false);
-        groundCheckGo.transform.localPosition = new Vector3(0, -0.48f, 0);
-        // Wire groundCheck and layer via serialized fields
+        groundCheckGo.transform.localPosition = new Vector3(0, -0.42f, 0);
         var pSo = new SerializedObject(pCtrl);
         pSo.FindProperty("groundCheck").objectReferenceValue = groundCheckGo.transform;
         pSo.FindProperty("groundMask").intValue = 1 << GROUND_LAYER;
         pSo.ApplyModifiedPropertiesWithoutUndo();
+        var pAnimSo = new SerializedObject(pAnim);
+        pAnimSo.FindProperty("body").objectReferenceValue = pBody;
+        pAnimSo.FindProperty("leftArm").objectReferenceValue = pLArm;
+        pAnimSo.FindProperty("rightArm").objectReferenceValue = pRArm;
+        pAnimSo.FindProperty("leftLeg").objectReferenceValue = pLLeg;
+        pAnimSo.FindProperty("rightLeg").objectReferenceValue = pRLeg;
+        pAnimSo.ApplyModifiedPropertiesWithoutUndo();
 
-        // === Remote player prefab ===
+        // === Remote player prefab (also multi-part, no controller/animator — pos synced from server) ===
         var remotePrefab = new GameObject("RemotePlayerPrefab");
-        remotePrefab.transform.position = new Vector3(100, 100, 0); // off-screen
-        var rSprite = new GameObject("Sprite");
-        rSprite.transform.SetParent(remotePrefab.transform, false);
-        var rsr = rSprite.AddComponent<SpriteRenderer>();
-        rsr.sprite = remotePlayerSpr;
-        rsr.sortingOrder = 10;
+        remotePrefab.transform.position = new Vector3(100, 100, 0);
+        BuildPlayerVisual(remotePrefab, remoteParts, out _, out _, out _, out _, out _);
+
+        // === NPC: Polaris (수도사 풍, opening story-giver) ===
+        var polarisParts = MakePlayerParts(
+            shirt: new Color(0.32f, 0.24f, 0.16f),  // friar brown robe
+            hair:  new Color(0.72f, 0.68f, 0.62f),  // graying
+            pants: new Color(0.30f, 0.22f, 0.14f)); // matching robe
+        var polaris = new GameObject("NPC_Polaris");
+        polaris.transform.position = new Vector3(4f, -2.5f, 0);
+        BuildPlayerVisual(polaris, polarisParts, out _, out _, out _, out _, out _);
+        var polarisCol = polaris.AddComponent<BoxCollider2D>();
+        polarisCol.size = new Vector2(2.4f, 2.2f);
+        polarisCol.offset = Vector2.zero;
+        polarisCol.isTrigger = true;
+        var npc = polaris.AddComponent<Astrion.Game.NPC2D>();
+        var npcSo = new SerializedObject(npc);
+        npcSo.FindProperty("npcName").stringValue = "폴라리스";
+
+        var stages = npcSo.FindProperty("questStages");
+        stages.arraySize = 2;
+
+        // Stage 1: 흩어진 별의 조각
+        SetQuestStage(stages.GetArrayElementAtIndex(0),
+            id: "star_fragments", title: "흩어진 별의 조각", target: 5,
+            intro: new[] {
+                "오, 드디어 깨어났구나... 별빛이 다시 흐르는 게 느껴진다.",
+                "여기는 '바람의 등대섬'. 천 년 전 대별(大星)이 추락하며 산산조각 난 세계의 한 조각이지.",
+                "그날 별의 파편을 받은 자들이 천체의 힘을 다루는 '별의 후예'가 되었다. 너도 그중 하나야.",
+                "오랜 세월이 흘러 그 힘은 잊혔지만... 별빛은 새로운 후예를 골랐지. 바로 너다.",
+                "이 섬 곳곳에 별의 조각이 흩어져 있다. 다섯 개를 모아 와다오 — 네 잠든 힘을 깨우는 첫 걸음이 될 게야.",
+                "위로, 더 위로 올라가 보거라. 행운을 빈다.",
+            },
+            reminder: new[] { "별의 조각은 아직 다 모이지 않았구나. 섬 곳곳, 높은 곳을 살펴보거라." },
+            completion: new[] {
+                "오... 가져왔구나. 별빛이 다시 흐르는 게 느껴진다.",
+                "이 조각들이 너의 잠든 힘을 일깨워줄 게다.",
+                "이제 너는 진정한 별의 후예다.",
+            });
+
+        // Stage 2: 별의 힘 깨우기
+        SetQuestStage(stages.GetArrayElementAtIndex(1),
+            id: "awaken_power", title: "별의 힘 깨우기", target: 3,
+            intro: new[] {
+                "조각들이 모이니 너의 손에 별빛이 머무는 게 보이는구나...",
+                "별의 후예가 가장 먼저 익히는 건 '별빛 투사체' — 멀리 있는 적을 향해 빛 한 조각을 던지는 것이다.",
+                "[Q] 키를 누르면 손에 모인 별빛이 앞으로 뻗어 나갈 게야.",
+                "이 섬에는 옛 기사단이 남긴 훈련용 표적 셋이 있다. 그 셋을 부숴 보거라 — 손에 익을 때까지.",
+            },
+            reminder: new[] { "아직 별빛이 너에게 익숙지 않은 모양이군. 표적 셋을 마저 부숴 보거라." },
+            completion: new[] {
+                "훌륭하다. 너의 별빛이 손에 익기 시작했구나.",
+                "이 힘으로 닥쳐올 위협을 막을 수 있을 것이야.",
+                "다음 단계는... 다른 하늘섬으로 가는 길을 여는 것이다. 곧 또 부탁할 일이 있을 게야.",
+            });
+
+        SetStringArray(npcSo, "idleLines", new[] { "별빛이 너의 길을 비추기를." });
+        npcSo.ApplyModifiedPropertiesWithoutUndo();
+
+        // === StarBolt prefab template (off-screen, used by PlayerController2D.Instantiate) ===
+        var boltTex = MakeStarBoltTex(32);
+        var boltSpr = TexToSprite(boltTex);
+        var starBoltPrefab = new GameObject("StarBoltPrefab");
+        starBoltPrefab.transform.position = new Vector3(200f, 200f, 0f); // far off-screen
+        starBoltPrefab.SetActive(false); // dormant template
+        var boltVisual = new GameObject("Visual");
+        boltVisual.transform.SetParent(starBoltPrefab.transform, false);
+        var boltSR = boltVisual.AddComponent<SpriteRenderer>();
+        boltSR.sprite = boltSpr;
+        boltSR.sortingOrder = 12;
+        var boltCol = starBoltPrefab.AddComponent<CircleCollider2D>();
+        boltCol.radius = 0.18f;
+        boltCol.isTrigger = true;
+        var boltRb = starBoltPrefab.AddComponent<Rigidbody2D>();
+        boltRb.gravityScale = 0f;
+        boltRb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        starBoltPrefab.AddComponent<Astrion.Game.StarBolt2D>();
+
+        // Wire star bolt to player controller
+        var pCtrlSo = new SerializedObject(pCtrl);
+        pCtrlSo.FindProperty("starBoltPrefab").objectReferenceValue = starBoltPrefab;
+        pCtrlSo.ApplyModifiedPropertiesWithoutUndo();
+
+        // === Target dummies (3 around the map for star bolt training) ===
+        var dummyTex = MakeTargetDummyTex(48, 96);
+        var dummySpr = TexToSprite(dummyTex);
+        Vector2[] dummyPositions = {
+            new Vector2(-22f, -2.7f), // far left ground
+            new Vector2(8f, 2.7f),    // Platform_2
+            new Vector2(-18f, 6.2f),  // Platform_4 (top)
+        };
+        for (int i = 0; i < dummyPositions.Length; i++)
+        {
+            var dummy = new GameObject($"TargetDummy_{i + 1}");
+            dummy.transform.position = new Vector3(dummyPositions[i].x, dummyPositions[i].y, 0);
+            var dVisual = new GameObject("Visual");
+            dVisual.transform.SetParent(dummy.transform, false);
+            var dsr = dVisual.AddComponent<SpriteRenderer>();
+            dsr.sprite = dummySpr;
+            dsr.sortingOrder = 7;
+            var dCol = dummy.AddComponent<BoxCollider2D>();
+            dCol.size = new Vector2(0.48f, 0.96f);
+            dCol.isTrigger = true;
+            var td = dummy.AddComponent<Astrion.Game.TargetDummy2D>();
+            var tdSo = new SerializedObject(td);
+            tdSo.FindProperty("dummyId").stringValue = $"dummy_{i + 1}";
+            tdSo.FindProperty("questId").stringValue = "awaken_power";
+            tdSo.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        // === Quest system ===
+        var questSysGo = new GameObject("QuestSystem");
+        questSysGo.AddComponent<Astrion.Game.QuestSystem>();
+
+        // === Inventory system ===
+        var invSysGo = new GameObject("InventorySystem");
+        invSysGo.AddComponent<Astrion.Game.InventorySystem>();
+
+        // === World item pickups (scattered around the map) ===
+        var pickupSpawns = new (string pickupId, string itemId, int qty, Vector2 pos, Color color, string letter)[] {
+            ("pickup_bread1",    "bread",    1, new Vector2(-14f, -2.6f), new Color(0.78f, 0.55f, 0.28f), "빵"),
+            ("pickup_bread2",    "bread",    1, new Vector2(13f, -2.6f),  new Color(0.78f, 0.55f, 0.28f), "빵"),
+            ("pickup_elixir1",   "elixir",   1, new Vector2(-4f, 4.7f),   new Color(0.30f, 0.55f, 0.92f), "약"),
+            ("pickup_stardust1", "stardust", 3, new Vector2(-12f, 1.2f),  new Color(0.95f, 0.78f, 0.30f), "★"),
+            ("pickup_stardust2", "stardust", 5, new Vector2(15f, 5.7f),   new Color(0.95f, 0.78f, 0.30f), "★"),
+            ("pickup_dagger1",   "dagger",   1, new Vector2(-22f, 6.2f),  new Color(0.55f, 0.45f, 0.35f), "검"),
+        };
+        var itemBgTex = MakeRoundRectTex(48, 48, 8, Color.white);
+        var itemBgSpr = TexToSprite(itemBgTex);
+        foreach (var p in pickupSpawns)
+        {
+            var go = new GameObject($"Pickup_{p.pickupId}");
+            go.transform.position = new Vector3(p.pos.x, p.pos.y, 0);
+            var col = go.AddComponent<CircleCollider2D>();
+            col.radius = 0.30f;
+            col.isTrigger = true;
+            var pk = go.AddComponent<Astrion.Game.WorldItemPickup2D>();
+            var pkSo = new SerializedObject(pk);
+            pkSo.FindProperty("pickupId").stringValue = p.pickupId;
+            pkSo.FindProperty("itemId").stringValue = p.itemId;
+            pkSo.FindProperty("quantity").intValue = p.qty;
+            pkSo.ApplyModifiedPropertiesWithoutUndo();
+
+            // Visual: colored rounded square + letter
+            var bg = new GameObject("Bg");
+            bg.transform.SetParent(go.transform, false);
+            bg.transform.localScale = new Vector3(0.5f, 0.5f, 1f);
+            var bsr = bg.AddComponent<SpriteRenderer>();
+            bsr.sprite = itemBgSpr;
+            bsr.color = p.color;
+            bsr.sortingOrder = 8;
+
+            // World-space text via TextMesh (legacy, simple)
+            var letterGo = new GameObject("Letter");
+            letterGo.transform.SetParent(go.transform, false);
+            letterGo.transform.localScale = new Vector3(0.04f, 0.04f, 1f);
+            var tm = letterGo.AddComponent<TextMesh>();
+            tm.text = p.letter;
+            tm.fontSize = 36;
+            tm.fontStyle = FontStyle.Bold;
+            tm.anchor = TextAnchor.MiddleCenter;
+            tm.alignment = TextAlignment.Center;
+            tm.color = new Color(0.10f, 0.07f, 0.04f);
+            var tmr = letterGo.GetComponent<MeshRenderer>();
+            tmr.sortingOrder = 9;
+        }
+
+        // === Star fragments (5 collectibles on platforms) ===
+        var fragSpr = TexToSprite(MakeStarFragmentTex(32));
+        Vector2[] fragPositions = {
+            new Vector2(-12, 1.4f),   // Platform_1
+            new Vector2(8, 2.9f),     // Platform_2
+            new Vector2(-4, 4.9f),    // Platform_3
+            new Vector2(-18, 6.4f),   // Platform_4
+            new Vector2(15, 5.9f),    // Platform_5
+        };
+        for (int i = 0; i < fragPositions.Length; i++)
+        {
+            var frag = new GameObject($"StarFragment_{i + 1}");
+            frag.transform.position = new Vector3(fragPositions[i].x, fragPositions[i].y, 0);
+            var fc = frag.AddComponent<CircleCollider2D>();
+            fc.radius = 0.35f;
+            fc.isTrigger = true;
+            var sf = frag.AddComponent<Astrion.Game.StarFragment2D>();
+            var sfSo = new SerializedObject(sf);
+            sfSo.FindProperty("fragmentId").stringValue = $"frag_{i + 1}";
+            sfSo.FindProperty("questId").stringValue = "star_fragments";
+            sfSo.ApplyModifiedPropertiesWithoutUndo();
+            // Visual child (rotates separately from physics body)
+            var fragVis = new GameObject("Visual");
+            fragVis.transform.SetParent(frag.transform, false);
+            var fsr = fragVis.AddComponent<SpriteRenderer>();
+            fsr.sprite = fragSpr;
+            fsr.sortingOrder = 8;
+        }
 
         // === Orthographic Camera ===
         var mainCam = Camera.main;
@@ -1163,7 +1485,7 @@ public class ProjectSetup
             mainCam.transform.position = new Vector3(0, 0, -10);
             mainCam.transform.rotation = Quaternion.identity;
             mainCam.clearFlags = CameraClearFlags.SolidColor;
-            mainCam.backgroundColor = new Color(0.55f, 0.78f, 0.92f); // sky blue fallback
+            mainCam.backgroundColor = new Color(0.62f, 0.58f, 0.55f); // muted medieval haze fallback
             mainCam.farClipPlane = 100f;
             mainCam.gameObject.AddComponent<Astrion.Game.Camera2D>();
         }
@@ -1175,6 +1497,7 @@ public class ProjectSetup
         // the scene-time PlayerPrefab object is the local player.
         var gmSo = new SerializedObject(gm);
         gmSo.FindProperty("remotePlayerPrefab").objectReferenceValue = remotePrefab;
+        gmSo.FindProperty("starBoltPrefab").objectReferenceValue = starBoltPrefab;
         gmSo.ApplyModifiedPropertiesWithoutUndo();
 
         // ========== GAME HUD ==========
@@ -1182,6 +1505,148 @@ public class ProjectSetup
 
         EditorSceneManager.SaveScene(scene, "Assets/Scenes/MainScene.unity");
         Debug.Log("[Astrion] MainScene created and saved (2D).");
+    }
+
+    private static void CreateForgottenWoodsScene()
+    {
+        var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
+
+        var lights = Object.FindObjectsOfType<Light>();
+        foreach (var l in lights) if (l.type == LightType.Directional) Object.DestroyImmediate(l.gameObject);
+
+        const int GROUND_LAYER = 8;
+
+        var skySpr = TexToSprite(MakeForestSkyTex(512, 256));
+        var farMountainSpr = TexToSprite(Make2DMountainTex(1024, 256, new Color(0.22f, 0.20f, 0.30f), 0.6f));
+        var midMountainSpr = TexToSprite(Make2DMountainTex(1024, 256, new Color(0.18f, 0.25f, 0.20f), 0.7f));
+        var nearHillSpr   = TexToSprite(Make2DMountainTex(1024, 256, new Color(0.18f, 0.28f, 0.18f), 0.85f));
+        var groundSpr = TexToSprite(Make2DGroundTex(256, 64));
+        var platformSpr = TexToSprite(Make2DPlatformTex(256, 32));
+        var ladderSpr = TexToSprite(Make2DLadderTex(64, 256));
+        var localParts = MakePlayerParts(
+            shirt: new Color(0.30f, 0.48f, 0.22f),
+            hair:  new Color(0.32f, 0.22f, 0.12f),
+            pants: new Color(0.38f, 0.26f, 0.16f));
+        var remoteParts = MakePlayerParts(
+            shirt: new Color(0.62f, 0.16f, 0.16f),
+            hair:  new Color(0.32f, 0.22f, 0.12f),
+            pants: new Color(0.38f, 0.26f, 0.16f));
+        var monsterSpr = TexToSprite(MakeMonsterTex(48, 36));
+
+        // Background
+        var bgRoot = new GameObject("Background");
+        SpawnSprite("Sky", bgRoot.transform, skySpr, new Vector3(0, 0, 50), new Vector3(40, 25, 1), -10);
+        var farLayer = SpawnSprite("FarMountains", bgRoot.transform, farMountainSpr, new Vector3(0, -1.5f, 40), new Vector3(20, 5, 1), -8);
+        AddParallax(farLayer, new Vector2(0.1f, 0.05f));
+        var midLayer = SpawnSprite("MidMountains", bgRoot.transform, midMountainSpr, new Vector3(0, -2.2f, 30), new Vector3(20, 4, 1), -6);
+        AddParallax(midLayer, new Vector2(0.3f, 0.1f));
+        var nearLayer = SpawnSprite("NearHills", bgRoot.transform, nearHillSpr, new Vector3(0, -2.8f, 20), new Vector3(20, 3, 1), -4);
+        AddParallax(nearLayer, new Vector2(0.55f, 0.15f));
+
+        // World
+        var worldRoot = new GameObject("World");
+        SpawnGround("Ground_Main", worldRoot.transform, groundSpr, new Vector2(0, -3.5f), new Vector2(50, 1.5f), GROUND_LAYER, false);
+        SpawnGround("Platform_1", worldRoot.transform, platformSpr, new Vector2(-6, 1f), new Vector2(8, 0.5f), GROUND_LAYER, true);
+        SpawnGround("Platform_2", worldRoot.transform, platformSpr, new Vector2(10, 2.5f), new Vector2(8, 0.5f), GROUND_LAYER, true);
+        SpawnGround("Platform_3", worldRoot.transform, platformSpr, new Vector2(0, 5f), new Vector2(10, 0.5f), GROUND_LAYER, true);
+        SpawnLadder("Ladder_1", worldRoot.transform, ladderSpr, new Vector2(-4, -0.5f), new Vector2(1f, 3.6f));
+        SpawnLadder("Ladder_2", worldRoot.transform, ladderSpr, new Vector2(8, 0.8f), new Vector2(1f, 3.4f));
+
+        // Return portal at left edge
+        SpawnPortal("Portal_BackToMain", worldRoot.transform,
+            position: new Vector2(-22f, -2.0f), size: new Vector2(1.4f, 2.6f),
+            targetScene: "MainScene");
+
+        // Player prefab spawn at left
+        var playerPrefab2 = new GameObject("PlayerPrefab");
+        playerPrefab2.transform.position = new Vector3(-18f, 0f, 0);
+        BuildPlayerVisual(playerPrefab2, localParts, out var pBody, out var pLArm, out var pRArm, out var pLLeg, out var pRLeg);
+        var pBox = playerPrefab2.AddComponent<BoxCollider2D>();
+        pBox.size = new Vector2(0.40f, 0.84f);
+        pBox.offset = new Vector2(0, 0.02f);
+        var pRb = playerPrefab2.AddComponent<Rigidbody2D>();
+        pRb.gravityScale = 3f;
+        pRb.constraints = RigidbodyConstraints2D.FreezeRotation;
+        pRb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        pRb.interpolation = RigidbodyInterpolation2D.Interpolate;
+        var pCtrl = playerPrefab2.AddComponent<Astrion.Game.PlayerController2D>();
+        var pAnim = playerPrefab2.AddComponent<Astrion.Game.PlayerAnimator2D>();
+        var groundCheckGo = new GameObject("GroundCheck");
+        groundCheckGo.transform.SetParent(playerPrefab2.transform, false);
+        groundCheckGo.transform.localPosition = new Vector3(0, -0.42f, 0);
+        var pSo = new SerializedObject(pCtrl);
+        pSo.FindProperty("groundCheck").objectReferenceValue = groundCheckGo.transform;
+        pSo.FindProperty("groundMask").intValue = 1 << GROUND_LAYER;
+        pSo.ApplyModifiedPropertiesWithoutUndo();
+        var pAnimSo = new SerializedObject(pAnim);
+        pAnimSo.FindProperty("body").objectReferenceValue = pBody;
+        pAnimSo.FindProperty("leftArm").objectReferenceValue = pLArm;
+        pAnimSo.FindProperty("rightArm").objectReferenceValue = pRArm;
+        pAnimSo.FindProperty("leftLeg").objectReferenceValue = pLLeg;
+        pAnimSo.FindProperty("rightLeg").objectReferenceValue = pRLeg;
+        pAnimSo.ApplyModifiedPropertiesWithoutUndo();
+
+        // Remote player prefab
+        var remotePrefab = new GameObject("RemotePlayerPrefab");
+        remotePrefab.transform.position = new Vector3(100, 100, 0);
+        BuildPlayerVisual(remotePrefab, remoteParts, out _, out _, out _, out _, out _);
+
+        // StarBolt prefab template
+        var boltSpr = TexToSprite(MakeStarBoltTex(32));
+        var starBoltPrefab = new GameObject("StarBoltPrefab");
+        starBoltPrefab.transform.position = new Vector3(200f, 200f, 0f);
+        starBoltPrefab.SetActive(false);
+        var boltVisual = new GameObject("Visual");
+        boltVisual.transform.SetParent(starBoltPrefab.transform, false);
+        var boltSR = boltVisual.AddComponent<SpriteRenderer>();
+        boltSR.sprite = boltSpr;
+        boltSR.sortingOrder = 12;
+        var boltCol = starBoltPrefab.AddComponent<CircleCollider2D>();
+        boltCol.radius = 0.18f;
+        boltCol.isTrigger = true;
+        var boltRb = starBoltPrefab.AddComponent<Rigidbody2D>();
+        boltRb.gravityScale = 0f;
+        boltRb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        starBoltPrefab.AddComponent<Astrion.Game.StarBolt2D>();
+        var pCtrlSo = new SerializedObject(pCtrl);
+        pCtrlSo.FindProperty("starBoltPrefab").objectReferenceValue = starBoltPrefab;
+        pCtrlSo.ApplyModifiedPropertiesWithoutUndo();
+
+        // Camera
+        var mainCam = Camera.main;
+        if (mainCam != null)
+        {
+            mainCam.orthographic = true;
+            mainCam.orthographicSize = 6.5f;
+            mainCam.transform.position = new Vector3(-18, 0, -10);
+            mainCam.transform.rotation = Quaternion.identity;
+            mainCam.clearFlags = CameraClearFlags.SolidColor;
+            mainCam.backgroundColor = new Color(0.22f, 0.20f, 0.30f);
+            mainCam.farClipPlane = 100f;
+            mainCam.gameObject.AddComponent<Astrion.Game.Camera2D>();
+        }
+
+        // GameManager
+        var gameManagerGo = new GameObject("GameManager");
+        var gm = gameManagerGo.AddComponent<Astrion.Game.GameManager>();
+        var gmSo = new SerializedObject(gm);
+        gmSo.FindProperty("remotePlayerPrefab").objectReferenceValue = remotePrefab;
+        gmSo.FindProperty("starBoltPrefab").objectReferenceValue = starBoltPrefab;
+        gmSo.ApplyModifiedPropertiesWithoutUndo();
+
+        // QuestSystem + InventorySystem (DDOL singletons — dedupe if pre-existing)
+        var questSysGo = new GameObject("QuestSystem");
+        questSysGo.AddComponent<Astrion.Game.QuestSystem>();
+        var invSysGo = new GameObject("InventorySystem");
+        invSysGo.AddComponent<Astrion.Game.InventorySystem>();
+
+        // Monsters: now server-authoritative — spawned by MonsterNetworkManager via MONSTER_SPAWN packets.
+
+        // HUD
+        CreateGameHUD(playerPrefab2, 0f);
+
+        EditorSceneManager.SaveScene(scene, "Assets/Scenes/ForgottenWoodsScene.unity");
+        Debug.Log("[Astrion] ForgottenWoodsScene created and saved (2D).");
     }
 
     // ---- 2D helper spawners ----
@@ -1223,6 +1688,29 @@ public class ProjectSetup
         if (oneWay) go.AddComponent<Astrion.Game.OneWayPlatform2D>();
     }
 
+    private static GameObject SpawnPortal(string name, Transform parent, Vector2 position, Vector2 size, string targetScene)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        go.transform.position = new Vector3(position.x, position.y, 0);
+        // Visual
+        var visual = new GameObject("Visual");
+        visual.transform.SetParent(go.transform, false);
+        var sr = visual.AddComponent<SpriteRenderer>();
+        sr.sprite = TexToSprite(MakePortalTex(64, 128));
+        sr.sortingOrder = 7;
+        visual.transform.localScale = new Vector3(size.x, size.y / 1.28f, 1f);
+        // Collider
+        var col = go.AddComponent<BoxCollider2D>();
+        col.size = size;
+        col.isTrigger = true;
+        var portal = go.AddComponent<Astrion.Game.Portal2D>();
+        var so = new SerializedObject(portal);
+        so.FindProperty("targetScene").stringValue = targetScene;
+        so.ApplyModifiedPropertiesWithoutUndo();
+        return go;
+    }
+
     private static void SpawnLadder(string name, Transform parent, Sprite sprite, Vector2 center, Vector2 size)
     {
         var go = new GameObject(name);
@@ -1243,8 +1731,9 @@ public class ProjectSetup
     private static Texture2D Make2DSkyTex(int w, int h)
     {
         var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
-        Color top = new Color(0.40f, 0.65f, 0.90f);
-        Color bot = new Color(0.78f, 0.88f, 0.95f);
+        // Medieval morning haze: muted blue sky → warm horizon
+        Color top = new Color(0.55f, 0.60f, 0.70f);
+        Color bot = new Color(0.92f, 0.80f, 0.62f);
         for (int y = 0; y < h; y++)
             for (int x = 0; x < w; x++)
             {
@@ -1282,16 +1771,19 @@ public class ProjectSetup
     private static Texture2D Make2DGroundTex(int w, int h)
     {
         var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
-        int grassTop = h - 10;
+        int grassTop = h - 8;
         for (int y = 0; y < h; y++)
             for (int x = 0; x < w; x++)
             {
                 float n = Mathf.PerlinNoise(x * 0.08f, y * 0.08f);
+                float n2 = Mathf.PerlinNoise(x * 0.25f + 50, y * 0.25f + 50) * 0.3f;
                 Color c;
                 if (y >= grassTop)
-                    c = Color.Lerp(new Color(0.22f, 0.55f, 0.18f), new Color(0.35f, 0.70f, 0.25f), n);
+                    // Muted moss/grass over old earth
+                    c = Color.Lerp(new Color(0.28f, 0.38f, 0.20f), new Color(0.42f, 0.52f, 0.25f), n);
                 else
-                    c = Color.Lerp(new Color(0.35f, 0.25f, 0.15f), new Color(0.50f, 0.35f, 0.20f), n);
+                    // Rich packed dirt (peat brown)
+                    c = Color.Lerp(new Color(0.32f, 0.22f, 0.12f), new Color(0.48f, 0.34f, 0.20f), n + n2);
                 tex.SetPixel(x, y, c);
             }
         tex.Apply(); return tex;
@@ -1300,15 +1792,21 @@ public class ProjectSetup
     private static Texture2D Make2DPlatformTex(int w, int h)
     {
         var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
-        // wood plank top + dark underside
+        // Medieval oak plank: light top edge → mid oak grain → shadowed underside
         for (int y = 0; y < h; y++)
             for (int x = 0; x < w; x++)
             {
-                float n = Mathf.PerlinNoise(x * 0.05f, y * 0.3f);
+                float grain = Mathf.PerlinNoise(x * 0.04f, y * 0.55f); // horizontal wood grain
                 Color baseC;
-                if (y >= h - 6) baseC = Color.Lerp(new Color(0.30f, 0.65f, 0.22f), new Color(0.42f, 0.75f, 0.28f), n);
-                else if (y >= h - 14) baseC = Color.Lerp(new Color(0.52f, 0.35f, 0.20f), new Color(0.68f, 0.48f, 0.25f), n);
-                else baseC = Color.Lerp(new Color(0.32f, 0.22f, 0.12f), new Color(0.45f, 0.30f, 0.18f), n);
+                if (y >= h - 4)
+                    baseC = Color.Lerp(new Color(0.68f, 0.52f, 0.30f), new Color(0.80f, 0.62f, 0.36f), grain);  // top highlight
+                else if (y >= h - 14)
+                    baseC = Color.Lerp(new Color(0.48f, 0.32f, 0.18f), new Color(0.62f, 0.42f, 0.22f), grain);  // oak body
+                else
+                    baseC = Color.Lerp(new Color(0.28f, 0.18f, 0.10f), new Color(0.38f, 0.25f, 0.14f), grain);  // shadowed underside
+                // Iron banding on left/right edges
+                if ((x < 4 || x >= w - 4) && y < h - 4)
+                    baseC = Color.Lerp(baseC, new Color(0.24f, 0.22f, 0.20f), 0.65f);
                 tex.SetPixel(x, y, baseC);
             }
         tex.Apply(); return tex;
@@ -1332,57 +1830,380 @@ public class ProjectSetup
         tex.Apply(); return tex;
     }
 
-    private static Texture2D Make2DPlayerTex(int w, int h, bool remote = false)
+    // === Multi-part body sprite helpers ===
+    private struct PlayerParts
     {
-        var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
-        Color shirt = remote ? new Color(0.30f, 0.45f, 0.85f) : new Color(0.95f, 0.45f, 0.20f);
-        Color pants = new Color(0.20f, 0.22f, 0.30f);
+        public Sprite head, body, arm, leg;
+    }
+
+    private static PlayerParts MakePlayerParts(Color shirt)
+        => MakePlayerParts(shirt, new Color(0.20f, 0.15f, 0.10f), new Color(0.20f, 0.22f, 0.30f));
+
+    private static PlayerParts MakePlayerParts(Color shirt, Color hair, Color pants)
+    {
         Color skin = new Color(1f, 0.85f, 0.72f);
-        Color hair = new Color(0.20f, 0.15f, 0.10f);
         Color outline = new Color(0.05f, 0.04f, 0.06f);
 
+        return new PlayerParts
+        {
+            head = TexToSpriteWithPivot(MakeHeadTex(28, 28, skin, hair, outline), new Vector2(0.5f, 0.5f)),
+            body = TexToSpriteWithPivot(MakeRectOutlineTex(26, 30, shirt, outline), new Vector2(0.5f, 0.5f)),
+            arm  = TexToSpriteWithPivot(MakeRectOutlineTex(8, 26, shirt, outline), new Vector2(0.5f, 1f)),
+            leg  = TexToSpriteWithPivot(MakeRectOutlineTex(10, 28, pants, outline), new Vector2(0.5f, 1f)),
+        };
+    }
+
+    private static Texture2D MakeRectOutlineTex(int w, int h, Color fill, Color outline)
+    {
+        var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
         for (int y = 0; y < h; y++)
             for (int x = 0; x < w; x++)
             {
-                // Center column bounds (chibi body)
-                int cx = w / 2;
-                int dx = x - cx;
-                // Head (top 1/3): rounded
-                int headTop = h - 4;
-                int headBot = h * 2 / 3;
-                int torsoTop = headBot;
-                int torsoBot = h / 3;
-                int legBot = 2;
+                bool isEdge = x == 0 || x == w - 1 || y == 0 || y == h - 1;
+                tex.SetPixel(x, y, isEdge ? outline : fill);
+            }
+        tex.Apply(); return tex;
+    }
 
-                Color c = new Color(0, 0, 0, 0);
-                if (y >= headBot && y <= headTop)
+    private static Texture2D MakeHeadTex(int w, int h, Color skin, Color hair, Color outline)
+    {
+        var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        int hairLine = h * 5 / 8; // hair on top 3/8
+        int eyeY = h * 7 / 16;
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                bool isEdge = x == 0 || x == w - 1 || y == 0 || y == h - 1;
+                Color c;
+                if (isEdge) c = outline;
+                else if (y >= hairLine) c = hair;
+                else c = skin;
+                // Simple dot eyes
+                if (y == eyeY && (x == w / 2 - 4 || x == w / 2 + 3)) c = outline;
+                tex.SetPixel(x, y, c);
+            }
+        tex.Apply(); return tex;
+    }
+
+    private static Sprite TexToSpriteWithPivot(Texture2D tex, Vector2 pivot)
+    {
+        return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), pivot, 100, 0, SpriteMeshType.FullRect);
+    }
+
+    private static Texture2D MakeStarFragmentTex(int size)
+    {
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        Color goldBright = new Color(1f, 0.95f, 0.60f);
+        Color gold = new Color(1f, 0.85f, 0.25f);
+        Color outline = new Color(0.50f, 0.32f, 0.05f);
+        Color clear = new Color(0, 0, 0, 0);
+        float cx = size * 0.5f, cy = size * 0.5f;
+        for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float dx = (x - cx) / cx;
+                float dy = (y - cy) / cy;
+                // 4-point sparkle: |dx|+|dy| diamond, with pinched corners
+                float diamond = Mathf.Abs(dx) + Mathf.Abs(dy);
+                Color c;
+                if (diamond < 0.35f) c = goldBright;
+                else if (diamond < 0.78f) c = gold;
+                else if (diamond < 0.92f) c = outline;
+                else c = clear;
+                tex.SetPixel(x, y, c);
+            }
+        tex.Apply(); return tex;
+    }
+
+    private static void SetStringArray(SerializedObject so, string propName, string[] values)
+    {
+        var prop = so.FindProperty(propName);
+        prop.arraySize = values.Length;
+        for (int i = 0; i < values.Length; i++)
+            prop.GetArrayElementAtIndex(i).stringValue = values[i];
+    }
+
+    private static void SetStringArrayProp(SerializedProperty prop, string[] values)
+    {
+        prop.arraySize = values.Length;
+        for (int i = 0; i < values.Length; i++)
+            prop.GetArrayElementAtIndex(i).stringValue = values[i];
+    }
+
+    private static void SetQuestStage(SerializedProperty stage, string id, string title, int target,
+        string[] intro, string[] reminder, string[] completion)
+    {
+        stage.FindPropertyRelative("questId").stringValue = id;
+        stage.FindPropertyRelative("questTitle").stringValue = title;
+        stage.FindPropertyRelative("questTarget").intValue = target;
+        SetStringArrayProp(stage.FindPropertyRelative("introLines"), intro);
+        SetStringArrayProp(stage.FindPropertyRelative("reminderLines"), reminder);
+        SetStringArrayProp(stage.FindPropertyRelative("completionLines"), completion);
+    }
+
+    private static Texture2D MakeStarBoltTex(int size)
+    {
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        Color core = new Color(1f, 0.98f, 0.75f);
+        Color halo = new Color(1f, 0.82f, 0.30f);
+        Color outline = new Color(0.55f, 0.35f, 0.05f);
+        float cx = size * 0.5f, cy = size * 0.5f;
+        for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float dx = (x - cx) / cx;
+                float dy = (y - cy) / cy;
+                float r = Mathf.Sqrt(dx * dx + dy * dy);
+                Color c;
+                if (r < 0.35f) c = core;
+                else if (r < 0.78f) c = halo;
+                else if (r < 0.92f) c = outline;
+                else c = new Color(0, 0, 0, 0);
+                tex.SetPixel(x, y, c);
+            }
+        tex.Apply(); return tex;
+    }
+
+    private static Texture2D MakeWoodGradTex(int w, int h)
+    {
+        var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        Color top = new Color(0.353f, 0.251f, 0.157f, 1f); // #5a4028
+        Color bot = new Color(0.102f, 0.063f, 0.031f, 1f); // #1a1008
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                float t = 1f - (float)y / (h - 1);
+                Color c = Color.Lerp(top, bot, t);
+                float n = Mathf.PerlinNoise(x * 0.05f, y * 0.3f) * 0.06f - 0.03f;
+                c = new Color(Mathf.Clamp01(c.r + n), Mathf.Clamp01(c.g + n), Mathf.Clamp01(c.b + n), 1f);
+                tex.SetPixel(x, y, c);
+            }
+        tex.Apply(); return tex;
+    }
+
+    private static Texture2D MakeParchmentTex(int w, int h)
+    {
+        var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        Color top = new Color(0.910f, 0.831f, 0.627f, 1f); // #e8d4a0
+        Color bot = new Color(0.784f, 0.659f, 0.408f, 1f); // #c8a868
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                float t = 1f - (float)y / (h - 1);
+                Color c = Color.Lerp(top, bot, t);
+                float n = Mathf.PerlinNoise(x * 0.08f, y * 0.08f) * 0.05f - 0.025f;
+                c = new Color(Mathf.Clamp01(c.r + n), Mathf.Clamp01(c.g + n), Mathf.Clamp01(c.b + n), 1f);
+                tex.SetPixel(x, y, c);
+            }
+        tex.Apply(); return tex;
+    }
+
+    private static Texture2D MakePortalTex(int w, int h)
+    {
+        var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        Color core = new Color(0.85f, 0.65f, 1f);
+        Color mid = new Color(0.55f, 0.30f, 0.85f);
+        Color edge = new Color(0.20f, 0.10f, 0.40f);
+        Color clear = new Color(0, 0, 0, 0);
+        float cx = w * 0.5f;
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                float dx = Mathf.Abs(x - cx) / (w * 0.5f);
+                float swirl = Mathf.Sin(y * 0.25f + dx * 4f) * 0.12f;
+                float fade = 1f - Mathf.Pow(dx, 3f);
+                if (fade <= 0) { tex.SetPixel(x, y, clear); continue; }
+                Color c = dx < 0.35f ? Color.Lerp(core, mid, dx / 0.35f + swirl)
+                                      : Color.Lerp(mid, edge, (dx - 0.35f) / 0.65f);
+                tex.SetPixel(x, y, new Color(c.r, c.g, c.b, fade));
+            }
+        tex.Apply(); return tex;
+    }
+
+    private static Texture2D MakeForestSkyTex(int w, int h)
+    {
+        var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        Color top = new Color(0.18f, 0.16f, 0.28f);  // deep dusk
+        Color bot = new Color(0.42f, 0.35f, 0.30f);  // warm horizon
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                float t = (float)y / (h - 1);
+                tex.SetPixel(x, y, Color.Lerp(bot, top, t));
+            }
+        tex.Apply(); return tex;
+    }
+
+    private static Texture2D MakeMonsterTex(int w, int h)
+    {
+        var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        Color body = new Color(0.30f, 0.62f, 0.38f);     // mossy green
+        Color bodyDark = new Color(0.18f, 0.42f, 0.25f);
+        Color outline = new Color(0.05f, 0.10f, 0.06f);
+        Color eyeWhite = new Color(0.92f, 0.88f, 0.78f);
+        Color eyeBlack = new Color(0.05f, 0.04f, 0.02f);
+        Color clear = new Color(0, 0, 0, 0);
+        float cx = w * 0.5f;
+        float cy = h * 0.45f;
+        float rx = w * 0.46f;
+        float ry = h * 0.48f;
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                Color c = clear;
+                float dx = (x - cx) / rx;
+                float dy = (y - cy) / ry;
+                float d = dx * dx + dy * dy;
+                if (d <= 1.0f && y >= h * 0.15f)
                 {
-                    int hr = (int)((1 - Mathf.Abs((y - (headTop + headBot) * 0.5f)) / ((headTop - headBot) * 0.5f)) * 14);
-                    if (Mathf.Abs(dx) <= hr) c = skin;
-                    if (Mathf.Abs(dx) <= hr && y > headBot + (headTop - headBot) * 0.7f) c = hair;
+                    float shade = 1f - dy * 0.6f - Mathf.Abs(dx) * 0.2f;
+                    c = Color.Lerp(bodyDark, body, Mathf.Clamp01(shade));
                 }
-                else if (y >= torsoBot && y < torsoTop)
+                // Eyes (two black dots with white)
+                int eyeY = (int)(h * 0.55f);
+                int eyeL = (int)(w * 0.32f), eyeR = (int)(w * 0.62f);
+                if ((Mathf.Abs(x - eyeL) < 4 && Mathf.Abs(y - eyeY) < 3) ||
+                    (Mathf.Abs(x - eyeR) < 4 && Mathf.Abs(y - eyeY) < 3))
+                    c = eyeWhite;
+                if ((Mathf.Abs(x - eyeL) < 2 && Mathf.Abs(y - eyeY) < 2) ||
+                    (Mathf.Abs(x - eyeR) < 2 && Mathf.Abs(y - eyeY) < 2))
+                    c = eyeBlack;
+                tex.SetPixel(x, y, c);
+            }
+        // Outline pass
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                if (tex.GetPixel(x, y).a > 0)
                 {
-                    if (Mathf.Abs(dx) <= 14) c = shirt;
+                    bool edge = false;
+                    if (x > 0 && tex.GetPixel(x - 1, y).a == 0) edge = true;
+                    if (y > 0 && tex.GetPixel(x, y - 1).a == 0) edge = true;
+                    if (edge) tex.SetPixel(x, y, outline);
                 }
-                else if (y >= legBot && y < torsoBot)
+            }
+        tex.Apply(); return tex;
+    }
+
+    private static Texture2D MakeTargetDummyTex(int w, int h)
+    {
+        var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        Color wood = new Color(0.55f, 0.38f, 0.20f);
+        Color woodDark = new Color(0.38f, 0.25f, 0.12f);
+        Color iron = new Color(0.30f, 0.27f, 0.24f);
+        Color straw = new Color(0.85f, 0.72f, 0.32f);
+        Color outline = new Color(0.10f, 0.07f, 0.04f);
+        Color clear = new Color(0, 0, 0, 0);
+        int strawTop = (int)(h * 0.95f);
+        int strawBot = (int)(h * 0.55f);
+        int postW = w / 3;
+        int postX0 = (w - postW) / 2;
+        int postX1 = postX0 + postW;
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                Color c = clear;
+                if (y < strawBot)
                 {
-                    bool leftLeg = dx >= -12 && dx <= -2;
-                    bool rightLeg = dx >= 2 && dx <= 12;
-                    if (leftLeg || rightLeg) c = pants;
+                    // Wooden post bottom
+                    if (x >= postX0 && x < postX1)
+                    {
+                        float grain = Mathf.PerlinNoise(x * 0.4f, y * 0.05f);
+                        c = Color.Lerp(woodDark, wood, grain);
+                    }
+                }
+                else if (y >= strawBot && y < strawTop)
+                {
+                    // Straw target body (round)
+                    int cx = w / 2, cy = (strawTop + strawBot) / 2;
+                    float ry = (strawTop - strawBot) * 0.5f;
+                    float rx = w * 0.42f;
+                    float dx = (x - cx) / rx, dy = (y - cy) / ry;
+                    if (dx * dx + dy * dy <= 1.0f)
+                    {
+                        float ang = Mathf.Atan2(dy, dx);
+                        bool ring = (Mathf.FloorToInt(((dx*dx + dy*dy)) * 5) % 2) == 0;
+                        c = ring ? straw : woodDark;
+                    }
+                }
+                else
+                {
+                    // Iron cap (top)
+                    if (x >= postX0 - 2 && x < postX1 + 2)
+                        c = iron;
                 }
 
+                // Outline pass: if pixel is non-transparent and a neighbor is transparent, darken
                 if (c.a > 0)
                 {
-                    // Outline
-                    bool isEdge = false;
-                    if (x > 0 && tex.GetPixel(x - 1, y).a == 0) isEdge = true;
-                    if (y > 0 && tex.GetPixel(x, y - 1).a == 0) isEdge = true;
-                    if (isEdge) c = outline;
+                    bool edge = false;
+                    if (x > 0 && tex.GetPixel(x - 1, y).a == 0) edge = true;
+                    if (y > 0 && tex.GetPixel(x, y - 1).a == 0) edge = true;
+                    if (edge) c = outline;
                 }
                 tex.SetPixel(x, y, c);
             }
         tex.Apply(); return tex;
+    }
+
+    private static void BuildPlayerVisual(GameObject root, PlayerParts parts,
+        out Transform body, out Transform leftArm, out Transform rightArm, out Transform leftLeg, out Transform rightLeg)
+    {
+        var container = new GameObject("SpriteContainer");
+        container.transform.SetParent(root.transform, false);
+
+        // Body (torso)
+        var bodyGo = new GameObject("Body");
+        bodyGo.transform.SetParent(container.transform, false);
+        bodyGo.transform.localPosition = new Vector3(0, 0.05f, 0);
+        var bSR = bodyGo.AddComponent<SpriteRenderer>();
+        bSR.sprite = parts.body;
+        bSR.sortingOrder = 11;
+        body = bodyGo.transform;
+
+        // Head (above body)
+        var headGo = new GameObject("Head");
+        headGo.transform.SetParent(container.transform, false);
+        headGo.transform.localPosition = new Vector3(0, 0.32f, 0);
+        var hSR = headGo.AddComponent<SpriteRenderer>();
+        hSR.sprite = parts.head;
+        hSR.sortingOrder = 13;
+
+        // Right arm (front, in front of body)
+        var raGo = new GameObject("RightArm");
+        raGo.transform.SetParent(container.transform, false);
+        raGo.transform.localPosition = new Vector3(0.12f, 0.20f, 0);
+        var raSR = raGo.AddComponent<SpriteRenderer>();
+        raSR.sprite = parts.arm;
+        raSR.sortingOrder = 12;
+        rightArm = raGo.transform;
+
+        // Left arm (back, behind body)
+        var laGo = new GameObject("LeftArm");
+        laGo.transform.SetParent(container.transform, false);
+        laGo.transform.localPosition = new Vector3(-0.12f, 0.20f, 0);
+        var laSR = laGo.AddComponent<SpriteRenderer>();
+        laSR.sprite = parts.arm;
+        laSR.sortingOrder = 10;
+        leftArm = laGo.transform;
+
+        // Right leg
+        var rlGo = new GameObject("RightLeg");
+        rlGo.transform.SetParent(container.transform, false);
+        rlGo.transform.localPosition = new Vector3(0.06f, -0.08f, 0);
+        var rlSR = rlGo.AddComponent<SpriteRenderer>();
+        rlSR.sprite = parts.leg;
+        rlSR.sortingOrder = 10;
+        rightLeg = rlGo.transform;
+
+        // Left leg
+        var llGo = new GameObject("LeftLeg");
+        llGo.transform.SetParent(container.transform, false);
+        llGo.transform.localPosition = new Vector3(-0.06f, -0.08f, 0);
+        var llSR = llGo.AddComponent<SpriteRenderer>();
+        llSR.sprite = parts.leg;
+        llSR.sortingOrder = 9;
+        leftLeg = llGo.transform;
     }
 
     // ---- Procedural texture helpers ----
@@ -1589,18 +2410,18 @@ public class ProjectSetup
     {
         var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
-        // MapleStory-style cheerful palette
-        Color panelBg = new Color(0.05f, 0.08f, 0.15f, 0.92f);
-        Color textWhite = new Color(1f, 0.98f, 0.92f);
-        Color textMuted = new Color(0.70f, 0.75f, 0.82f);
-        Color slotBg = new Color(0.08f, 0.10f, 0.16f, 0.95f);
+        // Medieval HUD palette (dark leather + iron + parchment + heraldic)
+        Color panelBg = new Color(0.10f, 0.08f, 0.06f, 0.92f);   // dark leather
+        Color textWhite = new Color(0.94f, 0.88f, 0.74f);         // aged parchment
+        Color textMuted = new Color(0.62f, 0.55f, 0.42f);         // sepia
+        Color slotBg = new Color(0.13f, 0.10f, 0.07f, 0.95f);     // tanned leather
 
-        Color hpRed1 = new Color(0.85f, 0.18f, 0.22f);
-        Color hpRed2 = new Color(1.0f, 0.40f, 0.45f);
-        Color mpBlue1 = new Color(0.18f, 0.45f, 0.90f);
-        Color mpBlue2 = new Color(0.45f, 0.72f, 1.0f);
-        Color expGold1 = new Color(0.85f, 0.68f, 0.20f);
-        Color expGold2 = new Color(1.0f, 0.85f, 0.40f);
+        Color hpRed1 = new Color(0.55f, 0.08f, 0.10f);            // heraldic gules dark
+        Color hpRed2 = new Color(0.85f, 0.20f, 0.18f);            // gules bright
+        Color mpBlue1 = new Color(0.16f, 0.26f, 0.52f);           // azure dark
+        Color mpBlue2 = new Color(0.38f, 0.52f, 0.78f);           // azure bright
+        Color expGold1 = new Color(0.55f, 0.40f, 0.10f);          // tarnished gold
+        Color expGold2 = new Color(0.92f, 0.72f, 0.25f);          // gold leaf
 
         var hpGrad = TexToSprite(MakeGradientBarTex(256, 16, hpRed1, hpRed2));
         var mpGrad = TexToSprite(MakeGradientBarTex(256, 16, mpBlue1, mpBlue2));
@@ -1608,6 +2429,7 @@ public class ProjectSetup
         var panelSpr = TexToSprite(MakeRoundRectTex(256, 64, 10, panelBg));
         var slotSpr = TexToSprite(MakeRoundRectTex(64, 64, 6, slotBg));
         var barBgSpr = TexToSprite(MakeRoundRectTex(256, 18, 7, new Color(0.02f, 0.03f, 0.05f, 0.95f)));
+        var circleSpr = TexToSprite(MakeCircleTex(128, Color.white));
 
         // Canvas
         var canvasGo = new GameObject("GameHUD_Canvas");
@@ -1811,6 +2633,794 @@ public class ProjectSetup
         jumpLabelText.color = textWhite; jumpLabelText.alignment = TextAnchor.MiddleCenter;
         jumpLabelText.text = "JUMP";
 
+        // ========== QUEST TRACKER (top-right, under FPS) ==========
+        var questPanel = HUD_CreateRT("QuestTrackerPanel", root);
+        questPanel.anchorMin = questPanel.anchorMax = new Vector2(1, 1);
+        questPanel.pivot = new Vector2(1, 1);
+        questPanel.anchoredPosition = new Vector2(-16, -84);
+        questPanel.sizeDelta = new Vector2(260, 56);
+        var qpBg = questPanel.gameObject.AddComponent<Image>();
+        qpBg.sprite = panelSpr; qpBg.type = Image.Type.Sliced;
+
+        var qTitleRT = HUD_CreateRT("Title", questPanel);
+        qTitleRT.anchorMin = new Vector2(0, 0.5f); qTitleRT.anchorMax = new Vector2(1, 1);
+        qTitleRT.offsetMin = new Vector2(12, 0); qTitleRT.offsetMax = new Vector2(-12, -6);
+        var qTitleText = qTitleRT.gameObject.AddComponent<Text>();
+        qTitleText.font = font; qTitleText.fontSize = 13; qTitleText.fontStyle = FontStyle.Bold;
+        qTitleText.color = new Color(1f, 0.85f, 0.45f);
+        qTitleText.alignment = TextAnchor.LowerLeft;
+        qTitleText.text = "흩어진 별의 조각";
+
+        var qProgRT = HUD_CreateRT("Progress", questPanel);
+        qProgRT.anchorMin = new Vector2(0, 0); qProgRT.anchorMax = new Vector2(1, 0.5f);
+        qProgRT.offsetMin = new Vector2(12, 6); qProgRT.offsetMax = new Vector2(-12, 0);
+        var qProgText = qProgRT.gameObject.AddComponent<Text>();
+        qProgText.font = font; qProgText.fontSize = 12;
+        qProgText.color = new Color(0.92f, 0.88f, 0.55f);
+        qProgText.alignment = TextAnchor.UpperLeft;
+        qProgText.text = "0 / 5";
+
+        var qTracker = canvasGo.AddComponent<Astrion.UI.QuestTrackerUI>();
+        var qTrSo = new UnityEditor.SerializedObject(qTracker);
+        qTrSo.FindProperty("panel").objectReferenceValue = questPanel.gameObject;
+        qTrSo.FindProperty("titleText").objectReferenceValue = qTitleText;
+        qTrSo.FindProperty("progressText").objectReferenceValue = qProgText;
+        qTrSo.ApplyModifiedPropertiesWithoutUndo();
+        questPanel.gameObject.SetActive(false); // hidden until quest accepted
+
+        // ========== CHARACTER INFO PANEL (ESC) — wood + gold + parchment ==========
+        // Design tokens
+        Color tokWood       = new Color(0.227f, 0.157f, 0.094f, 0.98f);
+        Color tokWoodDark   = new Color(0.102f, 0.063f, 0.031f, 0.98f);
+        Color tokWoodLite   = new Color(0.353f, 0.251f, 0.157f, 1f);
+        Color tokParchment  = new Color(0.910f, 0.831f, 0.627f, 1f);
+        Color tokParchDark  = new Color(0.784f, 0.659f, 0.408f, 1f);
+        Color tokParchShade = new Color(0.478f, 0.345f, 0.157f, 1f);
+        Color tokGold       = new Color(0.941f, 0.847f, 0.471f, 1f);
+        Color tokGoldDark   = new Color(0.659f, 0.541f, 0.227f, 1f);
+        Color tokGoldBright = new Color(1.000f, 0.961f, 0.784f, 1f);
+        Color tokInk        = new Color(0.102f, 0.055f, 0.016f, 1f);
+        Color tokHp         = new Color(0.910f, 0.314f, 0.282f, 1f);
+        Color tokHpDark     = new Color(0.659f, 0.157f, 0.125f, 1f);
+        Color tokMp         = new Color(0.282f, 0.627f, 0.910f, 1f);
+        Color tokMpDark     = new Color(0.157f, 0.376f, 0.659f, 1f);
+        Color tokExp        = new Color(0.941f, 0.784f, 0.282f, 1f);
+        Color tokExpDark    = new Color(0.659f, 0.439f, 0.094f, 1f);
+
+        var woodPanelSpr     = TexToSprite(MakeWoodGradTex(256, 128));
+        var parchmentSpr     = TexToSprite(MakeParchmentTex(256, 128));
+        var goldBorderSpr    = TexToSprite(MakeRoundRectTex(256, 256, 6, tokGold));
+        var slotDarkSpr      = TexToSprite(MakeRoundRectTex(64, 64, 4, new Color(0.16f, 0.10f, 0.04f, 1f)));
+        var slotEmptyWoodSpr = TexToSprite(MakeRoundRectTex(64, 64, 4, tokWoodLite));
+
+        var infoPanel = HUD_CreateRT("CharacterInfoPanel", root);
+        infoPanel.anchorMin = infoPanel.anchorMax = new Vector2(0.5f, 0.5f);
+        infoPanel.pivot = new Vector2(0.5f, 0.5f);
+        infoPanel.anchoredPosition = new Vector2(0, 0);
+        infoPanel.sizeDelta = new Vector2(620, 760);
+
+        // Outer gold border (layered)
+        var infoGoldBg = HUD_CreateRT("GoldBorder", infoPanel);
+        infoGoldBg.anchorMin = Vector2.zero; infoGoldBg.anchorMax = Vector2.one;
+        infoGoldBg.offsetMin = new Vector2(-4, -4); infoGoldBg.offsetMax = new Vector2(4, 4);
+        var infoGoldBgImg = infoGoldBg.gameObject.AddComponent<Image>();
+        infoGoldBgImg.sprite = goldBorderSpr; infoGoldBgImg.type = Image.Type.Sliced;
+        infoGoldBgImg.color = new Color(0.941f, 0.847f, 0.471f, 0.67f);
+
+        // Wood body
+        var infoBodyBg = HUD_CreateRT("Body", infoPanel);
+        infoBodyBg.anchorMin = Vector2.zero; infoBodyBg.anchorMax = Vector2.one;
+        infoBodyBg.offsetMin = infoBodyBg.offsetMax = Vector2.zero;
+        var infoBodyImg = infoBodyBg.gameObject.AddComponent<Image>();
+        infoBodyImg.sprite = woodPanelSpr; infoBodyImg.type = Image.Type.Sliced;
+
+        // Header (wood-lite gradient)
+        var infoHdr = HUD_CreateRT("Header", infoPanel);
+        infoHdr.anchorMin = new Vector2(0, 1); infoHdr.anchorMax = new Vector2(1, 1);
+        infoHdr.pivot = new Vector2(0.5f, 1);
+        infoHdr.anchoredPosition = new Vector2(0, 0);
+        infoHdr.sizeDelta = new Vector2(0, 44);
+        var infoHdrBg = infoHdr.gameObject.AddComponent<Image>();
+        infoHdrBg.sprite = TexToSprite(MakeRoundRectTex(256, 64, 6, tokWoodLite));
+        infoHdrBg.type = Image.Type.Sliced;
+        var infoTitle = HUD_CreateRT("Title", infoHdr);
+        infoTitle.anchorMin = new Vector2(0, 0); infoTitle.anchorMax = new Vector2(1, 1);
+        infoTitle.offsetMin = new Vector2(20, 0); infoTitle.offsetMax = new Vector2(-50, 0);
+        var infoTitleText = infoTitle.gameObject.AddComponent<Text>();
+        infoTitleText.font = font; infoTitleText.fontSize = 16; infoTitleText.fontStyle = FontStyle.Bold;
+        infoTitleText.color = tokGold;
+        infoTitleText.alignment = TextAnchor.MiddleLeft;
+        infoTitleText.text = "❖ 캐릭터 정보   C H A R A C T E R";
+
+        // Gold border under header
+        var infoHdrLine = HUD_CreateRT("HdrLine", infoPanel);
+        infoHdrLine.anchorMin = new Vector2(0, 1); infoHdrLine.anchorMax = new Vector2(1, 1);
+        infoHdrLine.pivot = new Vector2(0.5f, 1);
+        infoHdrLine.anchoredPosition = new Vector2(0, -44);
+        infoHdrLine.sizeDelta = new Vector2(0, 2);
+        infoHdrLine.gameObject.AddComponent<Image>().color = tokGoldDark;
+
+        // Close X button
+        var infoCloseBtn = HUD_CreateRT("Close", infoHdr);
+        infoCloseBtn.anchorMin = infoCloseBtn.anchorMax = new Vector2(1, 0.5f);
+        infoCloseBtn.pivot = new Vector2(1, 0.5f);
+        infoCloseBtn.anchoredPosition = new Vector2(-10, 0);
+        infoCloseBtn.sizeDelta = new Vector2(28, 28);
+        var infoCloseImg = infoCloseBtn.gameObject.AddComponent<Image>();
+        infoCloseImg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 4, new Color(0.91f, 0.31f, 0.28f, 0.98f)));
+        var infoCloseBtnComp = infoCloseBtn.gameObject.AddComponent<Button>();
+        var infoCloseX = HUD_CreateRT("X", infoCloseBtn);
+        infoCloseX.anchorMin = Vector2.zero; infoCloseX.anchorMax = Vector2.one;
+        infoCloseX.offsetMin = infoCloseX.offsetMax = Vector2.zero;
+        var infoCloseXT = infoCloseX.gameObject.AddComponent<Text>();
+        infoCloseXT.font = font; infoCloseXT.fontSize = 18; infoCloseXT.fontStyle = FontStyle.Bold;
+        infoCloseXT.color = tokGoldBright;
+        infoCloseXT.alignment = TextAnchor.MiddleCenter;
+        infoCloseXT.text = "×";
+
+        // === Equipment columns (left + right) ===
+        string[] leftSlots  = { "helmet", "face", "eye", "earring", "cape", "shield", "emblem" };
+        string[] leftLabels = { "투구", "얼굴", "눈", "귀", "망토", "방패", "엠블럼" };
+        Astrion.Game.ItemDatabase.Rarity[] leftRars = {
+            Astrion.Game.ItemDatabase.Rarity.Epic, Astrion.Game.ItemDatabase.Rarity.Common, Astrion.Game.ItemDatabase.Rarity.Rare,
+            Astrion.Game.ItemDatabase.Rarity.Rare, Astrion.Game.ItemDatabase.Rarity.Epic, Astrion.Game.ItemDatabase.Rarity.Epic,
+            Astrion.Game.ItemDatabase.Rarity.Uncommon,
+        };
+        int[] leftEnh = { 10, 0, 9, 10, 10, 10, 7 };
+
+        string[] rightSlots  = { "weapon", "armor", "pants", "glove", "shoes", "ring", "pendant" };
+        string[] rightLabels = { "무기", "갑옷", "각반", "장갑", "신발", "반지", "펜던트" };
+        Astrion.Game.ItemDatabase.Rarity[] rightRars = {
+            Astrion.Game.ItemDatabase.Rarity.Legend, Astrion.Game.ItemDatabase.Rarity.Epic, Astrion.Game.ItemDatabase.Rarity.Rare,
+            Astrion.Game.ItemDatabase.Rarity.Rare, Astrion.Game.ItemDatabase.Rarity.Rare, Astrion.Game.ItemDatabase.Rarity.Epic,
+            Astrion.Game.ItemDatabase.Rarity.Legend,
+        };
+        int[] rightEnh = { 11, 10, 10, 10, 9, 10, 11 };
+
+        System.Action<RectTransform, string, string, Astrion.Game.ItemDatabase.Rarity, int, bool, int> AddEquipSlot =
+            (parent, slotName, koLabel, rar, enh, isEmpty, idx) =>
+        {
+            var s = HUD_CreateRT($"Equip_{slotName}", parent);
+            s.anchorMin = s.anchorMax = new Vector2(0, 1);
+            s.pivot = new Vector2(0, 1);
+            s.anchoredPosition = new Vector2(0, -idx * 56f);
+            s.sizeDelta = new Vector2(50, 50);
+            // Gold bevel outer
+            var bevel = HUD_CreateRT("Bevel", s);
+            bevel.anchorMin = Vector2.zero; bevel.anchorMax = Vector2.one;
+            bevel.offsetMin = bevel.offsetMax = Vector2.zero;
+            var bevelImg = bevel.gameObject.AddComponent<Image>();
+            bevelImg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 5, tokGold));
+            // Rarity border
+            var rarBorder = HUD_CreateRT("RarityBorder", s);
+            rarBorder.anchorMin = Vector2.zero; rarBorder.anchorMax = Vector2.one;
+            rarBorder.offsetMin = new Vector2(2, 2); rarBorder.offsetMax = new Vector2(-2, -2);
+            var rarImg = rarBorder.gameObject.AddComponent<Image>();
+            rarImg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 4,
+                isEmpty ? new Color(0.55f, 0.42f, 0.25f, 0.5f) : Astrion.Game.ItemDatabase.RarityColor(rar)));
+            // Inner
+            var inner = HUD_CreateRT("Inner", s);
+            inner.anchorMin = Vector2.zero; inner.anchorMax = Vector2.one;
+            inner.offsetMin = new Vector2(4, 4); inner.offsetMax = new Vector2(-4, -4);
+            var innerImg = inner.gameObject.AddComponent<Image>();
+            innerImg.sprite = isEmpty ? slotEmptyWoodSpr : slotDarkSpr;
+            innerImg.type = Image.Type.Sliced;
+            // Icon letter
+            var iconRT = HUD_CreateRT("Icon", inner);
+            iconRT.anchorMin = Vector2.zero; iconRT.anchorMax = Vector2.one;
+            iconRT.offsetMin = iconRT.offsetMax = Vector2.zero;
+            var iconT = iconRT.gameObject.AddComponent<Text>();
+            iconT.font = font; iconT.fontSize = 17; iconT.fontStyle = FontStyle.Bold;
+            iconT.color = isEmpty ? new Color(0.5f, 0.42f, 0.28f, 0.6f) : Astrion.Game.ItemDatabase.RarityColor(rar);
+            iconT.alignment = TextAnchor.MiddleCenter;
+            iconT.text = isEmpty ? "" : koLabel;
+            // Enhance +N (top-right)
+            if (enh > 0 && !isEmpty)
+            {
+                var enhRT = HUD_CreateRT("Enh", s);
+                enhRT.anchorMin = enhRT.anchorMax = new Vector2(1, 1);
+                enhRT.pivot = new Vector2(1, 1);
+                enhRT.anchoredPosition = new Vector2(-3, -2);
+                enhRT.sizeDelta = new Vector2(24, 14);
+                var enhT = enhRT.gameObject.AddComponent<Text>();
+                enhT.font = font; enhT.fontSize = 10; enhT.fontStyle = FontStyle.Bold;
+                enhT.color = tokGoldBright;
+                enhT.alignment = TextAnchor.UpperRight;
+                enhT.text = $"+{enh}";
+                var sh = enhRT.gameObject.AddComponent<Shadow>();
+                sh.effectColor = new Color(0, 0, 0, 0.95f);
+                sh.effectDistance = new Vector2(1, -1);
+            }
+        };
+
+        // Left column container
+        var leftCol = HUD_CreateRT("LeftColumn", infoPanel);
+        leftCol.anchorMin = new Vector2(0, 1); leftCol.anchorMax = new Vector2(0, 1);
+        leftCol.pivot = new Vector2(0, 1);
+        leftCol.anchoredPosition = new Vector2(20, -60);
+        leftCol.sizeDelta = new Vector2(50, 400);
+        for (int i = 0; i < 7; i++)
+            AddEquipSlot(leftCol, leftSlots[i], leftLabels[i], leftRars[i], leftEnh[i], leftEnh[i] == 0, i);
+
+        // Right column container
+        var rightCol = HUD_CreateRT("RightColumn", infoPanel);
+        rightCol.anchorMin = new Vector2(1, 1); rightCol.anchorMax = new Vector2(1, 1);
+        rightCol.pivot = new Vector2(1, 1);
+        rightCol.anchoredPosition = new Vector2(-20, -60);
+        rightCol.sizeDelta = new Vector2(50, 400);
+        for (int i = 0; i < 7; i++)
+        {
+            var off = HUD_CreateRT($"Slot_Right_{i}", rightCol);
+            off.anchorMin = off.anchorMax = new Vector2(0, 1);
+            off.pivot = new Vector2(0, 1);
+            off.anchoredPosition = new Vector2(0, -i * 56f);
+            off.sizeDelta = new Vector2(50, 50);
+            AddEquipSlot(off, rightSlots[i], rightLabels[i], rightRars[i], rightEnh[i], false, 0);
+        }
+
+        // === Center: Name plaque + character preview + bars ===
+        var centerCol = HUD_CreateRT("CenterColumn", infoPanel);
+        centerCol.anchorMin = new Vector2(0.5f, 1); centerCol.anchorMax = new Vector2(0.5f, 1);
+        centerCol.pivot = new Vector2(0.5f, 1);
+        centerCol.anchoredPosition = new Vector2(0, -56);
+        centerCol.sizeDelta = new Vector2(380, 430);
+
+        // Name plaque (parchment)
+        var namePlate = HUD_CreateRT("NamePlaque", centerCol);
+        namePlate.anchorMin = new Vector2(0.5f, 1); namePlate.anchorMax = new Vector2(0.5f, 1);
+        namePlate.pivot = new Vector2(0.5f, 1);
+        namePlate.anchoredPosition = new Vector2(0, 0);
+        namePlate.sizeDelta = new Vector2(280, 58);
+        var npBg = namePlate.gameObject.AddComponent<Image>();
+        npBg.sprite = parchmentSpr; npBg.type = Image.Type.Sliced;
+        var npName = HUD_CreateRT("Name", namePlate);
+        npName.anchorMin = new Vector2(0, 0.5f); npName.anchorMax = new Vector2(1, 1);
+        npName.offsetMin = new Vector2(12, 0); npName.offsetMax = new Vector2(-12, -4);
+        var npNameText = npName.gameObject.AddComponent<Text>();
+        npNameText.font = font; npNameText.fontSize = 20; npNameText.fontStyle = FontStyle.Bold;
+        npNameText.color = tokInk;
+        npNameText.alignment = TextAnchor.MiddleCenter;
+        npNameText.text = "Aldric";
+        var npSub = HUD_CreateRT("Sub", namePlate);
+        npSub.anchorMin = new Vector2(0, 0); npSub.anchorMax = new Vector2(1, 0.5f);
+        npSub.offsetMin = new Vector2(12, 4); npSub.offsetMax = new Vector2(-12, 0);
+        var npSubText = npSub.gameObject.AddComponent<Text>();
+        npSubText.font = font; npSubText.fontSize = 11; npSubText.fontStyle = FontStyle.Bold;
+        npSubText.color = tokParchShade;
+        npSubText.alignment = TextAnchor.MiddleCenter;
+        npSubText.text = "Lv.42  ·  용  기  사";
+
+        // Character preview frame
+        var prevFrame = HUD_CreateRT("PreviewFrame", centerCol);
+        prevFrame.anchorMin = new Vector2(0.5f, 1); prevFrame.anchorMax = new Vector2(0.5f, 1);
+        prevFrame.pivot = new Vector2(0.5f, 1);
+        prevFrame.anchoredPosition = new Vector2(0, -68);
+        prevFrame.sizeDelta = new Vector2(240, 260);
+        var pfBg = prevFrame.gameObject.AddComponent<Image>();
+        pfBg.sprite = woodPanelSpr; pfBg.type = Image.Type.Sliced;
+        // Guild banner
+        var guild = HUD_CreateRT("Guild", prevFrame);
+        guild.anchorMin = new Vector2(0.5f, 1); guild.anchorMax = new Vector2(0.5f, 1);
+        guild.pivot = new Vector2(0.5f, 1);
+        guild.anchoredPosition = new Vector2(0, -8);
+        guild.sizeDelta = new Vector2(180, 24);
+        var guildBg = guild.gameObject.AddComponent<Image>();
+        guildBg.sprite = TexToSprite(MakeRoundRectTex(128, 32, 8, new Color(0.10f, 0.06f, 0.03f, 0.92f)));
+        var guildT = HUD_CreateRT("Text", guild);
+        guildT.anchorMin = Vector2.zero; guildT.anchorMax = Vector2.one;
+        guildT.offsetMin = guildT.offsetMax = Vector2.zero;
+        var guildTT = guildT.gameObject.AddComponent<Text>();
+        guildTT.font = font; guildTT.fontSize = 10; guildTT.fontStyle = FontStyle.Bold;
+        guildTT.color = tokGold;
+        guildTT.alignment = TextAnchor.MiddleCenter;
+        guildTT.text = "⚜  ORDER OF DAWN  ⚜";
+        // Chibi placeholder
+        var chibi = HUD_CreateRT("Chibi", prevFrame);
+        chibi.anchorMin = new Vector2(0.5f, 0.5f); chibi.anchorMax = new Vector2(0.5f, 0.5f);
+        chibi.pivot = new Vector2(0.5f, 0.5f);
+        chibi.anchoredPosition = new Vector2(0, -10);
+        chibi.sizeDelta = new Vector2(120, 160);
+        var chibiBg = chibi.gameObject.AddComponent<Image>();
+        chibiBg.sprite = TexToSprite(MakeRoundRectTex(64, 96, 8, new Color(0.16f, 0.10f, 0.04f, 0.6f)));
+        var chibiLbl = HUD_CreateRT("Label", chibi);
+        chibiLbl.anchorMin = Vector2.zero; chibiLbl.anchorMax = Vector2.one;
+        chibiLbl.offsetMin = chibiLbl.offsetMax = Vector2.zero;
+        var chibiLT = chibiLbl.gameObject.AddComponent<Text>();
+        chibiLT.font = font; chibiLT.fontSize = 11;
+        chibiLT.color = tokParchDark;
+        chibiLT.alignment = TextAnchor.MiddleCenter;
+        chibiLT.text = "[Character Preview]";
+
+        // HP/MP/EXP bars panel
+        var barsPanel = HUD_CreateRT("Bars", centerCol);
+        barsPanel.anchorMin = new Vector2(0.5f, 1); barsPanel.anchorMax = new Vector2(0.5f, 1);
+        barsPanel.pivot = new Vector2(0.5f, 1);
+        barsPanel.anchoredPosition = new Vector2(0, -336);
+        barsPanel.sizeDelta = new Vector2(280, 92);
+        var bpBg = barsPanel.gameObject.AddComponent<Image>();
+        bpBg.sprite = parchmentSpr; bpBg.type = Image.Type.Sliced;
+
+        System.Action<RectTransform, string, string, Color, Color, float, int> AddInfoBar =
+            (parent, label, valTxt, fillColor, fillDark, ratio, yOff) =>
+        {
+            var bar = HUD_CreateRT($"InfoBar_{label}", parent);
+            bar.anchorMin = new Vector2(0, 1); bar.anchorMax = new Vector2(1, 1);
+            bar.pivot = new Vector2(0.5f, 1);
+            bar.anchoredPosition = new Vector2(0, -yOff);
+            bar.sizeDelta = new Vector2(-16, 26);
+            // Label row
+            var lblRT = HUD_CreateRT("Label", bar);
+            lblRT.anchorMin = new Vector2(0, 0.5f); lblRT.anchorMax = new Vector2(1, 1);
+            lblRT.offsetMin = new Vector2(2, 0); lblRT.offsetMax = new Vector2(-2, 0);
+            var lblT = lblRT.gameObject.AddComponent<Text>();
+            lblT.font = font; lblT.fontSize = 9; lblT.fontStyle = FontStyle.Bold;
+            lblT.color = tokInk;
+            lblT.alignment = TextAnchor.MiddleLeft;
+            lblT.text = label;
+            var valRT = HUD_CreateRT("Val", bar);
+            valRT.anchorMin = new Vector2(0, 0.5f); valRT.anchorMax = new Vector2(1, 1);
+            valRT.offsetMin = new Vector2(2, 0); valRT.offsetMax = new Vector2(-2, 0);
+            var valT = valRT.gameObject.AddComponent<Text>();
+            valT.font = font; valT.fontSize = 9;
+            valT.color = tokParchShade;
+            valT.alignment = TextAnchor.MiddleRight;
+            valT.text = valTxt;
+            // Bar track
+            var track = HUD_CreateRT("Track", bar);
+            track.anchorMin = new Vector2(0, 0); track.anchorMax = new Vector2(1, 0.5f);
+            track.offsetMin = new Vector2(2, 1); track.offsetMax = new Vector2(-2, -1);
+            track.gameObject.AddComponent<Image>().color = new Color(0.227f, 0.157f, 0.094f, 1f);
+            var fillRT = HUD_CreateRT("Fill", track);
+            fillRT.anchorMin = Vector2.zero; fillRT.anchorMax = new Vector2(ratio, 1);
+            fillRT.offsetMin = fillRT.offsetMax = Vector2.zero;
+            var fillImg = fillRT.gameObject.AddComponent<Image>();
+            fillImg.sprite = TexToSprite(MakeGradientBarTex(256, 16, fillDark, fillColor));
+        };
+        AddInfoBar(barsPanel, "HP", "4,824 / 6,700", tokHp, tokHpDark, 4824f / 6700f, 4);
+        AddInfoBar(barsPanel, "MP", "1,278 / 2,840", tokMp, tokMpDark, 1278f / 2840f, 34);
+        AddInfoBar(barsPanel, "EXP", "62.4 %", tokExp, tokExpDark, 0.624f, 64);
+
+        // === Stats panel (bottom) ===
+        var statsPanel = HUD_CreateRT("StatsPanel", infoPanel);
+        statsPanel.anchorMin = new Vector2(0, 0); statsPanel.anchorMax = new Vector2(1, 0);
+        statsPanel.pivot = new Vector2(0.5f, 0);
+        statsPanel.anchoredPosition = new Vector2(0, 16);
+        statsPanel.sizeDelta = new Vector2(-32, 240);
+        var spBg = statsPanel.gameObject.AddComponent<Image>();
+        spBg.sprite = parchmentSpr; spBg.type = Image.Type.Sliced;
+
+        // Left side: primary stats
+        string[] primaryStats = { "STR", "DEX", "INT", "LUK" };
+        int[] primaryValues = { 148, 86, 42, 58 };
+        int[] primaryBonus = { 22, 12, 4, 8 };
+        for (int i = 0; i < primaryStats.Length; i++)
+        {
+            var row = HUD_CreateRT($"Stat_{primaryStats[i]}", statsPanel);
+            row.anchorMin = new Vector2(0, 1); row.anchorMax = new Vector2(0.5f, 1);
+            row.pivot = new Vector2(0, 1);
+            row.anchoredPosition = new Vector2(12, -16 - i * 28f);
+            row.sizeDelta = new Vector2(-14, 24);
+
+            var name = HUD_CreateRT("Name", row);
+            name.anchorMin = new Vector2(0, 0); name.anchorMax = new Vector2(0.28f, 1);
+            name.offsetMin = name.offsetMax = Vector2.zero;
+            var nameT = name.gameObject.AddComponent<Text>();
+            nameT.font = font; nameT.fontSize = 13; nameT.fontStyle = FontStyle.Bold;
+            nameT.color = tokInk;
+            nameT.alignment = TextAnchor.MiddleLeft;
+            nameT.text = primaryStats[i];
+
+            var val = HUD_CreateRT("Val", row);
+            val.anchorMin = new Vector2(0.28f, 0); val.anchorMax = new Vector2(0.7f, 1);
+            val.offsetMin = val.offsetMax = Vector2.zero;
+            var valT = val.gameObject.AddComponent<Text>();
+            valT.font = font; valT.fontSize = 13; valT.fontStyle = FontStyle.Bold;
+            valT.color = tokInk;
+            valT.alignment = TextAnchor.MiddleLeft;
+            valT.text = $"{primaryValues[i]}";
+
+            var bonus = HUD_CreateRT("Bonus", row);
+            bonus.anchorMin = new Vector2(0.42f, 0); bonus.anchorMax = new Vector2(0.78f, 1);
+            bonus.offsetMin = bonus.offsetMax = Vector2.zero;
+            var bonusT = bonus.gameObject.AddComponent<Text>();
+            bonusT.font = font; bonusT.fontSize = 11;
+            bonusT.color = new Color(0.35f, 0.78f, 0.31f);
+            bonusT.alignment = TextAnchor.MiddleLeft;
+            bonusT.text = $"(+{primaryBonus[i]})";
+
+            // + button
+            var plus = HUD_CreateRT("Plus", row);
+            plus.anchorMin = new Vector2(0.85f, 0.5f); plus.anchorMax = new Vector2(0.85f, 0.5f);
+            plus.pivot = new Vector2(0.5f, 0.5f);
+            plus.anchoredPosition = new Vector2(0, 0);
+            plus.sizeDelta = new Vector2(20, 20);
+            var plusImg = plus.gameObject.AddComponent<Image>();
+            plusImg.sprite = TexToSprite(MakeCircleTex(64, tokGold));
+            var plusT = HUD_CreateRT("T", plus);
+            plusT.anchorMin = Vector2.zero; plusT.anchorMax = Vector2.one;
+            plusT.offsetMin = plusT.offsetMax = Vector2.zero;
+            var plusTT = plusT.gameObject.AddComponent<Text>();
+            plusTT.font = font; plusTT.fontSize = 14; plusTT.fontStyle = FontStyle.Bold;
+            plusTT.color = tokInk;
+            plusTT.alignment = TextAnchor.MiddleCenter;
+            plusTT.text = "+";
+            plus.gameObject.AddComponent<Button>();
+        }
+
+        // Remaining points
+        var remPts = HUD_CreateRT("RemPoints", statsPanel);
+        remPts.anchorMin = new Vector2(0, 1); remPts.anchorMax = new Vector2(0.5f, 1);
+        remPts.pivot = new Vector2(0, 1);
+        remPts.anchoredPosition = new Vector2(12, -130);
+        remPts.sizeDelta = new Vector2(-14, 20);
+        var remT = remPts.gameObject.AddComponent<Text>();
+        remT.font = font; remT.fontSize = 11; remT.fontStyle = FontStyle.Bold;
+        remT.color = new Color(0.91f, 0.31f, 0.28f);
+        remT.alignment = TextAnchor.MiddleLeft;
+        remT.text = "남은 포인트 : 5";
+
+        // Right side: derived stats
+        string[] derivedStats = {
+            "공격력", "마법력", "방어력", "명중률", "회피율", "크리티컬", "이동속도", "공격속도"
+        };
+        string[] derivedValues = {
+            "2,148 ~ 2,420", "584 ~ 712", "1,842   +18%", "94 %",
+            "32 %", "28 %", "+12 %", "+8 %",
+        };
+        for (int i = 0; i < derivedStats.Length; i++)
+        {
+            var row = HUD_CreateRT($"Derived_{i}", statsPanel);
+            row.anchorMin = new Vector2(0.5f, 1); row.anchorMax = new Vector2(1, 1);
+            row.pivot = new Vector2(0, 1);
+            row.anchoredPosition = new Vector2(0, -16 - i * 26f);
+            row.sizeDelta = new Vector2(-14, 22);
+            var n = HUD_CreateRT("Name", row);
+            n.anchorMin = new Vector2(0, 0); n.anchorMax = new Vector2(0.4f, 1);
+            n.offsetMin = n.offsetMax = Vector2.zero;
+            var nT = n.gameObject.AddComponent<Text>();
+            nT.font = font; nT.fontSize = 11;
+            nT.color = tokParchShade;
+            nT.alignment = TextAnchor.MiddleLeft;
+            nT.text = derivedStats[i];
+            var v = HUD_CreateRT("Val", row);
+            v.anchorMin = new Vector2(0.4f, 0); v.anchorMax = new Vector2(1, 1);
+            v.offsetMin = new Vector2(0, 0); v.offsetMax = new Vector2(-6, 0);
+            var vT = v.gameObject.AddComponent<Text>();
+            vT.font = font; vT.fontSize = 11; vT.fontStyle = FontStyle.Bold;
+            vT.color = tokInk;
+            vT.alignment = TextAnchor.MiddleRight;
+            vT.text = derivedValues[i];
+        }
+
+        var ciComp = canvasGo.AddComponent<Astrion.UI.CharacterInfoUI>();
+        var ciSo = new UnityEditor.SerializedObject(ciComp);
+        ciSo.FindProperty("panel").objectReferenceValue = infoPanel.gameObject;
+        ciSo.FindProperty("closeButton").objectReferenceValue = infoCloseBtnComp;
+        ciSo.FindProperty("nameText").objectReferenceValue = npNameText;
+        ciSo.FindProperty("levelText").objectReferenceValue = npSubText;
+        ciSo.ApplyModifiedPropertiesWithoutUndo();
+        infoPanel.gameObject.SetActive(false);
+
+        // ========== INVENTORY PANEL (toggle: I) — 5 tabs + 6×6 grid + tooltip ==========
+        var invPanel = HUD_CreateRT("InventoryPanel", root);
+        invPanel.anchorMin = invPanel.anchorMax = new Vector2(0.5f, 0.5f);
+        invPanel.pivot = new Vector2(0.5f, 0.5f);
+        invPanel.anchoredPosition = new Vector2(0, 0);
+        invPanel.sizeDelta = new Vector2(440, 720);
+
+        var invGold = HUD_CreateRT("GoldBorder", invPanel);
+        invGold.anchorMin = Vector2.zero; invGold.anchorMax = Vector2.one;
+        invGold.offsetMin = new Vector2(-4, -4); invGold.offsetMax = new Vector2(4, 4);
+        var invGoldImg = invGold.gameObject.AddComponent<Image>();
+        invGoldImg.sprite = goldBorderSpr; invGoldImg.type = Image.Type.Sliced;
+        invGoldImg.color = new Color(0.941f, 0.847f, 0.471f, 0.67f);
+
+        var invBody = HUD_CreateRT("Body", invPanel);
+        invBody.anchorMin = Vector2.zero; invBody.anchorMax = Vector2.one;
+        invBody.offsetMin = invBody.offsetMax = Vector2.zero;
+        var invBodyImg = invBody.gameObject.AddComponent<Image>();
+        invBodyImg.sprite = woodPanelSpr; invBodyImg.type = Image.Type.Sliced;
+
+        // Header
+        var invHdr2 = HUD_CreateRT("Header", invPanel);
+        invHdr2.anchorMin = new Vector2(0, 1); invHdr2.anchorMax = new Vector2(1, 1);
+        invHdr2.pivot = new Vector2(0.5f, 1);
+        invHdr2.anchoredPosition = new Vector2(0, 0);
+        invHdr2.sizeDelta = new Vector2(0, 44);
+        var invHdr2Bg = invHdr2.gameObject.AddComponent<Image>();
+        invHdr2Bg.sprite = TexToSprite(MakeRoundRectTex(256, 64, 6, tokWoodLite));
+        invHdr2Bg.type = Image.Type.Sliced;
+        var invTitle = HUD_CreateRT("Title", invHdr2);
+        invTitle.anchorMin = new Vector2(0, 0); invTitle.anchorMax = new Vector2(1, 1);
+        invTitle.offsetMin = new Vector2(20, 0); invTitle.offsetMax = new Vector2(-50, 0);
+        var invTitleT = invTitle.gameObject.AddComponent<Text>();
+        invTitleT.font = font; invTitleT.fontSize = 16; invTitleT.fontStyle = FontStyle.Bold;
+        invTitleT.color = tokGold;
+        invTitleT.alignment = TextAnchor.MiddleLeft;
+        invTitleT.text = "❖ 인벤토리   I N V E N T O R Y";
+
+        var invHdrLine = HUD_CreateRT("HdrLine", invPanel);
+        invHdrLine.anchorMin = new Vector2(0, 1); invHdrLine.anchorMax = new Vector2(1, 1);
+        invHdrLine.pivot = new Vector2(0.5f, 1);
+        invHdrLine.anchoredPosition = new Vector2(0, -44);
+        invHdrLine.sizeDelta = new Vector2(0, 2);
+        invHdrLine.gameObject.AddComponent<Image>().color = tokGoldDark;
+
+        // Close X
+        var invCloseBtn2 = HUD_CreateRT("Close", invHdr2);
+        invCloseBtn2.anchorMin = invCloseBtn2.anchorMax = new Vector2(1, 0.5f);
+        invCloseBtn2.pivot = new Vector2(1, 0.5f);
+        invCloseBtn2.anchoredPosition = new Vector2(-10, 0);
+        invCloseBtn2.sizeDelta = new Vector2(28, 28);
+        var invCloseImg = invCloseBtn2.gameObject.AddComponent<Image>();
+        invCloseImg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 4, new Color(0.91f, 0.31f, 0.28f, 0.98f)));
+        var invCloseB = invCloseBtn2.gameObject.AddComponent<Button>();
+        var invCloseX2 = HUD_CreateRT("X", invCloseBtn2);
+        invCloseX2.anchorMin = Vector2.zero; invCloseX2.anchorMax = Vector2.one;
+        invCloseX2.offsetMin = invCloseX2.offsetMax = Vector2.zero;
+        var invCloseXT = invCloseX2.gameObject.AddComponent<Text>();
+        invCloseXT.font = font; invCloseXT.fontSize = 18; invCloseXT.fontStyle = FontStyle.Bold;
+        invCloseXT.color = tokGoldBright;
+        invCloseXT.alignment = TextAnchor.MiddleCenter;
+        invCloseXT.text = "×";
+
+        // Tabs (5)
+        string[] tabLabels = { "장비", "소비", "기타", "설치", "캐쉬" };
+        var tabsRow = HUD_CreateRT("Tabs", invPanel);
+        tabsRow.anchorMin = new Vector2(0, 1); tabsRow.anchorMax = new Vector2(1, 1);
+        tabsRow.pivot = new Vector2(0.5f, 1);
+        tabsRow.anchoredPosition = new Vector2(0, -52);
+        tabsRow.sizeDelta = new Vector2(-32, 32);
+        float tabW = (440 - 32) / 5f;
+        for (int i = 0; i < 5; i++)
+        {
+            var tab = HUD_CreateRT($"Tab_{i}", tabsRow);
+            tab.anchorMin = tab.anchorMax = new Vector2(0, 0);
+            tab.pivot = new Vector2(0, 0);
+            tab.anchoredPosition = new Vector2(i * tabW, 0);
+            tab.sizeDelta = new Vector2(tabW - 4, 32);
+            bool active = i == 0;
+            var tabBg = tab.gameObject.AddComponent<Image>();
+            tabBg.sprite = active ? parchmentSpr : TexToSprite(MakeRoundRectTex(64, 32, 4, tokWoodLite));
+            tabBg.type = Image.Type.Sliced;
+            var tabT = HUD_CreateRT("Label", tab);
+            tabT.anchorMin = Vector2.zero; tabT.anchorMax = Vector2.one;
+            tabT.offsetMin = tabT.offsetMax = Vector2.zero;
+            var tabTT = tabT.gameObject.AddComponent<Text>();
+            tabTT.font = font; tabTT.fontSize = 13; tabTT.fontStyle = FontStyle.Bold;
+            tabTT.color = active ? tokInk : tokParchDark;
+            tabTT.alignment = TextAnchor.MiddleCenter;
+            tabTT.text = tabLabels[i];
+            tab.gameObject.AddComponent<Button>();
+        }
+
+        // 6x6 Slots grid (parchment panel)
+        var gridPanel = HUD_CreateRT("GridPanel", invPanel);
+        gridPanel.anchorMin = new Vector2(0, 1); gridPanel.anchorMax = new Vector2(1, 1);
+        gridPanel.pivot = new Vector2(0.5f, 1);
+        gridPanel.anchoredPosition = new Vector2(0, -88);
+        gridPanel.sizeDelta = new Vector2(-32, 344);
+        var gpBg = gridPanel.gameObject.AddComponent<Image>();
+        gpBg.sprite = parchmentSpr; gpBg.type = Image.Type.Sliced;
+
+        var slotsRoot2 = HUD_CreateRT("SlotsRoot", gridPanel);
+        slotsRoot2.anchorMin = Vector2.zero; slotsRoot2.anchorMax = Vector2.one;
+        slotsRoot2.offsetMin = new Vector2(10, 10); slotsRoot2.offsetMax = new Vector2(-10, -10);
+
+        const int INV_COLS = 6, INV_ROWS = 6;
+        float invSlotSize = 50f;
+        float invSlotGap = 4f;
+        for (int r = 0; r < INV_ROWS; r++)
+            for (int c = 0; c < INV_COLS; c++)
+            {
+                int idx = r * INV_COLS + c;
+                var slot = HUD_CreateRT($"Slot_{idx}", slotsRoot2);
+                slot.anchorMin = slot.anchorMax = new Vector2(0, 1);
+                slot.pivot = new Vector2(0, 1);
+                slot.anchoredPosition = new Vector2(c * (invSlotSize + invSlotGap),
+                                                    -r * (invSlotSize + invSlotGap));
+                slot.sizeDelta = new Vector2(invSlotSize, invSlotSize);
+                var slotBevel = slot.gameObject.AddComponent<Image>();
+                slotBevel.sprite = TexToSprite(MakeRoundRectTex(64, 64, 4, tokGold));
+                var sInner = HUD_CreateRT("Bg", slot);
+                sInner.anchorMin = Vector2.zero; sInner.anchorMax = Vector2.one;
+                sInner.offsetMin = new Vector2(2, 2); sInner.offsetMax = new Vector2(-2, -2);
+                var sInnerImg = sInner.gameObject.AddComponent<Image>();
+                sInnerImg.sprite = slotEmptyWoodSpr;
+                sInnerImg.type = Image.Type.Sliced;
+
+                // Icon (initially hidden; InventoryUI fills it)
+                var iconRT = HUD_CreateRT("Icon", slot);
+                iconRT.anchorMin = Vector2.zero; iconRT.anchorMax = Vector2.one;
+                iconRT.offsetMin = new Vector2(4, 4); iconRT.offsetMax = new Vector2(-4, -4);
+                var iconImg = iconRT.gameObject.AddComponent<Image>();
+                iconImg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 4, Color.white));
+                iconImg.color = Color.white;
+                iconRT.gameObject.SetActive(false);
+
+                var letterRT = HUD_CreateRT("Letter", iconRT);
+                letterRT.anchorMin = Vector2.zero; letterRT.anchorMax = Vector2.one;
+                letterRT.offsetMin = letterRT.offsetMax = Vector2.zero;
+                var letterT = letterRT.gameObject.AddComponent<Text>();
+                letterT.font = font; letterT.fontSize = 20; letterT.fontStyle = FontStyle.Bold;
+                letterT.color = tokInk;
+                letterT.alignment = TextAnchor.MiddleCenter;
+
+                var qtyRT = HUD_CreateRT("Qty", slot);
+                qtyRT.anchorMin = qtyRT.anchorMax = new Vector2(1, 0);
+                qtyRT.pivot = new Vector2(1, 0);
+                qtyRT.anchoredPosition = new Vector2(-3, 2);
+                qtyRT.sizeDelta = new Vector2(36, 16);
+                var qtyT = qtyRT.gameObject.AddComponent<Text>();
+                qtyT.font = font; qtyT.fontSize = 11; qtyT.fontStyle = FontStyle.Bold;
+                qtyT.color = tokParchment;
+                qtyT.alignment = TextAnchor.LowerRight;
+                var qtySh = qtyRT.gameObject.AddComponent<Shadow>();
+                qtySh.effectColor = new Color(0, 0, 0, 0.95f);
+                qtySh.effectDistance = new Vector2(1, -1);
+            }
+
+        // Selected item tooltip
+        var ttip = HUD_CreateRT("Tooltip", invPanel);
+        ttip.anchorMin = new Vector2(0, 1); ttip.anchorMax = new Vector2(1, 1);
+        ttip.pivot = new Vector2(0.5f, 1);
+        ttip.anchoredPosition = new Vector2(0, -442);
+        ttip.sizeDelta = new Vector2(-32, 122);
+        var ttipBg = ttip.gameObject.AddComponent<Image>();
+        ttipBg.sprite = TexToSprite(MakeRoundRectTex(128, 64, 6, new Color(0.10f, 0.06f, 0.03f, 0.95f)));
+        ttipBg.type = Image.Type.Sliced;
+        var ttipName = HUD_CreateRT("Name", ttip);
+        ttipName.anchorMin = new Vector2(0, 1); ttipName.anchorMax = new Vector2(1, 1);
+        ttipName.offsetMin = new Vector2(14, -28); ttipName.offsetMax = new Vector2(-14, -4);
+        var ttipNameT = ttipName.gameObject.AddComponent<Text>();
+        ttipNameT.font = font; ttipNameT.fontSize = 14; ttipNameT.fontStyle = FontStyle.Bold;
+        ttipNameT.color = new Color(0.94f, 0.66f, 0.19f); // legend gold
+        ttipNameT.alignment = TextAnchor.MiddleLeft;
+        ttipNameT.text = "⚔  여명의 검   +11";
+        var ttipTier = HUD_CreateRT("Tier", ttip);
+        ttipTier.anchorMin = new Vector2(0, 1); ttipTier.anchorMax = new Vector2(1, 1);
+        ttipTier.offsetMin = new Vector2(14, -44); ttipTier.offsetMax = new Vector2(-14, -28);
+        var ttipTierT = ttipTier.gameObject.AddComponent<Text>();
+        ttipTierT.font = font; ttipTierT.fontSize = 9;
+        ttipTierT.color = tokParchDark;
+        ttipTierT.alignment = TextAnchor.MiddleLeft;
+        ttipTierT.text = "LEGENDARY  ·  무기  ·  Lv.45";
+        var ttipStats = HUD_CreateRT("Stats", ttip);
+        ttipStats.anchorMin = new Vector2(0, 0); ttipStats.anchorMax = new Vector2(1, 1);
+        ttipStats.offsetMin = new Vector2(14, 26); ttipStats.offsetMax = new Vector2(-14, -50);
+        var ttipStatsT = ttipStats.gameObject.AddComponent<Text>();
+        ttipStatsT.font = font; ttipStatsT.fontSize = 11;
+        ttipStatsT.color = tokParchment;
+        ttipStatsT.alignment = TextAnchor.UpperLeft;
+        ttipStatsT.text = "공격력  2,420\nSTR  +42\n크리티컬  +12%   공격속도  +8%";
+        var ttipFlavor = HUD_CreateRT("Flavor", ttip);
+        ttipFlavor.anchorMin = new Vector2(0, 0); ttipFlavor.anchorMax = new Vector2(1, 0);
+        ttipFlavor.offsetMin = new Vector2(14, 4); ttipFlavor.offsetMax = new Vector2(-14, 24);
+        var ttipFlavorT = ttipFlavor.gameObject.AddComponent<Text>();
+        ttipFlavorT.font = font; ttipFlavorT.fontSize = 10; ttipFlavorT.fontStyle = FontStyle.Italic;
+        ttipFlavorT.color = new Color(0.78f, 0.38f, 0.91f); // epic+ flavor
+        ttipFlavorT.alignment = TextAnchor.MiddleLeft;
+        ttipFlavorT.text = "\"여명의 빛이 깃든 검...\"";
+
+        // Footer (gold + slot count)
+        var footer = HUD_CreateRT("Footer", invPanel);
+        footer.anchorMin = new Vector2(0, 0); footer.anchorMax = new Vector2(1, 0);
+        footer.pivot = new Vector2(0.5f, 0);
+        footer.anchoredPosition = new Vector2(0, 60);
+        footer.sizeDelta = new Vector2(-32, 32);
+        var footerBg = footer.gameObject.AddComponent<Image>();
+        footerBg.sprite = TexToSprite(MakeRoundRectTex(128, 32, 4, tokWoodLite));
+        footerBg.type = Image.Type.Sliced;
+        var goldLbl = HUD_CreateRT("Gold", footer);
+        goldLbl.anchorMin = new Vector2(0, 0); goldLbl.anchorMax = new Vector2(0.5f, 1);
+        goldLbl.offsetMin = new Vector2(14, 0); goldLbl.offsetMax = new Vector2(-4, 0);
+        var goldT = goldLbl.gameObject.AddComponent<Text>();
+        goldT.font = font; goldT.fontSize = 14; goldT.fontStyle = FontStyle.Bold;
+        goldT.color = tokGold;
+        goldT.alignment = TextAnchor.MiddleLeft;
+        goldT.text = "◉  28,442 G";
+        var slotsLbl = HUD_CreateRT("SlotCount", footer);
+        slotsLbl.anchorMin = new Vector2(0.5f, 0); slotsLbl.anchorMax = new Vector2(1, 1);
+        slotsLbl.offsetMin = new Vector2(4, 0); slotsLbl.offsetMax = new Vector2(-14, 0);
+        var slotsT = slotsLbl.gameObject.AddComponent<Text>();
+        slotsT.font = font; slotsT.fontSize = 11;
+        slotsT.color = tokParchDark;
+        slotsT.alignment = TextAnchor.MiddleRight;
+        slotsT.text = "0 / 36  슬롯";
+
+        // Action buttons (정렬 / 분할 / 버리기)
+        string[] actLabels = { "⇅  정렬", "⊟  분할", "✕  버리기" };
+        for (int i = 0; i < 3; i++)
+        {
+            var btn = HUD_CreateRT($"Act_{i}", invPanel);
+            btn.anchorMin = new Vector2(0, 0); btn.anchorMax = new Vector2(0, 0);
+            btn.pivot = new Vector2(0, 0);
+            float bw = (440 - 32 - 12) / 3f;
+            btn.anchoredPosition = new Vector2(16 + i * (bw + 6), 18);
+            btn.sizeDelta = new Vector2(bw, 32);
+            var bImg = btn.gameObject.AddComponent<Image>();
+            bImg.sprite = parchmentSpr; bImg.type = Image.Type.Sliced;
+            var lblRT2 = HUD_CreateRT("Label", btn);
+            lblRT2.anchorMin = Vector2.zero; lblRT2.anchorMax = Vector2.one;
+            lblRT2.offsetMin = lblRT2.offsetMax = Vector2.zero;
+            var lblT2 = lblRT2.gameObject.AddComponent<Text>();
+            lblT2.font = font; lblT2.fontSize = 11; lblT2.fontStyle = FontStyle.Bold;
+            lblT2.color = tokInk;
+            lblT2.alignment = TextAnchor.MiddleCenter;
+            lblT2.text = actLabels[i];
+            btn.gameObject.AddComponent<Button>();
+        }
+
+        var invUI = canvasGo.AddComponent<Astrion.UI.InventoryUI>();
+        var invUiSo = new UnityEditor.SerializedObject(invUI);
+        invUiSo.FindProperty("panel").objectReferenceValue = invPanel.gameObject;
+        invUiSo.FindProperty("slotsRoot").objectReferenceValue = slotsRoot2;
+        invUiSo.FindProperty("closeButton").objectReferenceValue = invCloseB;
+        invUiSo.ApplyModifiedPropertiesWithoutUndo();
+        invPanel.gameObject.SetActive(false);
+
+        // ========== DIALOGUE UI ==========
+        var dlg = canvasGo.AddComponent<Astrion.UI.DialogueUI>();
+
+        // Interaction hint (top-center, "[E] NPC와 대화")
+        var hintPanel = HUD_CreateRT("DialogueHint", root);
+        hintPanel.anchorMin = hintPanel.anchorMax = new Vector2(0.5f, 1);
+        hintPanel.pivot = new Vector2(0.5f, 1);
+        hintPanel.anchoredPosition = new Vector2(0, -90);
+        hintPanel.sizeDelta = new Vector2(320, 42);
+        var hpBg = hintPanel.gameObject.AddComponent<Image>();
+        hpBg.sprite = panelSpr; hpBg.type = Image.Type.Sliced;
+        var hintTextRT = HUD_CreateRT("Text", hintPanel);
+        hintTextRT.anchorMin = Vector2.zero; hintTextRT.anchorMax = Vector2.one;
+        hintTextRT.offsetMin = hintTextRT.offsetMax = Vector2.zero;
+        var hintTextC = hintTextRT.gameObject.AddComponent<Text>();
+        hintTextC.font = font; hintTextC.fontSize = 14; hintTextC.fontStyle = FontStyle.Bold;
+        hintTextC.color = new Color(1f, 0.88f, 0.45f);
+        hintTextC.alignment = TextAnchor.MiddleCenter;
+        hintTextC.text = "[E]  NPC와 대화";
+
+        // Dialog panel (centered above the action bar)
+        var dialogPanel = HUD_CreateRT("DialoguePanel", root);
+        dialogPanel.anchorMin = dialogPanel.anchorMax = new Vector2(0.5f, 0);
+        dialogPanel.pivot = new Vector2(0.5f, 0);
+        dialogPanel.anchoredPosition = new Vector2(0, 170);
+        dialogPanel.sizeDelta = new Vector2(900, 190);
+        var dpBg = dialogPanel.gameObject.AddComponent<Image>();
+        dpBg.sprite = panelSpr; dpBg.type = Image.Type.Sliced;
+
+        var speakerRT = HUD_CreateRT("Speaker", dialogPanel);
+        speakerRT.anchorMin = new Vector2(0, 1); speakerRT.anchorMax = new Vector2(0, 1);
+        speakerRT.pivot = new Vector2(0, 1);
+        speakerRT.anchoredPosition = new Vector2(24, -12);
+        speakerRT.sizeDelta = new Vector2(360, 30);
+        var speakerTextC = speakerRT.gameObject.AddComponent<Text>();
+        speakerTextC.font = font; speakerTextC.fontSize = 18; speakerTextC.fontStyle = FontStyle.Bold;
+        speakerTextC.color = new Color(1f, 0.85f, 0.40f);
+        speakerTextC.alignment = TextAnchor.MiddleLeft;
+        speakerTextC.text = "폴라리스";
+
+        var contentRT = HUD_CreateRT("Content", dialogPanel);
+        contentRT.anchorMin = new Vector2(0, 0); contentRT.anchorMax = new Vector2(1, 1);
+        contentRT.offsetMin = new Vector2(28, 36); contentRT.offsetMax = new Vector2(-28, -46);
+        var contentTextC = contentRT.gameObject.AddComponent<Text>();
+        contentTextC.font = font; contentTextC.fontSize = 16;
+        contentTextC.color = textWhite;
+        contentTextC.alignment = TextAnchor.UpperLeft;
+        contentTextC.supportRichText = true;
+        contentTextC.horizontalOverflow = HorizontalWrapMode.Wrap;
+        contentTextC.text = "...";
+
+        var contRT = HUD_CreateRT("Continue", dialogPanel);
+        contRT.anchorMin = contRT.anchorMax = new Vector2(1, 0);
+        contRT.pivot = new Vector2(1, 0);
+        contRT.anchoredPosition = new Vector2(-20, 12);
+        contRT.sizeDelta = new Vector2(180, 22);
+        var contTextC = contRT.gameObject.AddComponent<Text>();
+        contTextC.font = font; contTextC.fontSize = 12;
+        contTextC.color = new Color(0.75f, 0.85f, 0.50f);
+        contTextC.alignment = TextAnchor.MiddleRight;
+        contTextC.text = "[Space]  계속";
+
         // Wire HUD references
         var so = new UnityEditor.SerializedObject(hudComp);
         so.FindProperty("hpFill").objectReferenceValue = hpFill;
@@ -1823,6 +3433,15 @@ public class ProjectSetup
         so.FindProperty("charLevelText").objectReferenceValue = levelText;
         so.FindProperty("coordsText").objectReferenceValue = coordsText;
         so.ApplyModifiedPropertiesWithoutUndo();
+
+        var dlgSo = new UnityEditor.SerializedObject(dlg);
+        dlgSo.FindProperty("hintPanel").objectReferenceValue = hintPanel.gameObject;
+        dlgSo.FindProperty("hintText").objectReferenceValue = hintTextC;
+        dlgSo.FindProperty("dialogPanel").objectReferenceValue = dialogPanel.gameObject;
+        dlgSo.FindProperty("speakerText").objectReferenceValue = speakerTextC;
+        dlgSo.FindProperty("contentText").objectReferenceValue = contentTextC;
+        dlgSo.FindProperty("continuePrompt").objectReferenceValue = contTextC;
+        dlgSo.ApplyModifiedPropertiesWithoutUndo();
     }
 
     private static Image CreateMapleBar(RectTransform parent, string name, Vector2 pos, Vector2 size,

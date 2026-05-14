@@ -8,6 +8,7 @@ namespace Astrion.Game
     {
         [SerializeField] private GameObject playerPrefab;
         [SerializeField] private GameObject remotePlayerPrefab;
+        [SerializeField] private GameObject starBoltPrefab; // for visualizing other players' skill casts
 
         private string _playerId;
         private GameObject _localPlayer;
@@ -64,6 +65,9 @@ namespace Astrion.Game
                 case PacketType.ChatMessage:
                     OnChatMessage(packet.Payload);
                     break;
+                case PacketType.SkillBroadcast:
+                    OnSkillBroadcast(packet.Payload);
+                    break;
             }
         }
 
@@ -72,7 +76,10 @@ namespace Astrion.Game
             if (_localPlayer == null || !NetworkManager.Instance.IsConnected) return;
 
             Vector3 pos = _localPlayer.transform.position;
-            string movePayload = JsonUtility.ToJson(new MoveRequest { x = pos.x, y = pos.y, z = pos.z });
+            int facing = 1;
+            var pc = _localPlayer.GetComponent<PlayerController2D>();
+            if (pc != null) facing = pc.FacingRight ? 1 : -1;
+            string movePayload = JsonUtility.ToJson(new MoveRequest { x = pos.x, y = pos.y, z = pos.z, facing = facing });
             NetworkManager.Instance.SendPacket(PacketType.Move, movePayload);
         }
 
@@ -109,7 +116,26 @@ namespace Astrion.Game
             if (_remotePlayers.TryGetValue(data.playerId, out var go))
             {
                 go.transform.position = new Vector3(data.position.x, data.position.y, data.position.z);
+                // Flip sprite container based on facing
+                var container = go.transform.Find("SpriteContainer");
+                if (container != null && data.facing != 0)
+                {
+                    var s = container.localScale;
+                    s.x = data.facing > 0 ? Mathf.Abs(s.x) : -Mathf.Abs(s.x);
+                    container.localScale = s;
+                }
             }
+        }
+
+        private void OnSkillBroadcast(string payload)
+        {
+            var data = JsonUtility.FromJson<SkillCastData>(payload);
+            if (data == null || data.playerId == _playerId) return; // self — already spawned locally
+            if (starBoltPrefab == null) return;
+            var go = Instantiate(starBoltPrefab, new Vector3(data.x, data.y, 0f), Quaternion.identity);
+            go.SetActive(true);
+            var bolt = go.GetComponent<Astrion.Game.StarBolt2D>();
+            if (bolt != null) bolt.Init(data.dir, null, visualOnly: true);
         }
 
         private void OnChatMessage(string payload)
@@ -125,11 +151,12 @@ namespace Astrion.Game
         }
 
         // JSON DTOs
-        [System.Serializable] public class MoveRequest { public float x, y, z; }
+        [System.Serializable] public class MoveRequest { public float x, y, z; public int facing; }
         [System.Serializable] public class SpawnData { public string playerId; public PositionData position; }
         [System.Serializable] public class DespawnData { public string playerId; }
-        [System.Serializable] public class MoveData { public string playerId; public PositionData position; }
+        [System.Serializable] public class MoveData { public string playerId; public PositionData position; public int facing; }
         [System.Serializable] public class ChatData { public string playerId; public string message; }
         [System.Serializable] public class PositionData { public float x, y, z; }
+        [System.Serializable] public class SkillCastData { public string playerId; public float x, y; public int dir; public string type; }
     }
 }

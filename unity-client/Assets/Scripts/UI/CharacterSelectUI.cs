@@ -11,8 +11,13 @@ namespace Astrion.UI
         [SerializeField] private Transform slotContainer;
         [SerializeField] private Button enterButton;
         [SerializeField] private Button createButton;
+        [SerializeField] private Button deleteButton;
         [SerializeField] private Text selectedInfoName;
         [SerializeField] private Text selectedInfoDetail;
+        [SerializeField] private GameObject confirmPanel;
+        [SerializeField] private Text confirmText;
+        [SerializeField] private Button confirmYesButton;
+        [SerializeField] private Button confirmNoButton;
 
         private int _selectedIndex = -1;
         private List<CharacterData> _characters = new();
@@ -23,6 +28,15 @@ namespace Astrion.UI
             enterButton.onClick.AddListener(OnEnterClicked);
             createButton.onClick.AddListener(OnCreateClicked);
             enterButton.interactable = false;
+
+            if (deleteButton != null)
+            {
+                deleteButton.onClick.AddListener(OnDeleteClicked);
+                deleteButton.interactable = false;
+            }
+            if (confirmPanel != null) confirmPanel.SetActive(false);
+            if (confirmYesButton != null) confirmYesButton.onClick.AddListener(OnConfirmYes);
+            if (confirmNoButton != null) confirmNoButton.onClick.AddListener(OnConfirmNo);
 
             NetworkManager.Instance.OnPacketReceived += HandlePacket;
 
@@ -53,7 +67,13 @@ namespace Astrion.UI
                 _loaded = true;
                 _selectedIndex = -1;
                 enterButton.interactable = false;
+                if (deleteButton != null) deleteButton.interactable = false;
                 RefreshSlots();
+            }
+            else if (packet.Type == PacketType.CharacterDeleteResult)
+            {
+                // Refresh list regardless of success/failure
+                RequestCharacterList();
             }
         }
 
@@ -106,6 +126,7 @@ namespace Astrion.UI
         {
             _selectedIndex = index;
             enterButton.interactable = true;
+            if (deleteButton != null) deleteButton.interactable = true;
 
             var c = _characters[index];
             selectedInfoName.text = c.name;
@@ -121,6 +142,29 @@ namespace Astrion.UI
             }
         }
 
+        private void OnDeleteClicked()
+        {
+            if (_selectedIndex < 0 || _selectedIndex >= _characters.Count) return;
+            var c = _characters[_selectedIndex];
+            if (confirmText != null)
+                confirmText.text = $"정말 [{c.name}] 캐릭터를 삭제하시겠습니까?\n복구할 수 없습니다.";
+            if (confirmPanel != null) confirmPanel.SetActive(true);
+        }
+
+        private void OnConfirmYes()
+        {
+            if (confirmPanel != null) confirmPanel.SetActive(false);
+            if (_selectedIndex < 0 || _selectedIndex >= _characters.Count) return;
+            var c = _characters[_selectedIndex];
+            string payload = JsonUtility.ToJson(new DeleteRequest { name = c.name });
+            NetworkManager.Instance.SendPacket(PacketType.CharacterDelete, payload);
+        }
+
+        private void OnConfirmNo()
+        {
+            if (confirmPanel != null) confirmPanel.SetActive(false);
+        }
+
         private void OnEnterClicked()
         {
             if (_selectedIndex < 0 || _selectedIndex >= _characters.Count) return;
@@ -129,7 +173,17 @@ namespace Astrion.UI
             PlayerPrefs.SetString("characterClass", c.className);
             PlayerPrefs.Save();
             NetworkManager.Instance.OnPacketReceived -= HandlePacket;
-            SceneManager.LoadScene("MainScene");
+
+            // Resume in the last game scene if saved; otherwise default to MainScene
+            string target = "MainScene";
+            var psm = PlayerStateManager.Instance;
+            if (psm != null && psm.IsLoaded)
+            {
+                string last = psm.State?.lastScene ?? "";
+                if (last == "MainScene" || last == "ForgottenWoodsScene")
+                    target = last;
+            }
+            SceneManager.LoadScene(target);
         }
 
         private void OnCreateClicked()
@@ -156,6 +210,12 @@ namespace Astrion.UI
         public class CharacterListResponse
         {
             public CharacterData[] characters;
+        }
+
+        [System.Serializable]
+        public class DeleteRequest
+        {
+            public string name;
         }
     }
 }

@@ -9,6 +9,11 @@ public enum PacketType {
     CHARACTER_LIST(0x05),
     CHARACTER_CREATE(0x06),
     CHARACTER_DELETE(0x07),
+    STATE_REQUEST(0x09),
+    STATE_SAVE(0x0A),
+    ZONE_ENTER(0x0B),
+    MONSTER_HIT(0x0C),
+    SKILL_CAST(0x0D),
 
     // Server -> Client
     LOGIN_RESULT(0x81),
@@ -19,7 +24,13 @@ public enum PacketType {
     WORLD_STATE(0x86),
     CHARACTER_LIST_RESULT(0x87),
     CHARACTER_CREATE_RESULT(0x88),
-    CHARACTER_DELETE_RESULT(0x89);
+    CHARACTER_DELETE_RESULT(0x89),
+    STATE_DATA(0x8A),
+    MONSTER_SPAWN(0x90),
+    MONSTER_MOVE(0x91),
+    MONSTER_DIE(0x92),
+    MONSTER_HP(0x93),
+    SKILL_BROADCAST(0x94);
 
     private final int code;
 

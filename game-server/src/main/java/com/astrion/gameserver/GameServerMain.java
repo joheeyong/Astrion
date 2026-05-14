@@ -2,6 +2,7 @@ package com.astrion.gameserver;
 
 import com.astrion.gameserver.network.GameServerInitializer;
 import com.astrion.gameserver.redis.RedisManager;
+import com.astrion.gameserver.world.MonsterManager;
 import com.astrion.gameserver.world.WorldManager;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -25,6 +26,7 @@ public class GameServerMain {
 
         RedisManager redisManager = new RedisManager(REDIS_HOST, REDIS_PORT);
         WorldManager worldManager = new WorldManager();
+        MonsterManager monsterManager = new MonsterManager(worldManager);
 
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -33,7 +35,7 @@ public class GameServerMain {
             ServerBootstrap bootstrap = new ServerBootstrap();
             bootstrap.group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
-                    .childHandler(new GameServerInitializer(worldManager, redisManager))
+                    .childHandler(new GameServerInitializer(worldManager, redisManager, monsterManager))
                     .option(ChannelOption.SO_BACKLOG, 128)
                     .childOption(ChannelOption.SO_KEEPALIVE, true)
                     .childOption(ChannelOption.TCP_NODELAY, true);
@@ -46,6 +48,7 @@ public class GameServerMain {
         } finally {
             workerGroup.shutdownGracefully();
             bossGroup.shutdownGracefully();
+            monsterManager.shutdown();
             redisManager.shutdown();
             log.info("Game server shut down");
         }

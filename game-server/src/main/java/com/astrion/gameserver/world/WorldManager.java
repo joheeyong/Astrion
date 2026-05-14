@@ -69,4 +69,15 @@ public class WorldManager {
             session.getChannel().writeAndFlush(packet);
         }
     }
+
+    /**
+     * Broadcast to all players currently in the given zone.
+     */
+    public void broadcastToZone(String zoneId, GamePacket packet) {
+        if (zoneId == null) return;
+        for (PlayerSession session : sessions.values()) {
+            if (zoneId.equals(session.getZoneId()))
+                session.getChannel().writeAndFlush(packet);
+        }
+    }
 }
