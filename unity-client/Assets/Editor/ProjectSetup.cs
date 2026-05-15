@@ -3962,6 +3962,80 @@ public class ProjectSetup
         toastSo.FindProperty("stackRoot").objectReferenceValue = toastStack;
         toastSo.FindProperty("toastTemplate").objectReferenceValue = toastTpl.gameObject;
         toastSo.ApplyModifiedPropertiesWithoutUndo();
+
+        // ========== SYSTEM MENU (ESC) ==========
+        var sysPanel = HUD_CreateRT("SystemMenu", root);
+        sysPanel.anchorMin = sysPanel.anchorMax = new Vector2(0.5f, 0.5f);
+        sysPanel.pivot = new Vector2(0.5f, 0.5f);
+        sysPanel.anchoredPosition = Vector2.zero;
+        sysPanel.sizeDelta = new Vector2(360, 280);
+        var sysBg = sysPanel.gameObject.AddComponent<Image>();
+        sysBg.sprite = panelSpr; sysBg.type = Image.Type.Sliced;
+
+        var sysHdr = HUD_CreateRT("Header", sysPanel);
+        sysHdr.anchorMin = new Vector2(0, 1); sysHdr.anchorMax = new Vector2(1, 1);
+        sysHdr.pivot = new Vector2(0.5f, 1);
+        sysHdr.anchoredPosition = new Vector2(0, -12);
+        sysHdr.sizeDelta = new Vector2(-20, 32);
+        var sysHdrT = sysHdr.gameObject.AddComponent<Text>();
+        sysHdrT.font = font; sysHdrT.fontSize = 18; sysHdrT.fontStyle = FontStyle.Bold;
+        sysHdrT.color = new Color(1f, 0.85f, 0.40f);
+        sysHdrT.alignment = TextAnchor.MiddleCenter;
+        sysHdrT.text = "시스템";
+
+        // Buttons
+        Button MakeMenuBtn(string nm, string label, float yPos, Color tint) {
+            var bRT = HUD_CreateRT(nm, sysPanel);
+            bRT.anchorMin = new Vector2(0.5f, 1); bRT.anchorMax = new Vector2(0.5f, 1);
+            bRT.pivot = new Vector2(0.5f, 1);
+            bRT.anchoredPosition = new Vector2(0, yPos);
+            bRT.sizeDelta = new Vector2(280, 48);
+            var bImg = bRT.gameObject.AddComponent<Image>();
+            bImg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 8, tint));
+            bImg.type = Image.Type.Sliced;
+            var btn = bRT.gameObject.AddComponent<Button>();
+            var lblRT = HUD_CreateRT("Label", bRT);
+            lblRT.anchorMin = Vector2.zero; lblRT.anchorMax = Vector2.one;
+            lblRT.offsetMin = lblRT.offsetMax = Vector2.zero;
+            var lblT = lblRT.gameObject.AddComponent<Text>();
+            lblT.font = font; lblT.fontSize = 15; lblT.fontStyle = FontStyle.Bold;
+            lblT.color = new Color(0.96f, 0.90f, 0.78f);
+            lblT.alignment = TextAnchor.MiddleCenter;
+            lblT.text = label;
+            return btn;
+        }
+        var sysCharBtn = MakeMenuBtn("CharSelectBtn", "캐릭터 선택으로", -56, new Color(0.42f, 0.28f, 0.15f, 1f));
+        var sysCloseBtn = MakeMenuBtn("CloseBtn", "계속하기  (ESC)", -112, new Color(0.30f, 0.24f, 0.16f, 1f));
+        var sysQuitBtn = MakeMenuBtn("QuitBtn", "게임 종료", -176, new Color(0.55f, 0.18f, 0.18f, 1f));
+
+        var sysUI = canvasGo.AddComponent<Astrion.UI.SystemMenuUI>();
+        var sysSo = new UnityEditor.SerializedObject(sysUI);
+        sysSo.FindProperty("panel").objectReferenceValue = sysPanel.gameObject;
+        sysSo.FindProperty("charSelectButton").objectReferenceValue = sysCharBtn;
+        sysSo.FindProperty("quitButton").objectReferenceValue = sysQuitBtn;
+        sysSo.FindProperty("closeButton").objectReferenceValue = sysCloseBtn;
+        sysSo.ApplyModifiedPropertiesWithoutUndo();
+        sysPanel.gameObject.SetActive(false);
+
+        // Top-right menu (☰) button — opens system menu
+        var menuBtnRT = HUD_CreateRT("MenuBtn", root);
+        menuBtnRT.anchorMin = menuBtnRT.anchorMax = new Vector2(1, 1);
+        menuBtnRT.pivot = new Vector2(1, 1);
+        menuBtnRT.anchoredPosition = new Vector2(-12, -12);
+        menuBtnRT.sizeDelta = new Vector2(40, 40);
+        var menuBtnImg = menuBtnRT.gameObject.AddComponent<Image>();
+        menuBtnImg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 8, new Color(0.10f, 0.08f, 0.06f, 0.92f)));
+        menuBtnImg.type = Image.Type.Sliced;
+        var menuBtn = menuBtnRT.gameObject.AddComponent<Button>();
+        menuBtn.onClick.AddListener(() => sysUI.Toggle());
+        var menuTRT = HUD_CreateRT("Icon", menuBtnRT);
+        menuTRT.anchorMin = Vector2.zero; menuTRT.anchorMax = Vector2.one;
+        menuTRT.offsetMin = menuTRT.offsetMax = Vector2.zero;
+        var menuT = menuTRT.gameObject.AddComponent<Text>();
+        menuT.font = font; menuT.fontSize = 22; menuT.fontStyle = FontStyle.Bold;
+        menuT.color = new Color(0.92f, 0.86f, 0.72f);
+        menuT.alignment = TextAnchor.MiddleCenter;
+        menuT.text = "☰";
     }
 
     private static Image CreateMapleBar(RectTransform parent, string name, Vector2 pos, Vector2 size,

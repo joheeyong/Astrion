@@ -85,8 +85,9 @@ namespace Astrion.Game
             if (h < -0.1f) SetFacing(false);
             else if (h > 0.1f) SetFacing(true);
 
-            // Skills (suppressed while typing in chat)
-            if (!Astrion.UI.GameHUD.IsChatFocused)
+            // Skills (suppressed while typing in chat or while system menu is open)
+            bool sysOpen = Astrion.UI.SystemMenuUI.Instance != null && Astrion.UI.SystemMenuUI.Instance.IsOpen;
+            if (!Astrion.UI.GameHUD.IsChatFocused && !sysOpen)
             {
                 // Q = quick-cast starbolt (always)
                 if (Input.GetKeyDown(KeyCode.Q))
@@ -195,7 +196,8 @@ namespace Astrion.Game
             }
             else
             {
-                if (Astrion.UI.GameHUD.IsChatFocused)
+                bool sysMenuOpen = Astrion.UI.SystemMenuUI.Instance != null && Astrion.UI.SystemMenuUI.Instance.IsOpen;
+                if (Astrion.UI.GameHUD.IsChatFocused || sysMenuOpen)
                 {
                     h = 0; v = 0; jump = false;
                     return;
