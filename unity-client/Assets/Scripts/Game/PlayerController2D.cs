@@ -85,20 +85,27 @@ namespace Astrion.Game
             if (h < -0.1f) SetFacing(false);
             else if (h > 0.1f) SetFacing(true);
 
-            // Skill: Star Bolt (Q key) — suppressed while typing in chat
-            if (!Astrion.UI.GameHUD.IsChatFocused
-                && Input.GetKeyDown(KeyCode.Q) && Time.time - _lastSkillTime >= skillCooldown)
+            // Skills (suppressed while typing in chat)
+            if (!Astrion.UI.GameHUD.IsChatFocused)
             {
-                FireStarBolt();
-                _lastSkillTime = Time.time;
+                // Q = quick-cast starbolt (always)
+                if (Input.GetKeyDown(KeyCode.Q))
+                {
+                    SkillCaster.Instance?.Cast("starbolt");
+                }
+                // 1~5 = hotbar slots
+                if      (Input.GetKeyDown(KeyCode.Alpha1)) HotbarSystem.Instance?.TryTrigger(0);
+                else if (Input.GetKeyDown(KeyCode.Alpha2)) HotbarSystem.Instance?.TryTrigger(1);
+                else if (Input.GetKeyDown(KeyCode.Alpha3)) HotbarSystem.Instance?.TryTrigger(2);
+                else if (Input.GetKeyDown(KeyCode.Alpha4)) HotbarSystem.Instance?.TryTrigger(3);
+                else if (Input.GetKeyDown(KeyCode.Alpha5)) HotbarSystem.Instance?.TryTrigger(4);
             }
         }
 
-        private void FireStarBolt()
+        // Called by SkillCaster (MP/cooldown already checked). Returns false if prefab missing.
+        public bool FireStarBoltExternal()
         {
-            if (starBoltPrefab == null) return;
-            var stats = PlayerStats.Instance;
-            if (stats != null && !stats.ConsumeMp(3)) return;
+            if (starBoltPrefab == null) return false;
             Vector3 origin = transform.position + new Vector3(_facingRight ? 0.35f : -0.35f, 0.15f, 0f);
             int dir = _facingRight ? 1 : -1;
 
@@ -107,7 +114,6 @@ namespace Astrion.Game
             var bolt = go.GetComponent<StarBolt2D>();
             if (bolt != null) bolt.Init(dir, FindHomingTarget(origin));
 
-            // Broadcast to zone — others render visual-only copy
             var nm = Astrion.Network.NetworkManager.Instance;
             if (nm != null && nm.IsConnected)
             {
@@ -115,6 +121,36 @@ namespace Astrion.Game
                     + ",\"y\":" + origin.y.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)
                     + ",\"dir\":" + dir + ",\"type\":\"starbolt\"}";
                 nm.SendPacket(Astrion.Network.PacketType.SkillCast, payload);
+            }
+            return true;
+        }
+
+        // Meteor placeholder visual: fan out 8 visual-only starbolts upward+forward
+        public void FireMeteorVisualBurst(int count)
+        {
+            if (starBoltPrefab == null) return;
+            Vector3 origin = transform.position + new Vector3(0f, 0.25f, 0f);
+            float facing = _facingRight ? 1f : -1f;
+            for (int i = 0; i < count; i++)
+            {
+                var go = Instantiate(starBoltPrefab, origin + new Vector3(Random.Range(-0.4f, 0.4f), Random.Range(0f, 0.4f), 0f), Quaternion.identity);
+                go.SetActive(true);
+                var b = go.GetComponent<StarBolt2D>();
+                if (b != null) b.Init(facing, null, visualOnly: true);
+            }
+        }
+
+        // Heal placeholder visual: 4 visual bolts rising from feet
+        public void FireHealVisualBurst()
+        {
+            if (starBoltPrefab == null) return;
+            Vector3 origin = transform.position + new Vector3(0f, -0.3f, 0f);
+            for (int i = 0; i < 4; i++)
+            {
+                var go = Instantiate(starBoltPrefab, origin + new Vector3(Random.Range(-0.25f, 0.25f), 0f, 0f), Quaternion.identity);
+                go.SetActive(true);
+                var b = go.GetComponent<StarBolt2D>();
+                if (b != null) b.Init(0.01f, null, visualOnly: true);
             }
         }
 

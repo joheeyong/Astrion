@@ -143,9 +143,17 @@ public class ProjectSetup
         var statsGo = new GameObject("PlayerStats");
         statsGo.AddComponent<Astrion.Game.PlayerStats>();
 
-        // SkillSystem (DDOL — learned skills, hotbar bindings)
+        // SkillSystem (DDOL — learned skills)
         var skillSysGo = new GameObject("SkillSystem");
         skillSysGo.AddComponent<Astrion.Game.SkillSystem>();
+
+        // HotbarSystem (DDOL — 5-slot skill bindings)
+        var hotbarGo = new GameObject("HotbarSystem");
+        hotbarGo.AddComponent<Astrion.Game.HotbarSystem>();
+
+        // SkillCaster (DDOL — actual skill execution dispatcher)
+        var casterGo = new GameObject("SkillCaster");
+        casterGo.AddComponent<Astrion.Game.SkillCaster>();
 
         // Canvas
         var canvasGo = new GameObject("Canvas");
@@ -3739,10 +3747,10 @@ public class ProjectSetup
             levelT2.alignment = TextAnchor.MiddleCenter;
             levelT2.text = "Lv.0/5";
 
-            // Plus button
+            // Plus button (top-right, smaller)
             var plusRT = HUD_CreateRT("Plus", row);
-            plusRT.anchorMin = new Vector2(0.85f, 0.25f); plusRT.anchorMax = new Vector2(1, 0.75f);
-            plusRT.offsetMin = new Vector2(4, 0); plusRT.offsetMax = new Vector2(-10, 0);
+            plusRT.anchorMin = new Vector2(0.85f, 0.55f); plusRT.anchorMax = new Vector2(1, 1);
+            plusRT.offsetMin = new Vector2(4, 4); plusRT.offsetMax = new Vector2(-10, -4);
             var plusImg = plusRT.gameObject.AddComponent<Image>();
             plusImg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 8, new Color(0.85f, 0.65f, 0.22f, 1f)));
             var plusBtn2 = plusRT.gameObject.AddComponent<Button>();
@@ -3750,10 +3758,46 @@ public class ProjectSetup
             plusT2.anchorMin = Vector2.zero; plusT2.anchorMax = Vector2.one;
             plusT2.offsetMin = plusT2.offsetMax = Vector2.zero;
             var plusTT = plusT2.gameObject.AddComponent<Text>();
-            plusTT.font = font; plusTT.fontSize = 18; plusTT.fontStyle = FontStyle.Bold;
+            plusTT.font = font; plusTT.fontSize = 16; plusTT.fontStyle = FontStyle.Bold;
             plusTT.color = new Color(0.12f, 0.08f, 0.04f);
             plusTT.alignment = TextAnchor.MiddleCenter;
             plusTT.text = "+";
+
+            // Hotbar slot buttons (1~5) — bottom-right of row
+            var hotRoot = HUD_CreateRT("HotRoot", row);
+            hotRoot.anchorMin = new Vector2(0.62f, 0); hotRoot.anchorMax = new Vector2(1, 0.50f);
+            hotRoot.offsetMin = new Vector2(4, 4); hotRoot.offsetMax = new Vector2(-4, 0);
+            var hotLbl = HUD_CreateRT("Label", hotRoot);
+            hotLbl.anchorMin = new Vector2(0, 0); hotLbl.anchorMax = new Vector2(0.30f, 1);
+            hotLbl.offsetMin = hotLbl.offsetMax = Vector2.zero;
+            var hotLblT = hotLbl.gameObject.AddComponent<Text>();
+            hotLblT.font = font; hotLblT.fontSize = 11;
+            hotLblT.color = new Color(0.78f, 0.72f, 0.60f);
+            hotLblT.alignment = TextAnchor.MiddleRight;
+            hotLblT.text = "단축키 ";
+
+            float slotStart = 0.30f;
+            float slotEnd = 1.0f;
+            float slotSpan = (slotEnd - slotStart) / 5f;
+            for (int hi = 0; hi < 5; hi++)
+            {
+                var hotRT = HUD_CreateRT($"Hot_{hi}", hotRoot);
+                hotRT.anchorMin = new Vector2(slotStart + slotSpan * hi, 0);
+                hotRT.anchorMax = new Vector2(slotStart + slotSpan * (hi + 1), 1);
+                hotRT.offsetMin = new Vector2(2, 1); hotRT.offsetMax = new Vector2(-2, -1);
+                var hotImg = hotRT.gameObject.AddComponent<Image>();
+                hotImg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 6, Color.white));
+                hotImg.color = new Color(0.30f, 0.24f, 0.16f, 1f);
+                var hotBtn = hotRT.gameObject.AddComponent<Button>();
+                var hotKeyT = HUD_CreateRT("Key", hotRT);
+                hotKeyT.anchorMin = Vector2.zero; hotKeyT.anchorMax = Vector2.one;
+                hotKeyT.offsetMin = hotKeyT.offsetMax = Vector2.zero;
+                var hotKeyText = hotKeyT.gameObject.AddComponent<Text>();
+                hotKeyText.font = font; hotKeyText.fontSize = 14; hotKeyText.fontStyle = FontStyle.Bold;
+                hotKeyText.color = new Color(0.92f, 0.86f, 0.72f);
+                hotKeyText.alignment = TextAnchor.MiddleCenter;
+                hotKeyText.text = (hi + 1).ToString();
+            }
         }
 
         // Footer (skill points)
