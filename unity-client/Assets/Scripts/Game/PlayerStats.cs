@@ -20,6 +20,7 @@ namespace Astrion.Game
         public int Intel { get; private set; } = 5;
         public int Luk { get; private set; } = 5;
         public int StatPoints { get; private set; } = 5;
+        public int SkillPoints { get; private set; } = 0;
         public string EquippedWeaponId { get; private set; } = "";
 
         public event Action OnChanged;
@@ -106,6 +107,7 @@ namespace Astrion.Game
         {
             Level++;
             StatPoints += 5;
+            SkillPoints += 1; // +1 skill point per level
             MaxHp += 10;
             MaxMp += 5;
             Hp = MaxHp;   // full restore on level up
@@ -128,8 +130,19 @@ namespace Astrion.Game
             if (s.statInt > 0) Intel = s.statInt;
             if (s.statLuk > 0) Luk = s.statLuk;
             StatPoints = Mathf.Max(0, s.statPoints);
+            SkillPoints = Mathf.Max(0, s.skillPoints);
             EquippedWeaponId = s.equippedWeaponId ?? "";
             OnChanged?.Invoke();
+        }
+
+        public bool SpendSkillPoints(int cost)
+        {
+            if (cost <= 0) return true;
+            if (SkillPoints < cost) return false;
+            SkillPoints -= cost;
+            SaveAttributes();
+            OnChanged?.Invoke();
+            return true;
         }
 
         public bool SpendStatPoint(string stat)
@@ -164,7 +177,10 @@ namespace Astrion.Game
                 var def = ItemDatabase.Get(EquippedWeaponId);
                 if (def != null) weaponDmg = def.baseDamage;
             }
-            float baseD = 5f + Intel * 2f + Level * 3f + weaponDmg;
+            int skillLv = SkillSystem.Instance != null ? SkillSystem.Instance.GetLevel("starbolt") : 1;
+            if (skillLv < 1) skillLv = 1;
+            float skillBonus = (skillLv - 1) * 5f;
+            float baseD = 5f + Intel * 2f + Level * 3f + weaponDmg + skillBonus;
             float variance = baseD * 0.2f;
             return Mathf.Max(1, Mathf.RoundToInt(baseD + UnityEngine.Random.Range(-variance, variance)));
         }

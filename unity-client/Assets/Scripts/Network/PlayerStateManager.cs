@@ -189,6 +189,12 @@ namespace Astrion.Network
             Save();
         }
 
+        public void UpdateSkillPoints(int skillPoints)
+        {
+            State.skillPoints = skillPoints;
+            Save();
+        }
+
         public void UpdateQuestState(string questId, string questTitle, int progress, int target, int state)
         {
             State.questId = questId ?? "";

@@ -142,6 +142,10 @@ public class ProjectSetup
         var statsGo = new GameObject("PlayerStats");
         statsGo.AddComponent<Astrion.Game.PlayerStats>();
 
+        // SkillSystem (DDOL — learned skills, hotbar bindings)
+        var skillSysGo = new GameObject("SkillSystem");
+        skillSysGo.AddComponent<Astrion.Game.SkillSystem>();
+
         // Canvas
         var canvasGo = new GameObject("Canvas");
         var canvas = canvasGo.AddComponent<Canvas>();
@@ -3444,6 +3448,163 @@ public class ProjectSetup
         invUiSo.FindProperty("closeButton").objectReferenceValue = invCloseB;
         invUiSo.ApplyModifiedPropertiesWithoutUndo();
         invPanel.gameObject.SetActive(false);
+
+        // ========== SKILL WINDOW (K key) ==========
+        var skillPanel = HUD_CreateRT("SkillWindow", root);
+        skillPanel.anchorMin = skillPanel.anchorMax = new Vector2(0.5f, 0.5f);
+        skillPanel.pivot = new Vector2(0.5f, 0.5f);
+        skillPanel.anchoredPosition = Vector2.zero;
+        skillPanel.sizeDelta = new Vector2(480, 430);
+        var skillBgImg = skillPanel.gameObject.AddComponent<Image>();
+        skillBgImg.sprite = panelSpr; skillBgImg.type = Image.Type.Sliced;
+
+        // Header
+        var skillHdrRT = HUD_CreateRT("Header", skillPanel);
+        skillHdrRT.anchorMin = new Vector2(0, 1); skillHdrRT.anchorMax = new Vector2(1, 1);
+        skillHdrRT.pivot = new Vector2(0.5f, 1);
+        skillHdrRT.anchoredPosition = new Vector2(0, -10);
+        skillHdrRT.sizeDelta = new Vector2(-20, 32);
+        var skillHdrText = skillHdrRT.gameObject.AddComponent<Text>();
+        skillHdrText.font = font; skillHdrText.fontSize = 18; skillHdrText.fontStyle = FontStyle.Bold;
+        skillHdrText.color = new Color(1f, 0.85f, 0.40f);
+        skillHdrText.alignment = TextAnchor.MiddleLeft;
+        skillHdrText.text = "스킬   S K I L L S";
+
+        // Close X
+        var skillCloseRT = HUD_CreateRT("Close", skillPanel);
+        skillCloseRT.anchorMin = skillCloseRT.anchorMax = new Vector2(1, 1);
+        skillCloseRT.pivot = new Vector2(1, 1);
+        skillCloseRT.anchoredPosition = new Vector2(-8, -8);
+        skillCloseRT.sizeDelta = new Vector2(28, 28);
+        skillCloseRT.gameObject.AddComponent<Image>().sprite =
+            TexToSprite(MakeRoundRectTex(64, 64, 6, new Color(0.20f, 0.05f, 0.05f, 0.95f)));
+        var skillCloseB = skillCloseRT.gameObject.AddComponent<Button>();
+        var skillXRT = HUD_CreateRT("X", skillCloseRT);
+        skillXRT.anchorMin = Vector2.zero; skillXRT.anchorMax = Vector2.one;
+        skillXRT.offsetMin = skillXRT.offsetMax = Vector2.zero;
+        var skillXT = skillXRT.gameObject.AddComponent<Text>();
+        skillXT.font = font; skillXT.fontSize = 16; skillXT.fontStyle = FontStyle.Bold;
+        skillXT.color = new Color(1f, 0.85f, 0.75f);
+        skillXT.alignment = TextAnchor.MiddleCenter;
+        skillXT.text = "×";
+
+        // Rows container
+        var skillRowsRoot = HUD_CreateRT("Rows", skillPanel);
+        skillRowsRoot.anchorMin = new Vector2(0, 0); skillRowsRoot.anchorMax = new Vector2(1, 1);
+        skillRowsRoot.offsetMin = new Vector2(12, 40); skillRowsRoot.offsetMax = new Vector2(-12, -48);
+
+        // 3 skill rows
+        (string id, string name, string letter, Color color, string desc)[] skillRows = {
+            ("starbolt",     "별빛 투사체",  "★", new Color(1f,    0.85f, 0.30f), "정면 별빛 발사 / 자동 호밍 / Lv당 데미지 +5"),
+            ("meteor",       "유성 낙하",    "☄", new Color(0.95f, 0.45f, 0.20f), "범위 별 폭발 (구현 예정)"),
+            ("stellar_heal", "별빛 회복",    "♥", new Color(0.55f, 1f,    0.55f), "HP 회복 / Lv당 회복량 +10"),
+        };
+        for (int i = 0; i < skillRows.Length; i++)
+        {
+            var s = skillRows[i];
+            var row = HUD_CreateRT($"Row_{i}", skillRowsRoot);
+            row.anchorMin = new Vector2(0, 1); row.anchorMax = new Vector2(1, 1);
+            row.pivot = new Vector2(0.5f, 1);
+            row.anchoredPosition = new Vector2(0, -i * 100);
+            row.sizeDelta = new Vector2(0, 90);
+            var rowBg = row.gameObject.AddComponent<Image>();
+            rowBg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 6, new Color(0.07f, 0.05f, 0.04f, 0.85f)));
+            rowBg.type = Image.Type.Sliced;
+
+            // Icon
+            var icon = HUD_CreateRT("Icon", row);
+            icon.anchorMin = new Vector2(0, 0.5f); icon.anchorMax = new Vector2(0, 0.5f);
+            icon.pivot = new Vector2(0, 0.5f);
+            icon.anchoredPosition = new Vector2(10, 0);
+            icon.sizeDelta = new Vector2(68, 68);
+            var iconBg = icon.gameObject.AddComponent<Image>();
+            iconBg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 6, s.color));
+            var iconLbl = HUD_CreateRT("Letter", icon);
+            iconLbl.anchorMin = Vector2.zero; iconLbl.anchorMax = Vector2.one;
+            iconLbl.offsetMin = iconLbl.offsetMax = Vector2.zero;
+            var iconLblT = iconLbl.gameObject.AddComponent<Text>();
+            iconLblT.font = font; iconLblT.fontSize = 32; iconLblT.fontStyle = FontStyle.Bold;
+            iconLblT.color = new Color(0.10f, 0.07f, 0.04f);
+            iconLblT.alignment = TextAnchor.MiddleCenter;
+            iconLblT.text = s.letter;
+
+            // Name
+            var sNameRT = HUD_CreateRT("Name", row);
+            sNameRT.anchorMin = new Vector2(0, 0.55f); sNameRT.anchorMax = new Vector2(0.65f, 1);
+            sNameRT.offsetMin = new Vector2(90, 0); sNameRT.offsetMax = new Vector2(0, -6);
+            var sNameT = sNameRT.gameObject.AddComponent<Text>();
+            sNameT.font = font; sNameT.fontSize = 15; sNameT.fontStyle = FontStyle.Bold;
+            sNameT.color = new Color(1f, 0.85f, 0.40f);
+            sNameT.alignment = TextAnchor.LowerLeft;
+            sNameT.text = s.name;
+
+            // Desc
+            var descRT = HUD_CreateRT("Desc", row);
+            descRT.anchorMin = new Vector2(0, 0.15f); descRT.anchorMax = new Vector2(0.65f, 0.55f);
+            descRT.offsetMin = new Vector2(90, 0); descRT.offsetMax = new Vector2(0, 0);
+            var descT = descRT.gameObject.AddComponent<Text>();
+            descT.font = font; descT.fontSize = 11;
+            descT.color = new Color(0.78f, 0.72f, 0.60f);
+            descT.alignment = TextAnchor.UpperLeft;
+            descT.text = s.desc;
+
+            // Requirement (bottom-left of row)
+            var reqRT = HUD_CreateRT("Requirement", row);
+            reqRT.anchorMin = new Vector2(0, 0); reqRT.anchorMax = new Vector2(0.65f, 0.15f);
+            reqRT.offsetMin = new Vector2(90, 4); reqRT.offsetMax = new Vector2(0, 0);
+            var reqT = reqRT.gameObject.AddComponent<Text>();
+            reqT.font = font; reqT.fontSize = 10;
+            reqT.color = new Color(0.55f, 0.48f, 0.34f);
+            reqT.alignment = TextAnchor.MiddleLeft;
+            reqT.text = "—";
+
+            // Level (right side, large)
+            var levelRT2 = HUD_CreateRT("Level", row);
+            levelRT2.anchorMin = new Vector2(0.65f, 0.45f); levelRT2.anchorMax = new Vector2(0.85f, 1);
+            levelRT2.offsetMin = levelRT2.offsetMax = Vector2.zero;
+            var levelT2 = levelRT2.gameObject.AddComponent<Text>();
+            levelT2.font = font; levelT2.fontSize = 16; levelT2.fontStyle = FontStyle.Bold;
+            levelT2.color = new Color(0.94f, 0.85f, 0.47f);
+            levelT2.alignment = TextAnchor.MiddleCenter;
+            levelT2.text = "Lv.0/5";
+
+            // Plus button
+            var plusRT = HUD_CreateRT("Plus", row);
+            plusRT.anchorMin = new Vector2(0.85f, 0.25f); plusRT.anchorMax = new Vector2(1, 0.75f);
+            plusRT.offsetMin = new Vector2(4, 0); plusRT.offsetMax = new Vector2(-10, 0);
+            var plusImg = plusRT.gameObject.AddComponent<Image>();
+            plusImg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 8, new Color(0.85f, 0.65f, 0.22f, 1f)));
+            var plusBtn2 = plusRT.gameObject.AddComponent<Button>();
+            var plusT2 = HUD_CreateRT("T", plusRT);
+            plusT2.anchorMin = Vector2.zero; plusT2.anchorMax = Vector2.one;
+            plusT2.offsetMin = plusT2.offsetMax = Vector2.zero;
+            var plusTT = plusT2.gameObject.AddComponent<Text>();
+            plusTT.font = font; plusTT.fontSize = 18; plusTT.fontStyle = FontStyle.Bold;
+            plusTT.color = new Color(0.12f, 0.08f, 0.04f);
+            plusTT.alignment = TextAnchor.MiddleCenter;
+            plusTT.text = "+";
+        }
+
+        // Footer (skill points)
+        var spFooter = HUD_CreateRT("Footer", skillPanel);
+        spFooter.anchorMin = new Vector2(0, 0); spFooter.anchorMax = new Vector2(1, 0);
+        spFooter.pivot = new Vector2(0.5f, 0);
+        spFooter.anchoredPosition = new Vector2(0, 8);
+        spFooter.sizeDelta = new Vector2(-20, 28);
+        var spT = spFooter.gameObject.AddComponent<Text>();
+        spT.font = font; spT.fontSize = 13; spT.fontStyle = FontStyle.Bold;
+        spT.color = new Color(0.91f, 0.31f, 0.28f);
+        spT.alignment = TextAnchor.MiddleCenter;
+        spT.text = "남은 스킬 포인트 : 0";
+
+        var skillUI = canvasGo.AddComponent<Astrion.UI.SkillWindowUI>();
+        var skillSo = new UnityEditor.SerializedObject(skillUI);
+        skillSo.FindProperty("panel").objectReferenceValue = skillPanel.gameObject;
+        skillSo.FindProperty("rowsRoot").objectReferenceValue = skillRowsRoot;
+        skillSo.FindProperty("spText").objectReferenceValue = spT;
+        skillSo.FindProperty("closeButton").objectReferenceValue = skillCloseB;
+        skillSo.ApplyModifiedPropertiesWithoutUndo();
+        skillPanel.gameObject.SetActive(false);
 
         // ========== DIALOGUE UI ==========
         var dlg = canvasGo.AddComponent<Astrion.UI.DialogueUI>();
