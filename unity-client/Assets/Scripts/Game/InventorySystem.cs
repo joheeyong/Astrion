@@ -109,6 +109,22 @@ namespace Astrion.Game
             OnChanged?.Invoke();
         }
 
+        /// <summary>Use the first consumable that restores HP (forHp=true) or MP (forHp=false).</summary>
+        public bool UseFirstConsumable(bool forHp)
+        {
+            for (int i = 0; i < SLOT_COUNT; i++)
+            {
+                var s = Slots[i];
+                if (s.IsEmpty) continue;
+                var def = ItemDatabase.Get(s.itemId);
+                if (def == null || def.itemType != "소비") continue;
+                bool match = forHp ? def.healAmount > 0 : def.manaAmount > 0;
+                if (!match) continue;
+                if (UseSlot(i)) return true;
+            }
+            return false;
+        }
+
         /// <summary>
         /// Click-to-use: equip weapons, consume potions, etc.
         /// </summary>
@@ -134,12 +150,15 @@ namespace Astrion.Game
                     var stats = PlayerStats.Instance;
                     if (stats == null) return false;
                     bool used = false;
+                    int gainedHp = 0, gainedMp = 0;
                     if (def.healAmount > 0 && stats.Hp < stats.MaxHp)
                     {
+                        gainedHp = Mathf.Min(def.healAmount, stats.MaxHp - stats.Hp);
                         stats.Heal(def.healAmount); used = true;
                     }
                     if (def.manaAmount > 0 && stats.Mp < stats.MaxMp)
                     {
+                        gainedMp = Mathf.Min(def.manaAmount, stats.MaxMp - stats.Mp);
                         stats.RestoreMp(def.manaAmount); used = true;
                     }
                     if (used)
@@ -149,6 +168,12 @@ namespace Astrion.Game
                         if (Slots[slotIndex].qty <= 0) Slots[slotIndex] = new Slot();
                         SaveToState();
                         OnChanged?.Invoke();
+
+                        string gainStr = "";
+                        if (gainedHp > 0 && gainedMp > 0) gainStr = $"HP +{gainedHp}  MP +{gainedMp}";
+                        else if (gainedHp > 0) gainStr = $"HP +{gainedHp}";
+                        else if (gainedMp > 0) gainStr = $"MP +{gainedMp}";
+                        Astrion.UI.ToastUI.Instance?.Show($"[{def.displayName}]  {gainStr}", def.iconColor);
                     }
                     return used;
                 default:

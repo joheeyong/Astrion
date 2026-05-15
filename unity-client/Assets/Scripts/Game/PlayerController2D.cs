@@ -107,6 +107,20 @@ namespace Astrion.Game
                 else if (Input.GetKeyDown(KeyCode.Alpha3)) HotbarSystem.Instance?.TryTrigger(2);
                 else if (Input.GetKeyDown(KeyCode.Alpha4)) HotbarSystem.Instance?.TryTrigger(3);
                 else if (Input.GetKeyDown(KeyCode.Alpha5)) HotbarSystem.Instance?.TryTrigger(4);
+
+                // Quick consumables: R = HP potion, F = MP potion
+                if (Input.GetKeyDown(KeyCode.R))
+                {
+                    var inv = InventorySystem.Instance;
+                    if (inv != null && !inv.UseFirstConsumable(forHp: true))
+                        Astrion.UI.ToastUI.Instance?.Show("회복 아이템이 없거나 HP가 가득합니다.", new Color(0.85f, 0.55f, 0.40f));
+                }
+                if (Input.GetKeyDown(KeyCode.F))
+                {
+                    var inv = InventorySystem.Instance;
+                    if (inv != null && !inv.UseFirstConsumable(forHp: false))
+                        Astrion.UI.ToastUI.Instance?.Show("MP 아이템이 없거나 MP가 가득합니다.", new Color(0.55f, 0.70f, 0.85f));
+                }
             }
         }
 
