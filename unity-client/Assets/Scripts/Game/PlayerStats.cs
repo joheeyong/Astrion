@@ -24,6 +24,9 @@ namespace Astrion.Game
         public string EquippedWeaponId { get; private set; } = "";
 
         public event Action OnChanged;
+        public event Action OnDied;
+
+        public bool IsDead { get; private set; }
 
         [SerializeField] private float regenTickSeconds = 2f;
         [SerializeField] private int regenHpPerTick = 1;
@@ -231,11 +234,27 @@ namespace Astrion.Game
 
         public void ApplyDamage(int amount)
         {
-            if (amount <= 0) return;
+            if (amount <= 0 || IsDead) return;
             Hp = Mathf.Max(0, Hp - amount);
             _dirty = true;
             OnChanged?.Invoke();
             FlushSave(); // Important event — save immediately
+            if (Hp <= 0)
+            {
+                IsDead = true;
+                OnDied?.Invoke();
+            }
+        }
+
+        // Called by DeathSystem after the respawn delay finishes.
+        public void RespawnRestore()
+        {
+            IsDead = false;
+            Hp = MaxHp;
+            Mp = MaxMp;
+            _dirty = true;
+            OnChanged?.Invoke();
+            FlushSave();
         }
 
         public void Heal(int amount)

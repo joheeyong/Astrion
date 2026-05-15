@@ -45,6 +45,12 @@ namespace Astrion.Game
 
         private void Update()
         {
+            // Fall-out-of-world death (only fires once; PlayerStats guards re-entry)
+            if (transform.position.y < -15f)
+            {
+                PlayerStats.Instance?.ApplyDamage(99999);
+            }
+
             ReadInput(out float h, out float v, out bool jumpPressed);
             CheckGround();
 

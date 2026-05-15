@@ -155,6 +155,10 @@ public class ProjectSetup
         var casterGo = new GameObject("SkillCaster");
         casterGo.AddComponent<Astrion.Game.SkillCaster>();
 
+        // DeathSystem (DDOL — HP=0 overlay + respawn flow)
+        var deathGo = new GameObject("DeathSystem");
+        deathGo.AddComponent<Astrion.Game.DeathSystem>();
+
         // Canvas
         var canvasGo = new GameObject("Canvas");
         var canvas = canvasGo.AddComponent<Canvas>();
