@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Astrion.Game;
 using Astrion.Network;
@@ -19,6 +20,7 @@ namespace Astrion.UI
         [SerializeField] private Text charNameText;
         [SerializeField] private Text charLevelText;
         [SerializeField] private Text coordsText;
+        [SerializeField] private Text mapNameText;
 
         private Transform _player;
 
@@ -68,6 +70,20 @@ namespace Astrion.UI
             _fpsText = transform.Find("FPSCounter")?.GetComponent<Text>();
 
             _myPlayerId = PlayerPrefs.GetString("playerId", "");
+
+            // Map name from current scene
+            if (mapNameText != null)
+                mapNameText.text = GetMapDisplayName(SceneManager.GetActiveScene().name);
+        }
+
+        private static string GetMapDisplayName(string sceneName)
+        {
+            switch (sceneName)
+            {
+                case "MainScene":           return "바람의 등대섬";
+                case "ForgottenWoodsScene": return "잊혀진 숲";
+                default:                    return sceneName;
+            }
         }
 
         public void AppendChatLine(string speakerId, string message)

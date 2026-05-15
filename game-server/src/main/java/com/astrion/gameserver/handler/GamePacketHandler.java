@@ -224,7 +224,15 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         String message = node.get("message").asText();
 
         String chatData = mapper.writeValueAsString(new ChatData(session.getPlayerId(), message));
-        worldManager.broadcastAll(new GamePacket(PacketType.CHAT_MESSAGE, chatData), null);
+        GamePacket out = new GamePacket(PacketType.CHAT_MESSAGE, chatData);
+
+        String zoneId = session.getZoneId();
+        if (zoneId == null || zoneId.isEmpty()) {
+            // Sender hasn't picked a zone yet — echo only to themselves.
+            ctx.writeAndFlush(out);
+        } else {
+            worldManager.broadcastToZone(zoneId, out);
+        }
     }
 
     private void handleAttack(ChannelHandlerContext ctx, GamePacket packet) {

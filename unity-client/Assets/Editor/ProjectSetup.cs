@@ -2521,6 +2521,53 @@ public class ProjectSetup
         levelText.color = textMuted;
         levelText.text = "Lv.1 Warrior"; levelText.alignment = TextAnchor.UpperLeft;
 
+        // ========== TOP-LEFT: Map name + Minimap (under CharPanel) ==========
+        var minimapPanel = HUD_CreateRT("MinimapPanel", root);
+        minimapPanel.anchorMin = minimapPanel.anchorMax = new Vector2(0, 1);
+        minimapPanel.pivot = new Vector2(0, 1);
+        minimapPanel.anchoredPosition = new Vector2(16, -100);
+        minimapPanel.sizeDelta = new Vector2(200, 140);
+        var minimapBg = minimapPanel.gameObject.AddComponent<Image>();
+        minimapBg.sprite = panelSpr; minimapBg.type = Image.Type.Sliced;
+
+        // Map name header
+        var mapNameRT = HUD_CreateRT("MapName", minimapPanel);
+        mapNameRT.anchorMin = new Vector2(0, 1); mapNameRT.anchorMax = new Vector2(1, 1);
+        mapNameRT.pivot = new Vector2(0.5f, 1);
+        mapNameRT.anchoredPosition = new Vector2(0, -4);
+        mapNameRT.sizeDelta = new Vector2(-8, 24);
+        var mapNameTextC = mapNameRT.gameObject.AddComponent<Text>();
+        mapNameTextC.font = font; mapNameTextC.fontSize = 13; mapNameTextC.fontStyle = FontStyle.Bold;
+        mapNameTextC.color = new Color(1f, 0.85f, 0.40f); // gold
+        mapNameTextC.alignment = TextAnchor.MiddleCenter;
+        mapNameTextC.text = "—";
+
+        // Thin gold separator under map name
+        var mapSep = HUD_CreateRT("Sep", minimapPanel);
+        mapSep.anchorMin = new Vector2(0, 1); mapSep.anchorMax = new Vector2(1, 1);
+        mapSep.pivot = new Vector2(0.5f, 1);
+        mapSep.anchoredPosition = new Vector2(0, -30);
+        mapSep.sizeDelta = new Vector2(-12, 1);
+        mapSep.gameObject.AddComponent<Image>().color = new Color(0.55f, 0.40f, 0.18f, 0.6f);
+
+        // Minimap placeholder (dark inner frame)
+        var mmInner = HUD_CreateRT("MinimapArea", minimapPanel);
+        mmInner.anchorMin = new Vector2(0, 0); mmInner.anchorMax = new Vector2(1, 1);
+        mmInner.offsetMin = new Vector2(8, 8); mmInner.offsetMax = new Vector2(-8, -34);
+        var mmInnerImg = mmInner.gameObject.AddComponent<Image>();
+        mmInnerImg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 4, new Color(0.03f, 0.02f, 0.01f, 0.95f)));
+        mmInnerImg.type = Image.Type.Sliced;
+
+        // Placeholder label inside minimap area
+        var mmLabel = HUD_CreateRT("Label", mmInner);
+        mmLabel.anchorMin = Vector2.zero; mmLabel.anchorMax = Vector2.one;
+        mmLabel.offsetMin = mmLabel.offsetMax = Vector2.zero;
+        var mmLabelT = mmLabel.gameObject.AddComponent<Text>();
+        mmLabelT.font = font; mmLabelT.fontSize = 10;
+        mmLabelT.color = new Color(0.50f, 0.42f, 0.30f, 0.7f);
+        mmLabelT.alignment = TextAnchor.MiddleCenter;
+        mmLabelT.text = "MINIMAP";
+
         // ========== TOP-RIGHT: Coords + FPS ==========
         var coordsRT = HUD_CreateRT("CoordsPanel", root);
         coordsRT.anchorMin = coordsRT.anchorMax = new Vector2(1, 1);
@@ -3467,6 +3514,7 @@ public class ProjectSetup
         so.FindProperty("charNameText").objectReferenceValue = nameText;
         so.FindProperty("charLevelText").objectReferenceValue = levelText;
         so.FindProperty("coordsText").objectReferenceValue = coordsText;
+        so.FindProperty("mapNameText").objectReferenceValue = mapNameTextC;
         so.ApplyModifiedPropertiesWithoutUndo();
 
         var dlgSo = new UnityEditor.SerializedObject(dlg);
