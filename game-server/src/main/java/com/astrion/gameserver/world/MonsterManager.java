@@ -7,6 +7,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -20,9 +23,31 @@ public class MonsterManager {
     private static final long TICK_INTERVAL_MS = 100L;
     private static final long BROADCAST_INTERVAL_MS = 200L;
 
+    private static final long DROP_LIFETIME_MS = 30_000L;
+
+    public static class DropEntry {
+        public final String itemId;
+        public final int minQty, maxQty;
+        public final float weight;
+        public DropEntry(String itemId, int minQty, int maxQty, float weight) {
+            this.itemId = itemId; this.minQty = minQty; this.maxQty = maxQty; this.weight = weight;
+        }
+    }
+
+    public static class ItemDrop {
+        public String dropId;
+        public String zoneId;
+        public String itemId;
+        public int quantity;
+        public float x, y;
+        public long expiresAt;
+    }
+
     private final WorldManager worldManager;
     private final ObjectMapper mapper = new ObjectMapper();
     private final ConcurrentHashMap<String, Monster> monsters = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, ItemDrop> activeDrops = new ConcurrentHashMap<>();
+    private final Random rng = new Random();
     private final ScheduledExecutorService executor;
 
     public MonsterManager(WorldManager worldManager) {
@@ -47,14 +72,99 @@ public class MonsterManager {
     private Monster spawnFresh(String type, String zoneId, float x, float y, int hp, float range, float speed) {
         String id = UUID.randomUUID().toString();
         Monster m = new Monster(id, type, zoneId, x, y, hp, range, speed);
+        m.dropChance = 0.5f;
+        m.dropTable = makeSlimeDropTable();
         monsters.put(id, m);
         return m;
+    }
+
+    private List<DropEntry> makeSlimeDropTable() {
+        List<DropEntry> t = new ArrayList<>();
+        t.add(new DropEntry("bread",          1, 1, 40f));
+        t.add(new DropEntry("stardust",       1, 3, 25f));
+        t.add(new DropEntry("bronze_dagger",  1, 1, 15f));
+        t.add(new DropEntry("leather_helmet", 1, 1, 10f));
+        t.add(new DropEntry("iron_dagger",    1, 1,  7f));
+        t.add(new DropEntry("dawn_dagger",    1, 1,  3f));
+        return t;
+    }
+
+    private void rollAndSpawnDrop(Monster m) {
+        if (m.dropTable == null || m.dropTable.isEmpty()) return;
+        if (rng.nextFloat() > m.dropChance) return; // no drop this time
+
+        float total = 0f;
+        for (DropEntry e : m.dropTable) total += e.weight;
+        float roll = rng.nextFloat() * total;
+        float cum = 0f;
+        DropEntry chosen = null;
+        for (DropEntry e : m.dropTable) {
+            cum += e.weight;
+            if (roll <= cum) { chosen = e; break; }
+        }
+        if (chosen == null) return;
+        int qty = chosen.minQty + (chosen.maxQty > chosen.minQty ? rng.nextInt(chosen.maxQty - chosen.minQty + 1) : 0);
+
+        ItemDrop drop = new ItemDrop();
+        drop.dropId = UUID.randomUUID().toString();
+        drop.zoneId = m.zoneId;
+        drop.itemId = chosen.itemId;
+        drop.quantity = qty;
+        drop.x = m.x;
+        drop.y = m.y;
+        drop.expiresAt = System.currentTimeMillis() + DROP_LIFETIME_MS;
+        activeDrops.put(drop.dropId, drop);
+        broadcastDropSpawn(drop);
+    }
+
+    public void onDropClaim(PlayerSession claimer, String dropId) {
+        ItemDrop drop = activeDrops.remove(dropId);
+        if (drop == null) return;
+        try {
+            ObjectNode grant = mapper.createObjectNode();
+            grant.put("dropId", drop.dropId);
+            grant.put("itemId", drop.itemId);
+            grant.put("quantity", drop.quantity);
+            claimer.getChannel().writeAndFlush(new GamePacket(PacketType.DROP_GRANTED, mapper.writeValueAsString(grant)));
+
+            ObjectNode rem = mapper.createObjectNode();
+            rem.put("dropId", drop.dropId);
+            worldManager.broadcastToZone(drop.zoneId, new GamePacket(PacketType.DROP_REMOVED, mapper.writeValueAsString(rem)));
+            log.info("Drop {} claimed by {} ({} x{})", drop.dropId, claimer.getPlayerId(), drop.itemId, drop.quantity);
+        } catch (Exception e) { /* ignore */ }
+    }
+
+    private void broadcastDropSpawn(ItemDrop d) {
+        try {
+            ObjectNode n = mapper.createObjectNode();
+            n.put("dropId", d.dropId);
+            n.put("itemId", d.itemId);
+            n.put("quantity", d.quantity);
+            n.put("x", d.x);
+            n.put("y", d.y);
+            worldManager.broadcastToZone(d.zoneId, new GamePacket(PacketType.DROP_SPAWN, mapper.writeValueAsString(n)));
+        } catch (Exception e) { /* ignore */ }
+    }
+
+    private void sweepExpiredDrops(long now) {
+        for (var entry : activeDrops.entrySet()) {
+            ItemDrop d = entry.getValue();
+            if (d.expiresAt < now) {
+                activeDrops.remove(entry.getKey());
+                try {
+                    ObjectNode rem = mapper.createObjectNode();
+                    rem.put("dropId", d.dropId);
+                    worldManager.broadcastToZone(d.zoneId, new GamePacket(PacketType.DROP_REMOVED, mapper.writeValueAsString(rem)));
+                } catch (Exception e) { /* ignore */ }
+            }
+        }
     }
 
     private void tick() {
         try {
             long now = System.currentTimeMillis();
             float dt = TICK_INTERVAL_MS / 1000f;
+            sweepExpiredDrops(now);
 
             for (Monster m : monsters.values()) {
                 if (m.dead) {
@@ -115,6 +225,19 @@ public class MonsterManager {
                 session.getChannel().writeAndFlush(new GamePacket(PacketType.MONSTER_SPAWN, mapper.writeValueAsString(n)));
             } catch (Exception e) { /* ignore */ }
         }
+        // Send active drops in this zone too
+        for (ItemDrop d : activeDrops.values()) {
+            if (!zoneId.equals(d.zoneId)) continue;
+            try {
+                ObjectNode n = mapper.createObjectNode();
+                n.put("dropId", d.dropId);
+                n.put("itemId", d.itemId);
+                n.put("quantity", d.quantity);
+                n.put("x", d.x);
+                n.put("y", d.y);
+                session.getChannel().writeAndFlush(new GamePacket(PacketType.DROP_SPAWN, mapper.writeValueAsString(n)));
+            } catch (Exception e) { /* ignore */ }
+        }
     }
 
     public void onMonsterHit(PlayerSession attacker, String monsterId, int damage) {
@@ -132,6 +255,8 @@ public class MonsterManager {
                 String json = "{\"exp\":" + m.expReward + "}";
                 attacker.getChannel().writeAndFlush(new GamePacket(PacketType.EXP_GAINED, json));
             } catch (Exception e) { /* ignore */ }
+            // Roll for an item drop (zone-wide, first-claim wins)
+            rollAndSpawnDrop(m);
             log.info("Monster {} killed by {} for {} dmg (+{} exp; respawn in {}s)",
                 m.id, attacker.getPlayerId(), applied, m.expReward, RESPAWN_DELAY_MS / 1000);
         } else {

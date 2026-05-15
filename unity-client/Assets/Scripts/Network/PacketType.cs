@@ -15,6 +15,7 @@ namespace Astrion.Network
         ZoneEnter = 0x0B,
         MonsterHit = 0x0C,
         SkillCast = 0x0D,
+        DropClaim = 0x0E,
 
         // Server -> Client
         LoginResult = 0x81,
@@ -32,6 +33,9 @@ namespace Astrion.Network
         MonsterDie = 0x92,
         MonsterHp = 0x93,
         SkillBroadcast = 0x94,
-        ExpGained = 0x95
+        ExpGained = 0x95,
+        DropSpawn = 0x96,
+        DropGranted = 0x97,
+        DropRemoved = 0x98
     }
 }

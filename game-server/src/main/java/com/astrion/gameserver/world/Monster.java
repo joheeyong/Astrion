@@ -17,6 +17,10 @@ public class Monster {
     public int expReward = 30; // EXP given to last hitter on death
     public String lastHitterId = "";
 
+    // Drop table — populated by MonsterManager.spawnFresh
+    public java.util.List<MonsterManager.DropEntry> dropTable;
+    public float dropChance = 0.5f;
+
     // Broadcast throttling
     public long lastBroadcastAt = 0L;
     public float lastBroadcastX, lastBroadcastY;

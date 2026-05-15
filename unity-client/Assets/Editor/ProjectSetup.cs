@@ -134,6 +134,10 @@ public class ProjectSetup
         var monNetGo = new GameObject("MonsterNetworkManager");
         monNetGo.AddComponent<Astrion.Network.MonsterNetworkManager>();
 
+        // DropNetworkManager (DDOL — handles DROP_SPAWN/GRANTED/REMOVED)
+        var dropNetGo = new GameObject("DropNetworkManager");
+        dropNetGo.AddComponent<Astrion.Network.DropNetworkManager>();
+
         // PlayerStats (DDOL — HP/MP runtime + passive regen + autosave)
         var statsGo = new GameObject("PlayerStats");
         statsGo.AddComponent<Astrion.Game.PlayerStats>();

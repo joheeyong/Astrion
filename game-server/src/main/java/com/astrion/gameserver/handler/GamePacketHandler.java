@@ -49,8 +49,17 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             case ZONE_ENTER -> handleZoneEnter(ctx, packet);
             case MONSTER_HIT -> handleMonsterHit(ctx, packet);
             case SKILL_CAST -> handleSkillCast(ctx, packet);
+            case DROP_CLAIM -> handleDropClaim(ctx, packet);
             default -> log.warn("Unhandled packet type: {}", packet.getType());
         }
+    }
+
+    private void handleDropClaim(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession session = worldManager.getSession(ctx.channel());
+        if (session == null) return;
+        JsonNode node = mapper.readTree(packet.getPayload());
+        String dropId = node.get("dropId").asText();
+        monsterManager.onDropClaim(session, dropId);
     }
 
     private void handleSkillCast(ChannelHandlerContext ctx, GamePacket packet) throws Exception {

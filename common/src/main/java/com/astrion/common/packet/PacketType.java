@@ -14,6 +14,7 @@ public enum PacketType {
     ZONE_ENTER(0x0B),
     MONSTER_HIT(0x0C),
     SKILL_CAST(0x0D),
+    DROP_CLAIM(0x0E),
 
     // Server -> Client
     LOGIN_RESULT(0x81),
@@ -31,7 +32,10 @@ public enum PacketType {
     MONSTER_DIE(0x92),
     MONSTER_HP(0x93),
     SKILL_BROADCAST(0x94),
-    EXP_GAINED(0x95);
+    EXP_GAINED(0x95),
+    DROP_SPAWN(0x96),
+    DROP_GRANTED(0x97),
+    DROP_REMOVED(0x98);
 
     private final int code;
 
