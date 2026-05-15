@@ -471,18 +471,81 @@ Act IV:   대별 추락지
 
 총합 예상: **30+ 사이드 퀘스트, 20+ 몬스터, 15+ 보스, 50+ NPC**
 
-### 연결 토폴로지
+### 연결 토폴로지 (Mermaid)
+
+```mermaid
+flowchart TD
+    Start([게임 시작]):::start --> A
+
+    A["바람의 등대섬<br/>Lv 1-5<br/>튜토리얼"]:::act1
+    B["잊혀진 숲<br/>Lv 5-15<br/>★ Shadow Hulk"]:::act1
+    C["여명의 성채<br/>Lv 15-20<br/>여명단 본부"]:::act2
+    D["하늘 시장 마을<br/>Lv 15-30<br/>평화 / 상점"]:::act2
+    E["베일 마법학원<br/>Lv 20-30<br/>★ Hollow Captain"]:::act2
+    F["추락한 수도원<br/>Lv 30-40<br/>안타레스 흔적"]:::act3
+    G["별의 화구<br/>Lv 40-45<br/>시리우스 분기"]:::act3
+    H["비틀린 영역<br/>Lv 45-50<br/>★ Antares"]:::act3
+    I["대별 추락지<br/>Lv 50+<br/>★ Vesper → Eclipse"]:::act4
+
+    A -- 포탈 --> B
+    B -- "Act I 클리어" --> C
+    C <--> D
+    C <--> E
+    E -- "Act II 클리어" --> F
+    F --> G
+    G --> H
+    H -- "Act III 클리어" --> I
+
+    I --> EndA([결말 A — 새벽<br/>대별 복원]):::endA
+    I --> EndB([결말 B — 영원한 침묵<br/>식자와 동귀어진]):::endB
+    I -. 숨겨진 조건 .-> EndC([결말 C — 새 별<br/>플레이어가 별이 됨]):::endC
+
+    classDef act1 fill:#1f3a5c,stroke:#4a7ba0,color:#e0e8f0
+    classDef act2 fill:#2d5a3d,stroke:#5a9b6b,color:#e0f0e0
+    classDef act3 fill:#3a2d4a,stroke:#7a5a8b,color:#e8d8f0
+    classDef act4 fill:#5c2828,stroke:#9b4848,color:#f8d8d8
+    classDef start fill:#4a4028,stroke:#a08a3a,color:#fff5c8
+    classDef endA fill:#5c4a1f,stroke:#a08a3a,color:#fff5c8
+    classDef endB fill:#2a2a2a,stroke:#666666,color:#dddddd
+    classDef endC fill:#3a2d5c,stroke:#8a6ab0,color:#e8d8f8
+```
+
+**색 가이드**:
+- 🟦 청색 = Act I (튜토리얼)
+- 🟩 녹색 = Act II (사회/허브, 평화로움)
+- 🟪 보라 = Act III (어두운 메이플, 비극)
+- 🟥 적색 = Act IV (최종)
+- 🟧 금색 = 시작/결말 노드
+
+**기호**:
+- `★` = 보스 보스
+- 양방향 화살표 (↔) = Act II 허브에서 자유 왕복
+- 점선 = 숨겨진 결말 분기 (조건 미충족 시 못 봄)
+
+### ASCII 폴백 (Mermaid 비지원 환경용)
 
 ```
-바람의 등대섬 ─ 잊혀진 숲 ─[Act I 보스]
-                              ↓
-여명의 성채 ━━━━━━━━ (허브)
-   ↕            ↕
-하늘 시장   베일 학원 ─[Act II 보스]
-                              ↓
-추락한 수도원 → 별의 화구 → 비틀린 영역 ─[Act III 보스]
-                              ↓
-                       대별 추락지 ─[Act IV 최종]
+[바람의 등대섬]──포탈──>[잊혀진 숲]
+                            │ Act I 클리어
+                            ▼
+                     [여명의 성채]
+                     /       \
+                    ↕         ↕
+            [하늘 시장]   [베일 마법학원]
+                            │ Act II 클리어
+                            ▼
+                     [추락한 수도원]
+                            │
+                            ▼
+                     [별의 화구]
+                            │
+                            ▼
+                     [비틀린 영역]
+                            │ Act III 클리어
+                            ▼
+                     [대별 추락지]
+                       /  |  \
+                     A   B   C(숨김)
 ```
 
 ### 월드맵 UI
@@ -677,3 +740,4 @@ Act IV 최종 보스(식자 본체) 단계에서 플레이어가 선택. 세 가
 - 2026-05-14: 타임라인 / 연표 정리 (BF/AF 기준, 4시대, 캐릭터 나이표 포함)
 - 2026-05-14: 결말 분기 3종 확정 (A 새벽 영웅 / B 영원한 침묵 비극 / C 새 별 신화적 숨겨진) — 캐릭터별 에필로그 포함
 - 2026-05-15: 월드맵 스케일 정의 (9 권역 × 2-4 맵 = ~26 맵, 레벨 1-60, 풀클리어 20-30h)
+- 2026-05-15: 월드맵 연결 토폴로지 Mermaid 다이어그램 추가 (Act별 색상 코딩, 결말 분기 시각화)
