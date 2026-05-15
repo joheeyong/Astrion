@@ -2657,6 +2657,14 @@ public class ProjectSetup
         var barBgSpr = TexToSprite(MakeRoundRectTex(256, 18, 7, new Color(0.02f, 0.03f, 0.05f, 0.95f)));
         var circleSpr = TexToSprite(MakeCircleTex(128, Color.white));
 
+        // EventSystem (game scenes don't get one from prior scene — its GO is destroyed on LoadScene)
+        if (Object.FindObjectOfType<UnityEngine.EventSystems.EventSystem>() == null)
+        {
+            var esGo = new GameObject("EventSystem");
+            esGo.AddComponent<UnityEngine.EventSystems.EventSystem>();
+            esGo.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+        }
+
         // Canvas
         var canvasGo = new GameObject("GameHUD_Canvas");
         var canvas = canvasGo.AddComponent<Canvas>();
