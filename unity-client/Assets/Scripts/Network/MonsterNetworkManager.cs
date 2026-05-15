@@ -12,6 +12,7 @@ namespace Astrion.Network
 
         private readonly Dictionary<string, ServerMonster2D> _monsters = new Dictionary<string, ServerMonster2D>();
         private Sprite _slimeSpr;
+        private Sprite _hulkSpr;
 
         private void Awake()
         {
@@ -23,6 +24,7 @@ namespace Astrion.Network
             Instance = this;
             DontDestroyOnLoad(gameObject);
             _slimeSpr = BuildSlimeSprite();
+            _hulkSpr = BuildShadowHulkSprite();
             SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
@@ -105,14 +107,15 @@ namespace Astrion.Network
                 var d = JsonUtility.FromJson<SpawnData>(payload);
                 if (d == null || string.IsNullOrEmpty(d.id)) return;
                 if (_monsters.ContainsKey(d.id)) return;
+                bool isHulk = d.type == "shadow_hulk";
                 var go = new GameObject($"Monster_{d.id.Substring(0, System.Math.Min(8, d.id.Length))}");
                 var visual = new GameObject("Visual");
                 visual.transform.SetParent(go.transform, false);
                 var sr = visual.AddComponent<SpriteRenderer>();
-                sr.sprite = _slimeSpr;
-                sr.sortingOrder = 9;
+                sr.sprite = isHulk ? _hulkSpr : _slimeSpr;
+                sr.sortingOrder = isHulk ? 10 : 9;
                 var col = go.AddComponent<BoxCollider2D>();
-                col.size = new Vector2(0.46f, 0.34f);
+                col.size = isHulk ? new Vector2(1.6f, 1.1f) : new Vector2(0.46f, 0.34f);
                 col.isTrigger = true;
                 var m = go.AddComponent<ServerMonster2D>();
                 m.Init(d.id, d.x, d.y, d.direction);
@@ -192,6 +195,54 @@ namespace Astrion.Network
                         c = eyeWhite;
                     if ((Mathf.Abs(x - eyeL) < 2 && Mathf.Abs(y - eyeY) < 2) ||
                         (Mathf.Abs(x - eyeR) < 2 && Mathf.Abs(y - eyeY) < 2))
+                        c = eyeBlack;
+                    tex.SetPixel(x, y, c);
+                }
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    if (tex.GetPixel(x, y).a > 0)
+                    {
+                        bool edge = false;
+                        if (x > 0 && tex.GetPixel(x - 1, y).a == 0) edge = true;
+                        if (y > 0 && tex.GetPixel(x, y - 1).a == 0) edge = true;
+                        if (edge) tex.SetPixel(x, y, outline);
+                    }
+                }
+            tex.Apply();
+            return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100);
+        }
+
+        // Shadow Hulk: bigger, darker, glowing red eyes
+        private Sprite BuildShadowHulkSprite()
+        {
+            int w = 144, h = 100;
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            Color body = new Color(0.25f, 0.18f, 0.30f);
+            Color bodyDark = new Color(0.12f, 0.08f, 0.18f);
+            Color outline = new Color(0.04f, 0.02f, 0.05f);
+            Color eyeRed = new Color(0.95f, 0.18f, 0.18f);
+            Color eyeBlack = new Color(0.10f, 0.02f, 0.02f);
+            Color clear = new Color(0, 0, 0, 0);
+            float cx = w * 0.5f, cy = h * 0.45f, rx = w * 0.46f, ry = h * 0.48f;
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    Color c = clear;
+                    float dx = (x - cx) / rx, dy = (y - cy) / ry;
+                    float dd = dx * dx + dy * dy;
+                    if (dd <= 1.0f && y >= h * 0.12f)
+                    {
+                        float shade = 1f - dy * 0.7f - Mathf.Abs(dx) * 0.25f;
+                        c = Color.Lerp(bodyDark, body, Mathf.Clamp01(shade));
+                    }
+                    int eyeY = (int)(h * 0.55f);
+                    int eyeL = (int)(w * 0.34f), eyeR = (int)(w * 0.60f);
+                    if ((Mathf.Abs(x - eyeL) < 8 && Mathf.Abs(y - eyeY) < 6) ||
+                        (Mathf.Abs(x - eyeR) < 8 && Mathf.Abs(y - eyeY) < 6))
+                        c = eyeRed;
+                    if ((Mathf.Abs(x - eyeL) < 4 && Mathf.Abs(y - eyeY) < 3) ||
+                        (Mathf.Abs(x - eyeR) < 4 && Mathf.Abs(y - eyeY) < 3))
                         c = eyeBlack;
                     tex.SetPixel(x, y, c);
                 }

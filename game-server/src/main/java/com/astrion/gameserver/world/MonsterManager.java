@@ -67,6 +67,27 @@ public class MonsterManager {
         spawnFresh("slime", "forgotten_woods", -4f, -2.8f, 50, 3.5f, 1.6f);
         spawnFresh("slime", "forgotten_woods", 8f, -2.8f, 50, 3.5f, 1.6f);
         spawnFresh("slime", "forgotten_woods", -2f, 5.7f, 50, 3.5f, 1.6f);
+        // Act I boss: Shadow Hulk
+        spawnShadowHulk();
+    }
+
+    private Monster spawnShadowHulk() {
+        String id = UUID.randomUUID().toString();
+        Monster m = new Monster(id, "shadow_hulk", "forgotten_woods", 20f, -2.5f, 200, 2.5f, 0.8f);
+        m.expReward = 250;
+        m.dropChance = 1.0f; // boss always drops
+        m.dropTable = makeShadowHulkDropTable();
+        monsters.put(id, m);
+        return m;
+    }
+
+    private List<DropEntry> makeShadowHulkDropTable() {
+        List<DropEntry> t = new ArrayList<>();
+        t.add(new DropEntry("dawn_dagger",    1, 1, 25f)); // 25% — legendary
+        t.add(new DropEntry("iron_dagger",    1, 1, 35f));
+        t.add(new DropEntry("stardust_ring",  1, 1, 15f));
+        t.add(new DropEntry("stardust",       5, 10, 25f));
+        return t;
     }
 
     private Monster spawnFresh(String type, String zoneId, float x, float y, int hp, float range, float speed) {
