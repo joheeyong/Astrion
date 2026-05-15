@@ -2836,6 +2836,30 @@ public class ProjectSetup
             letterT.alignment = TextAnchor.MiddleCenter;
             letterT.text = "";
 
+            // Cooldown overlay (dark filled image on top of icon; HotbarHUD drives fillAmount)
+            var cdRT = HUD_CreateRT("CooldownOverlay", slot);
+            cdRT.anchorMin = new Vector2(0, 0); cdRT.anchorMax = new Vector2(1, 1);
+            cdRT.offsetMin = new Vector2(6, 6); cdRT.offsetMax = new Vector2(-6, -6);
+            var cdImg = cdRT.gameObject.AddComponent<Image>();
+            cdImg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 6, Color.white));
+            cdImg.color = new Color(0f, 0f, 0f, 0.65f);
+            cdImg.type = Image.Type.Filled;
+            cdImg.fillMethod = Image.FillMethod.Vertical;
+            cdImg.fillOrigin = (int)Image.OriginVertical.Top;
+            cdImg.fillAmount = 0f;
+            cdImg.raycastTarget = false;
+            cdRT.gameObject.SetActive(false);
+
+            var cdTextRT = HUD_CreateRT("Text", cdRT);
+            cdTextRT.anchorMin = Vector2.zero; cdTextRT.anchorMax = Vector2.one;
+            cdTextRT.offsetMin = cdTextRT.offsetMax = Vector2.zero;
+            var cdT = cdTextRT.gameObject.AddComponent<Text>();
+            cdT.font = font; cdT.fontSize = 22; cdT.fontStyle = FontStyle.Bold;
+            cdT.color = new Color(1f, 0.94f, 0.82f);
+            cdT.alignment = TextAnchor.MiddleCenter;
+            cdT.raycastTarget = false;
+            cdT.text = "";
+
             // Slot number (top-left)
             var num = HUD_CreateRT("Num", slot);
             num.anchorMin = num.anchorMax = new Vector2(0, 1);

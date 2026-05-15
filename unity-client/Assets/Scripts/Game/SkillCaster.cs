@@ -62,6 +62,22 @@ namespace Astrion.Game
             return true;
         }
 
+        public float GetCooldownRemaining(string skillId)
+        {
+            if (string.IsNullOrEmpty(skillId)) return 0f;
+            var def = SkillDatabase.Get(skillId);
+            if (def == null || def.cooldown <= 0f) return 0f;
+            if (!_lastCastAt.TryGetValue(skillId, out var t)) return 0f;
+            return Mathf.Max(0f, def.cooldown - (Time.time - t));
+        }
+
+        public float GetCooldownPct(string skillId)
+        {
+            var def = SkillDatabase.Get(skillId);
+            if (def == null || def.cooldown <= 0f) return 0f;
+            return GetCooldownRemaining(skillId) / def.cooldown;
+        }
+
         private PlayerController2D FindPlayer()
         {
             return Object.FindObjectOfType<PlayerController2D>();
