@@ -75,6 +75,7 @@ public class MonsterManager {
         String id = UUID.randomUUID().toString();
         Monster m = new Monster(id, "shadow_hulk", "forgotten_woods", 20f, -2.5f, 200, 2.5f, 0.8f);
         m.expReward = 250;
+        m.goldReward = 120;
         m.dropChance = 1.0f; // boss always drops
         m.dropTable = makeShadowHulkDropTable();
         monsters.put(id, m);
@@ -94,6 +95,7 @@ public class MonsterManager {
         String id = UUID.randomUUID().toString();
         Monster m = new Monster(id, type, zoneId, x, y, hp, range, speed);
         m.dropChance = 0.5f;
+        m.goldReward = 8;
         m.dropTable = makeSlimeDropTable();
         monsters.put(id, m);
         return m;
@@ -271,15 +273,15 @@ public class MonsterManager {
             m.dead = true;
             m.respawnAt = System.currentTimeMillis() + RESPAWN_DELAY_MS;
             broadcastDie(m, applied);
-            // Award EXP to the killing blower
+            // Award EXP + gold to the killing blower
             try {
-                String json = "{\"exp\":" + m.expReward + "}";
+                String json = "{\"exp\":" + m.expReward + ",\"gold\":" + m.goldReward + "}";
                 attacker.getChannel().writeAndFlush(new GamePacket(PacketType.EXP_GAINED, json));
             } catch (Exception e) { /* ignore */ }
             // Roll for an item drop (zone-wide, first-claim wins)
             rollAndSpawnDrop(m);
-            log.info("Monster {} killed by {} for {} dmg (+{} exp; respawn in {}s)",
-                m.id, attacker.getPlayerId(), applied, m.expReward, RESPAWN_DELAY_MS / 1000);
+            log.info("Monster {} killed by {} for {} dmg (+{} exp, +{} gold; respawn in {}s)",
+                m.id, attacker.getPlayerId(), applied, m.expReward, m.goldReward, RESPAWN_DELAY_MS / 1000);
         } else {
             broadcastHp(m, applied);
         }

@@ -1759,6 +1759,23 @@ public class ProjectSetup
         });
         cassioSo.ApplyModifiedPropertiesWithoutUndo();
 
+        // === Shop NPC: 코르빈 (별의 후예 검사단 보급원) ===
+        var korbinParts = MakePlayerParts(
+            shirt: new Color(0.48f, 0.32f, 0.18f),  // 황갈색 가죽 앞치마
+            hair:  new Color(0.18f, 0.14f, 0.10f),
+            pants: new Color(0.28f, 0.22f, 0.16f));
+        var korbin = new GameObject("NPC_Korbin_Shop");
+        korbin.transform.position = new Vector3(10f, -2.5f, 0);
+        BuildPlayerVisual(korbin, korbinParts, out _, out _, out _, out _, out _);
+        var korbinCol = korbin.AddComponent<BoxCollider2D>();
+        korbinCol.size = new Vector2(2.4f, 2.2f);
+        korbinCol.offset = Vector2.zero;
+        korbinCol.isTrigger = true;
+        var korbinNpc = korbin.AddComponent<Astrion.Game.ShopNPC2D>();
+        var korbinSo = new SerializedObject(korbinNpc);
+        korbinSo.FindProperty("npcName").stringValue = "코르빈";
+        korbinSo.ApplyModifiedPropertiesWithoutUndo();
+
         // Player prefab spawn at left
         var playerPrefab2 = new GameObject("PlayerPrefab");
         playerPrefab2.transform.position = new Vector3(-18f, 0f, 0);
@@ -2683,7 +2700,7 @@ public class ProjectSetup
         charPanel.anchorMin = charPanel.anchorMax = new Vector2(0, 1);
         charPanel.pivot = new Vector2(0, 1);
         charPanel.anchoredPosition = new Vector2(16, -16);
-        charPanel.sizeDelta = new Vector2(200, 58);
+        charPanel.sizeDelta = new Vector2(200, 76);
         var cpBg = charPanel.gameObject.AddComponent<Image>();
         cpBg.sprite = panelSpr; cpBg.type = Image.Type.Sliced;
 
@@ -2713,18 +2730,27 @@ public class ProjectSetup
 
         // Char level/class
         var levelRT = HUD_CreateRT("CharLevel", charPanel);
-        levelRT.anchorMin = new Vector2(0, 0); levelRT.anchorMax = new Vector2(1, 0.55f);
-        levelRT.offsetMin = new Vector2(64, 4); levelRT.offsetMax = new Vector2(-8, 0);
+        levelRT.anchorMin = new Vector2(0, 0.42f); levelRT.anchorMax = new Vector2(1, 0.70f);
+        levelRT.offsetMin = new Vector2(64, 0); levelRT.offsetMax = new Vector2(-8, 0);
         var levelText = levelRT.gameObject.AddComponent<Text>();
         levelText.font = font; levelText.fontSize = 11;
         levelText.color = textMuted;
-        levelText.text = "Lv.1 Warrior"; levelText.alignment = TextAnchor.UpperLeft;
+        levelText.text = "Lv.1 Warrior"; levelText.alignment = TextAnchor.MiddleLeft;
+
+        // Gold (below Lv)
+        var goldRT = HUD_CreateRT("CharGold", charPanel);
+        goldRT.anchorMin = new Vector2(0, 0.05f); goldRT.anchorMax = new Vector2(1, 0.40f);
+        goldRT.offsetMin = new Vector2(64, 0); goldRT.offsetMax = new Vector2(-8, 0);
+        var goldText = goldRT.gameObject.AddComponent<Text>();
+        goldText.font = font; goldText.fontSize = 12; goldText.fontStyle = FontStyle.Bold;
+        goldText.color = new Color(0.94f, 0.78f, 0.30f);
+        goldText.text = "◆ 0 G"; goldText.alignment = TextAnchor.MiddleLeft;
 
         // ========== TOP-LEFT: Map name + Minimap (under CharPanel) ==========
         var minimapPanel = HUD_CreateRT("MinimapPanel", root);
         minimapPanel.anchorMin = minimapPanel.anchorMax = new Vector2(0, 1);
         minimapPanel.pivot = new Vector2(0, 1);
-        minimapPanel.anchoredPosition = new Vector2(16, -100);
+        minimapPanel.anchoredPosition = new Vector2(16, -118);
         minimapPanel.sizeDelta = new Vector2(200, 140);
         var minimapBg = minimapPanel.gameObject.AddComponent<Image>();
         minimapBg.sprite = panelSpr; minimapBg.type = Image.Type.Sliced;
@@ -3953,6 +3979,7 @@ public class ProjectSetup
         so.FindProperty("expText").objectReferenceValue = expBarText;
         so.FindProperty("charNameText").objectReferenceValue = nameText;
         so.FindProperty("charLevelText").objectReferenceValue = levelText;
+        so.FindProperty("goldText").objectReferenceValue = goldText;
         so.FindProperty("coordsText").objectReferenceValue = coordsText;
         so.FindProperty("mapNameText").objectReferenceValue = mapNameTextC;
         so.ApplyModifiedPropertiesWithoutUndo();
@@ -3998,6 +4025,156 @@ public class ProjectSetup
         toastSo.FindProperty("stackRoot").objectReferenceValue = toastStack;
         toastSo.FindProperty("toastTemplate").objectReferenceValue = toastTpl.gameObject;
         toastSo.ApplyModifiedPropertiesWithoutUndo();
+
+        // ========== SHOP UI ==========
+        var shopPanel = HUD_CreateRT("ShopPanel", root);
+        shopPanel.anchorMin = shopPanel.anchorMax = new Vector2(0.5f, 0.5f);
+        shopPanel.pivot = new Vector2(0.5f, 0.5f);
+        shopPanel.anchoredPosition = Vector2.zero;
+        shopPanel.sizeDelta = new Vector2(540, 480);
+        var shopBg = shopPanel.gameObject.AddComponent<Image>();
+        shopBg.sprite = panelSpr; shopBg.type = Image.Type.Sliced;
+
+        // Header
+        var shopHdrRT = HUD_CreateRT("Header", shopPanel);
+        shopHdrRT.anchorMin = new Vector2(0, 1); shopHdrRT.anchorMax = new Vector2(1, 1);
+        shopHdrRT.pivot = new Vector2(0.5f, 1);
+        shopHdrRT.anchoredPosition = new Vector2(0, -10);
+        shopHdrRT.sizeDelta = new Vector2(-20, 32);
+        var shopHdrText = shopHdrRT.gameObject.AddComponent<Text>();
+        shopHdrText.font = font; shopHdrText.fontSize = 18; shopHdrText.fontStyle = FontStyle.Bold;
+        shopHdrText.color = new Color(1f, 0.85f, 0.40f);
+        shopHdrText.alignment = TextAnchor.MiddleLeft;
+        shopHdrText.text = "상점";
+
+        // Close X
+        var shopCloseRT = HUD_CreateRT("Close", shopPanel);
+        shopCloseRT.anchorMin = shopCloseRT.anchorMax = new Vector2(1, 1);
+        shopCloseRT.pivot = new Vector2(1, 1);
+        shopCloseRT.anchoredPosition = new Vector2(-8, -8);
+        shopCloseRT.sizeDelta = new Vector2(28, 28);
+        shopCloseRT.gameObject.AddComponent<Image>().sprite =
+            TexToSprite(MakeRoundRectTex(64, 64, 6, new Color(0.20f, 0.05f, 0.05f, 0.95f)));
+        var shopCloseB = shopCloseRT.gameObject.AddComponent<Button>();
+        var shopXRT = HUD_CreateRT("X", shopCloseRT);
+        shopXRT.anchorMin = Vector2.zero; shopXRT.anchorMax = Vector2.one;
+        shopXRT.offsetMin = shopXRT.offsetMax = Vector2.zero;
+        var shopXT = shopXRT.gameObject.AddComponent<Text>();
+        shopXT.font = font; shopXT.fontSize = 16; shopXT.fontStyle = FontStyle.Bold;
+        shopXT.color = new Color(1f, 0.85f, 0.75f);
+        shopXT.alignment = TextAnchor.MiddleCenter;
+        shopXT.text = "×";
+
+        // Rows
+        var shopRowsRoot = HUD_CreateRT("Rows", shopPanel);
+        shopRowsRoot.anchorMin = new Vector2(0, 0); shopRowsRoot.anchorMax = new Vector2(1, 1);
+        shopRowsRoot.offsetMin = new Vector2(12, 48); shopRowsRoot.offsetMax = new Vector2(-12, -48);
+
+        (string id, int price)[] shopRows = {
+            ("bread",          15),
+            ("elixir",         30),
+            ("bronze_dagger",  80),
+            ("leather_helmet", 150),
+            ("iron_dagger",    300),
+        };
+        for (int i = 0; i < shopRows.Length; i++)
+        {
+            var row = HUD_CreateRT($"Row_{i}", shopRowsRoot);
+            row.anchorMin = new Vector2(0, 1); row.anchorMax = new Vector2(1, 1);
+            row.pivot = new Vector2(0.5f, 1);
+            row.anchoredPosition = new Vector2(0, -i * 76);
+            row.sizeDelta = new Vector2(0, 70);
+            var rowBg = row.gameObject.AddComponent<Image>();
+            rowBg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 6, new Color(0.07f, 0.05f, 0.04f, 0.85f)));
+            rowBg.type = Image.Type.Sliced;
+
+            // Icon
+            var icon = HUD_CreateRT("Icon", row);
+            icon.anchorMin = new Vector2(0, 0.5f); icon.anchorMax = new Vector2(0, 0.5f);
+            icon.pivot = new Vector2(0, 0.5f);
+            icon.anchoredPosition = new Vector2(10, 0);
+            icon.sizeDelta = new Vector2(54, 54);
+            var iconBg = icon.gameObject.AddComponent<Image>();
+            iconBg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 6, Color.white));
+            iconBg.color = new Color(0.5f, 0.5f, 0.5f);
+            var iconLbl = HUD_CreateRT("Letter", icon);
+            iconLbl.anchorMin = Vector2.zero; iconLbl.anchorMax = Vector2.one;
+            iconLbl.offsetMin = iconLbl.offsetMax = Vector2.zero;
+            var iconLblT = iconLbl.gameObject.AddComponent<Text>();
+            iconLblT.font = font; iconLblT.fontSize = 24; iconLblT.fontStyle = FontStyle.Bold;
+            iconLblT.color = new Color(0.10f, 0.07f, 0.04f);
+            iconLblT.alignment = TextAnchor.MiddleCenter;
+            iconLblT.text = "?";
+
+            // Name (top, left of price)
+            var nm = HUD_CreateRT("Name", row);
+            nm.anchorMin = new Vector2(0, 0.55f); nm.anchorMax = new Vector2(0.65f, 1);
+            nm.offsetMin = new Vector2(76, 0); nm.offsetMax = new Vector2(0, -4);
+            var nmT = nm.gameObject.AddComponent<Text>();
+            nmT.font = font; nmT.fontSize = 14; nmT.fontStyle = FontStyle.Bold;
+            nmT.color = new Color(1f, 0.85f, 0.40f);
+            nmT.alignment = TextAnchor.LowerLeft;
+            nmT.text = "—";
+
+            // Desc (bottom-left)
+            var dsc = HUD_CreateRT("Desc", row);
+            dsc.anchorMin = new Vector2(0, 0.05f); dsc.anchorMax = new Vector2(0.65f, 0.55f);
+            dsc.offsetMin = new Vector2(76, 0); dsc.offsetMax = new Vector2(0, 0);
+            var dscT = dsc.gameObject.AddComponent<Text>();
+            dscT.font = font; dscT.fontSize = 11;
+            dscT.color = new Color(0.78f, 0.72f, 0.60f);
+            dscT.alignment = TextAnchor.UpperLeft;
+            dscT.text = "";
+
+            // Price (right of desc)
+            var pr = HUD_CreateRT("Price", row);
+            pr.anchorMin = new Vector2(0.62f, 0.30f); pr.anchorMax = new Vector2(0.86f, 0.70f);
+            pr.offsetMin = pr.offsetMax = Vector2.zero;
+            var prT = pr.gameObject.AddComponent<Text>();
+            prT.font = font; prT.fontSize = 14; prT.fontStyle = FontStyle.Bold;
+            prT.color = new Color(0.94f, 0.78f, 0.30f);
+            prT.alignment = TextAnchor.MiddleRight;
+            prT.text = "0 G";
+
+            // Buy button
+            var buy = HUD_CreateRT("BuyBtn", row);
+            buy.anchorMin = new Vector2(0.86f, 0.20f); buy.anchorMax = new Vector2(1f, 0.80f);
+            buy.offsetMin = new Vector2(4, 0); buy.offsetMax = new Vector2(-10, 0);
+            var buyImg = buy.gameObject.AddComponent<Image>();
+            buyImg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 8, new Color(0.85f, 0.65f, 0.22f, 1f)));
+            buyImg.type = Image.Type.Sliced;
+            var buyBtn = buy.gameObject.AddComponent<Button>();
+            var buyLbl = HUD_CreateRT("T", buy);
+            buyLbl.anchorMin = Vector2.zero; buyLbl.anchorMax = Vector2.one;
+            buyLbl.offsetMin = buyLbl.offsetMax = Vector2.zero;
+            var buyT = buyLbl.gameObject.AddComponent<Text>();
+            buyT.font = font; buyT.fontSize = 13; buyT.fontStyle = FontStyle.Bold;
+            buyT.color = new Color(0.12f, 0.08f, 0.04f);
+            buyT.alignment = TextAnchor.MiddleCenter;
+            buyT.text = "구매";
+        }
+
+        // Footer (held gold)
+        var shopFooter = HUD_CreateRT("Footer", shopPanel);
+        shopFooter.anchorMin = new Vector2(0, 0); shopFooter.anchorMax = new Vector2(1, 0);
+        shopFooter.pivot = new Vector2(0.5f, 0);
+        shopFooter.anchoredPosition = new Vector2(0, 8);
+        shopFooter.sizeDelta = new Vector2(-20, 32);
+        var shopGoldT = shopFooter.gameObject.AddComponent<Text>();
+        shopGoldT.font = font; shopGoldT.fontSize = 14; shopGoldT.fontStyle = FontStyle.Bold;
+        shopGoldT.color = new Color(0.94f, 0.78f, 0.30f);
+        shopGoldT.alignment = TextAnchor.MiddleRight;
+        shopGoldT.text = "보유  ◆ 0 G";
+
+        var shopUI = canvasGo.AddComponent<Astrion.UI.ShopUI>();
+        var shopSo = new UnityEditor.SerializedObject(shopUI);
+        shopSo.FindProperty("panel").objectReferenceValue = shopPanel.gameObject;
+        shopSo.FindProperty("headerText").objectReferenceValue = shopHdrText;
+        shopSo.FindProperty("goldText").objectReferenceValue = shopGoldT;
+        shopSo.FindProperty("rowsRoot").objectReferenceValue = shopRowsRoot;
+        shopSo.FindProperty("closeButton").objectReferenceValue = shopCloseB;
+        shopSo.ApplyModifiedPropertiesWithoutUndo();
+        shopPanel.gameObject.SetActive(false);
 
         // ========== SYSTEM MENU (ESC) ==========
         var sysPanel = HUD_CreateRT("SystemMenu", root);

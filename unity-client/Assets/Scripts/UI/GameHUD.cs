@@ -19,6 +19,7 @@ namespace Astrion.UI
         [SerializeField] private Text expText;
         [SerializeField] private Text charNameText;
         [SerializeField] private Text charLevelText;
+        [SerializeField] private Text goldText;
         [SerializeField] private Text coordsText;
         [SerializeField] private Text mapNameText;
 
@@ -215,6 +216,7 @@ namespace Astrion.UI
             // Level badge + char level subtext (top-left CharPanel)
             string charClass = PlayerPrefs.GetString("characterClass", "Warrior");
             if (charLevelText) charLevelText.text = $"Lv.{level} {charClass}";
+            if (goldText) goldText.text = $"◆ {(stats != null ? stats.Gold : 0):N0} G";
             // Find LvlBadge num if present
             var badgeNum = transform.Find("CharPanel/LvlBadge/Num")?.GetComponent<Text>();
             if (badgeNum != null) badgeNum.text = level.ToString();

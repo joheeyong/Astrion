@@ -65,6 +65,9 @@ namespace Astrion.UI
             var sw = Object.FindObjectOfType<SkillWindowUI>();
             if (sw != null && sw.IsOpen()) return true;
 
+            var shop = ShopUI.Instance;
+            if (shop != null && shop.IsOpen) return true;
+
             return false;
         }
 

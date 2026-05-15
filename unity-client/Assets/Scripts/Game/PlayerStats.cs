@@ -21,6 +21,7 @@ namespace Astrion.Game
         public int Luk { get; private set; } = 5;
         public int StatPoints { get; private set; } = 5;
         public int SkillPoints { get; private set; } = 0;
+        public int Gold { get; private set; } = 0;
         public string EquippedWeaponId { get; private set; } = "";
 
         public event Action OnChanged;
@@ -75,12 +76,16 @@ namespace Astrion.Game
             try
             {
                 var d = JsonUtility.FromJson<ExpPayload>(packet.Payload);
-                if (d != null && d.exp > 0) AddExp(d.exp);
+                if (d != null)
+                {
+                    if (d.exp > 0) AddExp(d.exp);
+                    if (d.gold > 0) AddGold(d.gold);
+                }
             }
             catch (System.Exception e) { Debug.LogWarning($"[PlayerStats] EXP parse error: {e.Message}"); }
         }
 
-        [System.Serializable] private class ExpPayload { public int exp; }
+        [System.Serializable] private class ExpPayload { public int exp; public int gold; }
 
         public int ExpForNextLevel(int level) => 50 * Mathf.Max(1, level);
 
@@ -142,6 +147,7 @@ namespace Astrion.Game
             StatPoints = Mathf.Max(0, s.statPoints);
             SkillPoints = Mathf.Max(0, s.skillPoints);
             EquippedWeaponId = s.equippedWeaponId ?? "";
+            Gold = Mathf.Max(0, s.gold);
             OnChanged?.Invoke();
         }
 
@@ -198,8 +204,9 @@ namespace Astrion.Game
         private void SaveAttributes()
         {
             var psm = PlayerStateManager.Instance;
-            if (psm != null)
-                psm.UpdateAttributes(Level, Exp, Str, Dex, Intel, Luk, StatPoints, EquippedWeaponId);
+            if (psm == null) return;
+            psm.UpdateAttributes(Level, Exp, Str, Dex, Intel, Luk, StatPoints, EquippedWeaponId);
+            psm.UpdateGold(Gold);
         }
 
         private void Update()
@@ -244,6 +251,26 @@ namespace Astrion.Game
                 IsDead = true;
                 OnDied?.Invoke();
             }
+        }
+
+        public void AddGold(int amount)
+        {
+            if (amount <= 0) return;
+            Gold += amount;
+            SaveAttributes();
+            OnChanged?.Invoke();
+            Astrion.UI.ToastUI.Instance?.Show($"[+ {amount} 골드]", new Color(0.94f, 0.78f, 0.30f));
+            Debug.Log($"[PlayerStats] +{amount} gold (total {Gold})");
+        }
+
+        public bool SpendGold(int amount)
+        {
+            if (amount <= 0) return true;
+            if (Gold < amount) return false;
+            Gold -= amount;
+            SaveAttributes();
+            OnChanged?.Invoke();
+            return true;
         }
 
         // Called by DeathSystem after the respawn delay finishes.

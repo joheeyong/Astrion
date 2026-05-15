@@ -189,6 +189,12 @@ namespace Astrion.Network
             Save();
         }
 
+        public void UpdateGold(int gold)
+        {
+            State.gold = gold;
+            Save();
+        }
+
         public void UpdateSkillPoints(int skillPoints)
         {
             State.skillPoints = skillPoints;

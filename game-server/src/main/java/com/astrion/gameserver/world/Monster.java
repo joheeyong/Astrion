@@ -15,6 +15,7 @@ public class Monster {
     public boolean dead = false;
     public long respawnAt = 0L;
     public int expReward = 30; // EXP given to last hitter on death
+    public int goldReward = 8; // gold given to last hitter on death
     public String lastHitterId = "";
 
     // Drop table — populated by MonsterManager.spawnFresh
