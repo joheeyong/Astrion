@@ -85,6 +85,7 @@ namespace Astrion.Network
             {
                 case "MainScene": return "beacon_of_winds";
                 case "ForgottenWoodsScene": return "forgotten_woods";
+                case "CitadelOfDawnScene": return "citadel_of_dawn";
                 default: return "";
             }
         }

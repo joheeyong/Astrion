@@ -26,13 +26,14 @@ public class ProjectSetup
         CreateCharacterCreateScene();
         CreateMainScene();
         CreateForgottenWoodsScene();
+        CreateCitadelOfDawnScene();
         Debug.Log("[Astrion] Project setup complete!");
     }
 
     [MenuItem("Astrion/Build Android (Debug)")]
     public static void BuildAndroid()
     {
-        var scenes = new[] { "Assets/Scenes/LoginScene.unity", "Assets/Scenes/CharacterSelectScene.unity", "Assets/Scenes/CharacterCreateScene.unity", "Assets/Scenes/MainScene.unity", "Assets/Scenes/ForgottenWoodsScene.unity" };
+        var scenes = new[] { "Assets/Scenes/LoginScene.unity", "Assets/Scenes/CharacterSelectScene.unity", "Assets/Scenes/CharacterCreateScene.unity", "Assets/Scenes/MainScene.unity", "Assets/Scenes/ForgottenWoodsScene.unity", "Assets/Scenes/CitadelOfDawnScene.unity" };
         PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, "com.astrion.game");
         PlayerSettings.productName = "Astrion";
         PlayerSettings.companyName = "Astrion";
@@ -47,7 +48,7 @@ public class ProjectSetup
     [MenuItem("Astrion/Build macOS (Debug)")]
     public static void BuildMacOS()
     {
-        var scenes = new[] { "Assets/Scenes/LoginScene.unity", "Assets/Scenes/CharacterSelectScene.unity", "Assets/Scenes/CharacterCreateScene.unity", "Assets/Scenes/MainScene.unity", "Assets/Scenes/ForgottenWoodsScene.unity" };
+        var scenes = new[] { "Assets/Scenes/LoginScene.unity", "Assets/Scenes/CharacterSelectScene.unity", "Assets/Scenes/CharacterCreateScene.unity", "Assets/Scenes/MainScene.unity", "Assets/Scenes/ForgottenWoodsScene.unity", "Assets/Scenes/CitadelOfDawnScene.unity" };
         PlayerSettings.productName = "Astrion";
         PlayerSettings.companyName = "Astrion";
         PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Standalone, "com.astrion.game");
@@ -64,7 +65,7 @@ public class ProjectSetup
     [MenuItem("Astrion/Build Windows (Debug)")]
     public static void BuildWindows()
     {
-        var scenes = new[] { "Assets/Scenes/LoginScene.unity", "Assets/Scenes/CharacterSelectScene.unity", "Assets/Scenes/CharacterCreateScene.unity", "Assets/Scenes/MainScene.unity", "Assets/Scenes/ForgottenWoodsScene.unity" };
+        var scenes = new[] { "Assets/Scenes/LoginScene.unity", "Assets/Scenes/CharacterSelectScene.unity", "Assets/Scenes/CharacterCreateScene.unity", "Assets/Scenes/MainScene.unity", "Assets/Scenes/ForgottenWoodsScene.unity", "Assets/Scenes/CitadelOfDawnScene.unity" };
         PlayerSettings.productName = "Astrion";
         PlayerSettings.companyName = "Astrion";
         PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Standalone, "com.astrion.game");
@@ -81,7 +82,7 @@ public class ProjectSetup
     [MenuItem("Astrion/Build iOS (Debug)")]
     public static void BuildIOS()
     {
-        var scenes = new[] { "Assets/Scenes/LoginScene.unity", "Assets/Scenes/CharacterSelectScene.unity", "Assets/Scenes/CharacterCreateScene.unity", "Assets/Scenes/MainScene.unity", "Assets/Scenes/ForgottenWoodsScene.unity" };
+        var scenes = new[] { "Assets/Scenes/LoginScene.unity", "Assets/Scenes/CharacterSelectScene.unity", "Assets/Scenes/CharacterCreateScene.unity", "Assets/Scenes/MainScene.unity", "Assets/Scenes/ForgottenWoodsScene.unity", "Assets/Scenes/CitadelOfDawnScene.unity" };
         PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.iOS, "com.astrion.game");
         PlayerSettings.productName = "Astrion";
         PlayerSettings.companyName = "Astrion";
@@ -1350,10 +1351,15 @@ public class ProjectSetup
             completion: new[] {
                 "훌륭하다. 너의 별빛이 손에 익기 시작했구나.",
                 "이 힘으로 닥쳐올 위협을 막을 수 있을 것이야.",
-                "다음 단계는... 다른 하늘섬으로 가는 길을 여는 것이다. 곧 또 부탁할 일이 있을 게야.",
+                "다음 단계는... 다른 하늘섬으로 가는 길을 여는 것이다.",
+                "이 섬의 동쪽 절벽으로 가 보거라. 잊혀진 숲으로 통하는 포탈이 보일 게야.",
+                "그 숲 너머에는 '여명의 성채' — 별의 후예들이 모이는 곳이 있다. 카시오를 만나거라.",
             });
 
-        SetStringArray(npcSo, "idleLines", new[] { "별빛이 너의 길을 비추기를." });
+        SetStringArray(npcSo, "idleLines", new[] {
+            "별빛이 너의 길을 비추기를.",
+            "동쪽 절벽의 포탈을 잊지 말거라. 카시오가 너를 기다리고 있을 것이야.",
+        });
         npcSo.ApplyModifiedPropertiesWithoutUndo();
 
         // === StarBolt prefab template (off-screen, used by PlayerController2D.Instantiate) ===
@@ -1574,6 +1580,11 @@ public class ProjectSetup
             position: new Vector2(-22f, -2.0f), size: new Vector2(1.4f, 2.6f),
             targetScene: "MainScene");
 
+        // Portal to Citadel of Dawn (right edge, past Shadow Hulk)
+        SpawnPortal("Portal_CitadelOfDawn", worldRoot.transform,
+            position: new Vector2(24f, -2.0f), size: new Vector2(1.4f, 2.6f),
+            targetScene: "CitadelOfDawnScene");
+
         // Player prefab spawn at left
         var playerPrefab2 = new GameObject("PlayerPrefab");
         playerPrefab2.transform.position = new Vector3(-18f, 0f, 0);
@@ -1664,6 +1675,166 @@ public class ProjectSetup
 
         EditorSceneManager.SaveScene(scene, "Assets/Scenes/ForgottenWoodsScene.unity");
         Debug.Log("[Astrion] ForgottenWoodsScene created and saved (2D).");
+    }
+
+    private static void CreateCitadelOfDawnScene()
+    {
+        var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
+
+        var lights = Object.FindObjectsOfType<Light>();
+        foreach (var l in lights) if (l.type == LightType.Directional) Object.DestroyImmediate(l.gameObject);
+
+        const int GROUND_LAYER = 8;
+
+        // Dawn-tinted sky
+        var skySpr = TexToSprite(Make2DSkyTex(512, 256));
+        var farMountainSpr = TexToSprite(Make2DMountainTex(1024, 256, new Color(0.45f, 0.32f, 0.42f), 0.6f));
+        var midMountainSpr = TexToSprite(Make2DMountainTex(1024, 256, new Color(0.55f, 0.38f, 0.38f), 0.7f));
+        var nearWallSpr   = TexToSprite(Make2DMountainTex(1024, 256, new Color(0.42f, 0.32f, 0.28f), 0.85f));
+        var groundSpr = TexToSprite(Make2DGroundTex(256, 64));
+        var platformSpr = TexToSprite(Make2DPlatformTex(256, 32));
+        var localParts = MakePlayerParts(
+            shirt: new Color(0.30f, 0.48f, 0.22f),
+            hair:  new Color(0.32f, 0.22f, 0.12f),
+            pants: new Color(0.38f, 0.26f, 0.16f));
+        var remoteParts = MakePlayerParts(
+            shirt: new Color(0.62f, 0.16f, 0.16f),
+            hair:  new Color(0.32f, 0.22f, 0.12f),
+            pants: new Color(0.38f, 0.26f, 0.16f));
+
+        // Background
+        var bgRoot = new GameObject("Background");
+        SpawnSprite("Sky", bgRoot.transform, skySpr, new Vector3(0, 0, 50), new Vector3(40, 25, 1), -10);
+        var farLayer = SpawnSprite("FarMountains", bgRoot.transform, farMountainSpr, new Vector3(0, -1.5f, 40), new Vector3(20, 5, 1), -8);
+        AddParallax(farLayer, new Vector2(0.1f, 0.05f));
+        var midLayer = SpawnSprite("MidWalls", bgRoot.transform, midMountainSpr, new Vector3(0, -2.2f, 30), new Vector3(20, 4, 1), -6);
+        AddParallax(midLayer, new Vector2(0.3f, 0.1f));
+        var nearLayer = SpawnSprite("NearWalls", bgRoot.transform, nearWallSpr, new Vector3(0, -2.8f, 20), new Vector3(20, 3, 1), -4);
+        AddParallax(nearLayer, new Vector2(0.55f, 0.15f));
+
+        // World
+        var worldRoot = new GameObject("World");
+        SpawnGround("Ground_Main", worldRoot.transform, groundSpr, new Vector2(0, -3.5f), new Vector2(50, 1.5f), GROUND_LAYER, false);
+        SpawnGround("Plaza_Step", worldRoot.transform, platformSpr, new Vector2(0, -1.2f), new Vector2(10, 0.5f), GROUND_LAYER, true);
+        SpawnGround("Watch_Platform", worldRoot.transform, platformSpr, new Vector2(-10, 1.5f), new Vector2(7, 0.5f), GROUND_LAYER, true);
+        SpawnGround("Tower_Top", worldRoot.transform, platformSpr, new Vector2(12, 2.5f), new Vector2(7, 0.5f), GROUND_LAYER, true);
+
+        // Return portal to Forgotten Woods (left edge)
+        SpawnPortal("Portal_BackToForgottenWoods", worldRoot.transform,
+            position: new Vector2(-22f, -2.0f), size: new Vector2(1.4f, 2.6f),
+            targetScene: "ForgottenWoodsScene");
+
+        // === NPC: Cassio (Act II 인트로 — 별의 후예 검사) ===
+        var cassioParts = MakePlayerParts(
+            shirt: new Color(0.18f, 0.32f, 0.52f),  // 푸른 갑주
+            hair:  new Color(0.18f, 0.14f, 0.10f),
+            pants: new Color(0.22f, 0.20f, 0.26f));
+        var cassio = new GameObject("NPC_Cassio");
+        cassio.transform.position = new Vector3(2f, -2.5f, 0);
+        BuildPlayerVisual(cassio, cassioParts, out _, out _, out _, out _, out _);
+        var cassioCol = cassio.AddComponent<BoxCollider2D>();
+        cassioCol.size = new Vector2(2.4f, 2.2f);
+        cassioCol.offset = Vector2.zero;
+        cassioCol.isTrigger = true;
+        var cassioNpc = cassio.AddComponent<Astrion.Game.NPC2D>();
+        var cassioSo = new SerializedObject(cassioNpc);
+        cassioSo.FindProperty("npcName").stringValue = "카시오";
+        SetStringArray(cassioSo, "idleLines", new[] {
+            "오... 새로운 별의 후예구나. 잊혀진 숲을 건너 여기까지 오다니, 보통이 아니야.",
+            "여기는 '여명의 성채' — 별의 후예들이 모여 힘을 갈고닦는 곳이지.",
+            "최근 식자(蝕者)의 그림자가 이 변두리까지 닿고 있어. 폴라리스 노인이 너를 보낸 이유가 그것일 게야.",
+            "쉬고, 둘러보고, 다음 길을 준비하거라. 곧 너의 별빛이 필요할 때가 올 것이다.",
+        });
+        cassioSo.ApplyModifiedPropertiesWithoutUndo();
+
+        // Player prefab spawn at left
+        var playerPrefab2 = new GameObject("PlayerPrefab");
+        playerPrefab2.transform.position = new Vector3(-18f, 0f, 0);
+        BuildPlayerVisual(playerPrefab2, localParts, out var pBody, out var pLArm, out var pRArm, out var pLLeg, out var pRLeg);
+        var pBox = playerPrefab2.AddComponent<BoxCollider2D>();
+        pBox.size = new Vector2(0.40f, 0.84f);
+        pBox.offset = new Vector2(0, 0.02f);
+        var pRb = playerPrefab2.AddComponent<Rigidbody2D>();
+        pRb.gravityScale = 3f;
+        pRb.constraints = RigidbodyConstraints2D.FreezeRotation;
+        pRb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        pRb.interpolation = RigidbodyInterpolation2D.Interpolate;
+        var pCtrl = playerPrefab2.AddComponent<Astrion.Game.PlayerController2D>();
+        var pAnim = playerPrefab2.AddComponent<Astrion.Game.PlayerAnimator2D>();
+        var groundCheckGo = new GameObject("GroundCheck");
+        groundCheckGo.transform.SetParent(playerPrefab2.transform, false);
+        groundCheckGo.transform.localPosition = new Vector3(0, -0.42f, 0);
+        var pSo = new SerializedObject(pCtrl);
+        pSo.FindProperty("groundCheck").objectReferenceValue = groundCheckGo.transform;
+        pSo.FindProperty("groundMask").intValue = 1 << GROUND_LAYER;
+        pSo.ApplyModifiedPropertiesWithoutUndo();
+        var pAnimSo = new SerializedObject(pAnim);
+        pAnimSo.FindProperty("body").objectReferenceValue = pBody;
+        pAnimSo.FindProperty("leftArm").objectReferenceValue = pLArm;
+        pAnimSo.FindProperty("rightArm").objectReferenceValue = pRArm;
+        pAnimSo.FindProperty("leftLeg").objectReferenceValue = pLLeg;
+        pAnimSo.FindProperty("rightLeg").objectReferenceValue = pRLeg;
+        pAnimSo.ApplyModifiedPropertiesWithoutUndo();
+
+        // Remote player prefab
+        var remotePrefab = new GameObject("RemotePlayerPrefab");
+        remotePrefab.transform.position = new Vector3(100, 100, 0);
+        BuildPlayerVisual(remotePrefab, remoteParts, out _, out _, out _, out _, out _);
+
+        // StarBolt prefab template
+        var boltSpr = TexToSprite(MakeStarBoltTex(32));
+        var starBoltPrefab = new GameObject("StarBoltPrefab");
+        starBoltPrefab.transform.position = new Vector3(200f, 200f, 0f);
+        starBoltPrefab.SetActive(false);
+        var boltVisual = new GameObject("Visual");
+        boltVisual.transform.SetParent(starBoltPrefab.transform, false);
+        var boltSR = boltVisual.AddComponent<SpriteRenderer>();
+        boltSR.sprite = boltSpr;
+        boltSR.sortingOrder = 12;
+        var boltCol = starBoltPrefab.AddComponent<CircleCollider2D>();
+        boltCol.radius = 0.18f;
+        boltCol.isTrigger = true;
+        var boltRb = starBoltPrefab.AddComponent<Rigidbody2D>();
+        boltRb.gravityScale = 0f;
+        boltRb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        starBoltPrefab.AddComponent<Astrion.Game.StarBolt2D>();
+        var pCtrlSo = new SerializedObject(pCtrl);
+        pCtrlSo.FindProperty("starBoltPrefab").objectReferenceValue = starBoltPrefab;
+        pCtrlSo.ApplyModifiedPropertiesWithoutUndo();
+
+        // Camera
+        var mainCam = Camera.main;
+        if (mainCam != null)
+        {
+            mainCam.orthographic = true;
+            mainCam.orthographicSize = 6.5f;
+            mainCam.transform.position = new Vector3(-18, 0, -10);
+            mainCam.transform.rotation = Quaternion.identity;
+            mainCam.clearFlags = CameraClearFlags.SolidColor;
+            mainCam.backgroundColor = new Color(0.42f, 0.28f, 0.32f);
+            mainCam.farClipPlane = 100f;
+            mainCam.gameObject.AddComponent<Astrion.Game.Camera2D>();
+        }
+
+        // GameManager
+        var gameManagerGo = new GameObject("GameManager");
+        var gm = gameManagerGo.AddComponent<Astrion.Game.GameManager>();
+        var gmSo = new SerializedObject(gm);
+        gmSo.FindProperty("remotePlayerPrefab").objectReferenceValue = remotePrefab;
+        gmSo.FindProperty("starBoltPrefab").objectReferenceValue = starBoltPrefab;
+        gmSo.ApplyModifiedPropertiesWithoutUndo();
+
+        // QuestSystem + InventorySystem (DDOL singletons — dedupe if pre-existing)
+        var questSysGo = new GameObject("QuestSystem");
+        questSysGo.AddComponent<Astrion.Game.QuestSystem>();
+        var invSysGo = new GameObject("InventorySystem");
+        invSysGo.AddComponent<Astrion.Game.InventorySystem>();
+
+        // HUD
+        CreateGameHUD(playerPrefab2, 0f);
+
+        EditorSceneManager.SaveScene(scene, "Assets/Scenes/CitadelOfDawnScene.unity");
+        Debug.Log("[Astrion] CitadelOfDawnScene created and saved (2D).");
     }
 
     // ---- 2D helper spawners ----

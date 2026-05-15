@@ -82,6 +82,7 @@ namespace Astrion.UI
             {
                 case "MainScene":           return "바람의 등대섬";
                 case "ForgottenWoodsScene": return "잊혀진 숲";
+                case "CitadelOfDawnScene":  return "여명의 성채";
                 default:                    return sceneName;
             }
         }
