@@ -2800,32 +2800,56 @@ public class ProjectSetup
         Image expFill = CreateMapleBar(actionRoot, "EXPBar", new Vector2(454, 100), new Vector2(212, 22),
             expGrad, barBgSpr, font, "35.0%", out Text expBarText);
 
-        // Hotbar slots
-        float slotSize = 58f;
-        float slotGap = 6f;
-        float totalW = slotSize * 10 + slotGap * 9;
+        // Hotbar slots (5 — match HotbarSystem.SLOT_COUNT)
+        float slotSize = 72f;
+        float slotGap = 8f;
+        float totalW = slotSize * 5 + slotGap * 4;
         float startX = (actionRoot.sizeDelta.x - totalW) * 0.5f;
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i < 5; i++)
         {
             var slot = HUD_CreateRT($"Slot_{i}", actionRoot);
             slot.anchorMin = slot.anchorMax = new Vector2(0, 0);
             slot.pivot = new Vector2(0, 0);
-            slot.anchoredPosition = new Vector2(startX + i * (slotSize + slotGap), 14);
+            slot.anchoredPosition = new Vector2(startX + i * (slotSize + slotGap), 10);
             slot.sizeDelta = new Vector2(slotSize, slotSize);
             var slotImg = slot.gameObject.AddComponent<Image>();
             slotImg.sprite = slotSpr; slotImg.type = Image.Type.Sliced;
 
+            // Skill icon (filled by HotbarHUD; hidden when slot is empty)
+            var iconRT = HUD_CreateRT("SkillIcon", slot);
+            iconRT.anchorMin = new Vector2(0, 0); iconRT.anchorMax = new Vector2(1, 1);
+            iconRT.offsetMin = new Vector2(6, 6); iconRT.offsetMax = new Vector2(-6, -6);
+            var iconImg = iconRT.gameObject.AddComponent<Image>();
+            iconImg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 6, Color.white));
+            iconImg.color = new Color(1f, 0.85f, 0.30f, 1f);
+            iconRT.gameObject.SetActive(false);
+            var letterRT = HUD_CreateRT("Letter", iconRT);
+            letterRT.anchorMin = Vector2.zero; letterRT.anchorMax = Vector2.one;
+            letterRT.offsetMin = letterRT.offsetMax = Vector2.zero;
+            var letterT = letterRT.gameObject.AddComponent<Text>();
+            letterT.font = font; letterT.fontSize = 30; letterT.fontStyle = FontStyle.Bold;
+            letterT.color = new Color(0.10f, 0.07f, 0.04f);
+            letterT.alignment = TextAnchor.MiddleCenter;
+            letterT.text = "";
+
+            // Slot number (top-left)
             var num = HUD_CreateRT("Num", slot);
             num.anchorMin = num.anchorMax = new Vector2(0, 1);
             num.pivot = new Vector2(0, 1);
-            num.anchoredPosition = new Vector2(5, -3);
-            num.sizeDelta = new Vector2(20, 18);
+            num.anchoredPosition = new Vector2(6, -4);
+            num.sizeDelta = new Vector2(22, 20);
             var numT = num.gameObject.AddComponent<Text>();
-            numT.font = font; numT.fontSize = 12; numT.fontStyle = FontStyle.Bold;
+            numT.font = font; numT.fontSize = 13; numT.fontStyle = FontStyle.Bold;
             numT.color = new Color(1f, 0.88f, 0.45f);
             numT.alignment = TextAnchor.UpperLeft;
-            numT.text = ((i + 1) % 10).ToString();
+            numT.text = (i + 1).ToString();
         }
+
+        // HotbarHUD: binds hotbar state to slot visuals
+        var hotbarHud = canvasGo.AddComponent<Astrion.UI.HotbarHUD>();
+        var hotbarSo = new UnityEditor.SerializedObject(hotbarHud);
+        hotbarSo.FindProperty("actionRoot").objectReferenceValue = actionRoot;
+        hotbarSo.ApplyModifiedPropertiesWithoutUndo();
 
         // ========== BOTTOM-LEFT: Chat panel ==========
         var chatPanel = HUD_CreateRT("ChatPanel", root);
