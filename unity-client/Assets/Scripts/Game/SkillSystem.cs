@@ -88,6 +88,9 @@ namespace Astrion.Game
             SaveToState();
             OnChanged?.Invoke();
             Debug.Log($"[SkillSystem] {def.displayName} Lv.{current}→Lv.{current + 1}");
+            Astrion.UI.ToastUI.Instance?.Show(
+                $"[스킬]  {def.displayName}  Lv.{current}→Lv.{current + 1}",
+                def.iconColor);
             return true;
         }
 

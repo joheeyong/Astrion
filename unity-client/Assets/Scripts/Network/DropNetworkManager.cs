@@ -114,7 +114,10 @@ namespace Astrion.Network
                 if (InventorySystem.Instance != null)
                     InventorySystem.Instance.Add(d.itemId, d.quantity);
                 var def = ItemDatabase.Get(d.itemId);
-                Debug.Log($"[Drop] +{d.quantity} {(def != null ? def.displayName : d.itemId)} (claimed)");
+                string name = def != null ? def.displayName : d.itemId;
+                Debug.Log($"[Drop] +{d.quantity} {name} (claimed)");
+                Color tint = def != null ? ItemDatabase.RarityColor(def.rarity) : new Color(0.85f, 0.78f, 0.55f);
+                Astrion.UI.ToastUI.Instance?.Show($"[+]  {name}  × {d.quantity}", tint);
             }
             catch { /* ignore */ }
         }

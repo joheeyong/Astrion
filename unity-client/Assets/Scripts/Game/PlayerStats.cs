@@ -101,6 +101,13 @@ namespace Astrion.Game
             Debug.Log($"[PlayerStats] +{amount} EXP  ({before}→{Exp}/{ExpForNextLevel(Level)})" +
                       (Level != prevLevel ? $"  LEVEL UP! Lv.{prevLevel}→Lv.{Level}" : "") +
                       "  [saved]");
+
+            if (Level != prevLevel)
+            {
+                Astrion.UI.ToastUI.Instance?.Show(
+                    $"LEVEL UP!  Lv.{Level}   +5 STAT  +1 SKILL",
+                    new Color(1f, 0.85f, 0.30f));
+            }
         }
 
         private void LevelUp()

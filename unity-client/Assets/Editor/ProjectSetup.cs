@@ -3905,6 +3905,39 @@ public class ProjectSetup
         dlgSo.FindProperty("contentText").objectReferenceValue = contentTextC;
         dlgSo.FindProperty("continuePrompt").objectReferenceValue = contTextC;
         dlgSo.ApplyModifiedPropertiesWithoutUndo();
+
+        // ========== TOAST UI (top-right notifications) ==========
+        var toastStack = HUD_CreateRT("ToastStack", root);
+        toastStack.anchorMin = toastStack.anchorMax = new Vector2(1, 1);
+        toastStack.pivot = new Vector2(1, 1);
+        toastStack.anchoredPosition = Vector2.zero;
+        toastStack.sizeDelta = new Vector2(380, 220);
+
+        // Toast template (hidden) — ToastUI clones this when emitting
+        var toastTpl = HUD_CreateRT("ToastTemplate", toastStack);
+        toastTpl.anchorMin = toastTpl.anchorMax = new Vector2(1, 1);
+        toastTpl.pivot = new Vector2(1, 1);
+        toastTpl.anchoredPosition = new Vector2(-12, -200);
+        toastTpl.sizeDelta = new Vector2(360, 32);
+        var toastBg = toastTpl.gameObject.AddComponent<Image>();
+        toastBg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 6, new Color(0.08f, 0.06f, 0.04f, 0.92f)));
+        toastBg.type = Image.Type.Sliced;
+        toastTpl.gameObject.AddComponent<CanvasGroup>();
+        var toastTextRT = HUD_CreateRT("Text", toastTpl);
+        toastTextRT.anchorMin = Vector2.zero; toastTextRT.anchorMax = Vector2.one;
+        toastTextRT.offsetMin = new Vector2(12, 0); toastTextRT.offsetMax = new Vector2(-12, 0);
+        var toastTextC = toastTextRT.gameObject.AddComponent<Text>();
+        toastTextC.font = font; toastTextC.fontSize = 13; toastTextC.fontStyle = FontStyle.Bold;
+        toastTextC.color = new Color(0.92f, 0.86f, 0.72f);
+        toastTextC.alignment = TextAnchor.MiddleLeft;
+        toastTextC.text = "";
+        toastTpl.gameObject.SetActive(false);
+
+        var toastUI = canvasGo.AddComponent<Astrion.UI.ToastUI>();
+        var toastSo = new UnityEditor.SerializedObject(toastUI);
+        toastSo.FindProperty("stackRoot").objectReferenceValue = toastStack;
+        toastSo.FindProperty("toastTemplate").objectReferenceValue = toastTpl.gameObject;
+        toastSo.ApplyModifiedPropertiesWithoutUndo();
     }
 
     private static Image CreateMapleBar(RectTransform parent, string name, Vector2 pos, Vector2 size,
