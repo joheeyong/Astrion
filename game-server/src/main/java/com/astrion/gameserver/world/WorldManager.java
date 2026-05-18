@@ -80,4 +80,13 @@ public class WorldManager {
                 session.getChannel().writeAndFlush(packet);
         }
     }
+
+    public void broadcastToZoneExcept(String zoneId, GamePacket packet, String excludePlayerId) {
+        if (zoneId == null) return;
+        for (PlayerSession session : sessions.values()) {
+            if (excludePlayerId != null && session.getPlayerId().equals(excludePlayerId)) continue;
+            if (zoneId.equals(session.getZoneId()))
+                session.getChannel().writeAndFlush(packet);
+        }
+    }
 }

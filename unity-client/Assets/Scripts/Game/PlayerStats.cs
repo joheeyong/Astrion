@@ -37,6 +37,9 @@ namespace Astrion.Game
         private float _regenTimer;
         private float _saveTimer;
         private bool _dirty;
+        private int _lastSentHp = -1;
+        private int _lastSentMaxHp = -1;
+        private float _lastStatusSentAt;
 
         private void Awake()
         {
@@ -236,6 +239,20 @@ namespace Astrion.Game
             {
                 _saveTimer += Time.deltaTime;
                 if (_saveTimer >= saveDebounceSeconds) FlushSave();
+            }
+
+            // Network HP/MaxHP push (throttled to ~3 Hz)
+            if ((Hp != _lastSentHp || MaxHp != _lastSentMaxHp) && Time.time - _lastStatusSentAt >= 0.3f)
+            {
+                var nm = NetworkManager.Instance;
+                if (nm != null && nm.IsConnected)
+                {
+                    string json = "{\"hp\":" + Hp + ",\"maxHp\":" + MaxHp + "}";
+                    nm.SendPacket(PacketType.StatusUpdate, json);
+                    _lastSentHp = Hp;
+                    _lastSentMaxHp = MaxHp;
+                    _lastStatusSentAt = Time.time;
+                }
             }
         }
 

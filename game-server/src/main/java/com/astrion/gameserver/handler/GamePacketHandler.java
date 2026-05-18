@@ -50,8 +50,23 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             case MONSTER_HIT -> handleMonsterHit(ctx, packet);
             case SKILL_CAST -> handleSkillCast(ctx, packet);
             case DROP_CLAIM -> handleDropClaim(ctx, packet);
+            case STATUS_UPDATE -> handleStatusUpdate(ctx, packet);
             default -> log.warn("Unhandled packet type: {}", packet.getType());
         }
+    }
+
+    private void handleStatusUpdate(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession session = worldManager.getSession(ctx.channel());
+        if (session == null) return;
+        JsonNode node = mapper.readTree(packet.getPayload());
+        int hp = node.has("hp") ? node.get("hp").asInt() : 0;
+        int maxHp = node.has("maxHp") ? node.get("maxHp").asInt() : 0;
+        String zoneId = session.getZoneId();
+        if (zoneId == null || zoneId.isEmpty()) return;
+        String payload = mapper.writeValueAsString(new PlayerStatus(session.getPlayerId(), hp, maxHp));
+        // Broadcast to everyone else in zone (excluding sender)
+        worldManager.broadcastToZoneExcept(zoneId,
+            new GamePacket(PacketType.PLAYER_STATUS, payload), session.getPlayerId());
     }
 
     private void handleDropClaim(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
@@ -94,7 +109,7 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             }
             session.setZoneId(newZone);
             // Announce this player to the new zone
-            String spawnData = mapper.writeValueAsString(new SpawnData(session.getPlayerId(), session.getPosition()));
+            String spawnData = mapper.writeValueAsString(new SpawnData(session.getPlayerId(), session.getPlayerId(), session.getPosition()));
             worldManager.broadcastToZone(newZone,
                 new GamePacket(PacketType.SPAWN_PLAYER, spawnData));
             // Send back a snapshot of existing players in this zone (so the new arrival sees them)
@@ -112,7 +127,7 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         for (PlayerSession other : worldManager.getAllSessions()) {
             if (other.getPlayerId().equals(selfId)) continue;
             if (!zoneId.equals(other.getZoneId())) continue;
-            String spawnData = mapper.writeValueAsString(new SpawnData(other.getPlayerId(), other.getPosition()));
+            String spawnData = mapper.writeValueAsString(new SpawnData(other.getPlayerId(), other.getPlayerId(), other.getPosition()));
             self.getChannel().writeAndFlush(new GamePacket(PacketType.SPAWN_PLAYER, spawnData));
         }
     }
@@ -343,8 +358,9 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
 
     // DTO records
     record LoginResult(boolean success, String playerId, String message) {}
-    record SpawnData(String playerId, Position position) {}
+    record SpawnData(String playerId, String nickname, Position position) {}
     record MoveData(String playerId, Position position, int facing) {}
     record ChatData(String playerId, String message) {}
     record CharacterCreateResult(boolean success, String message) {}
+    record PlayerStatus(String playerId, int hp, int maxHp) {}
 }

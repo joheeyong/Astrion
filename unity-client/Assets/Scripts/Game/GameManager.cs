@@ -13,6 +13,7 @@ namespace Astrion.Game
         private string _playerId;
         private GameObject _localPlayer;
         private readonly Dictionary<string, GameObject> _remotePlayers = new();
+        private readonly Dictionary<string, Astrion.UI.PlayerNameTag> _remoteTags = new();
 
         private void Start()
         {
@@ -35,6 +36,16 @@ namespace Astrion.Game
             else
             {
                 _localPlayer = GameObject.Find("PlayerPrefab");
+            }
+
+            // Self name tag (gold tint, no HP bar since HUD already shows it)
+            if (_localPlayer != null && _localPlayer.GetComponent<Astrion.UI.PlayerNameTag>() == null)
+            {
+                var tag = _localPlayer.AddComponent<Astrion.UI.PlayerNameTag>();
+                string displayName = PlayerPrefs.GetString("characterName", _playerId);
+                tag.SetName(displayName);
+                tag.SetNameColor(new Color(1f, 0.92f, 0.45f));
+                tag.ShowHpBar(false);
             }
 
             EnsureCameraFollow();
@@ -68,6 +79,9 @@ namespace Astrion.Game
                 case PacketType.SkillBroadcast:
                     OnSkillBroadcast(packet.Payload);
                     break;
+                case PacketType.PlayerStatus:
+                    OnPlayerStatus(packet.Payload);
+                    break;
             }
         }
 
@@ -95,8 +109,23 @@ namespace Astrion.Game
                     Quaternion.identity);
                 go.name = "Remote_" + data.playerId;
                 _remotePlayers[data.playerId] = go;
-                Debug.Log($"[Game] Player spawned: {data.playerId}");
+
+                var tag = go.AddComponent<Astrion.UI.PlayerNameTag>();
+                tag.SetName(string.IsNullOrEmpty(data.nickname) ? data.playerId : data.nickname);
+                tag.SetNameColor(new Color(0.85f, 0.86f, 0.95f)); // remote = cooler tint
+                tag.SetHp(100, 100); // until first PLAYER_STATUS arrives
+                _remoteTags[data.playerId] = tag;
+
+                Debug.Log($"[Game] Player spawned: {data.playerId} ({data.nickname})");
             }
+        }
+
+        private void OnPlayerStatus(string payload)
+        {
+            var data = JsonUtility.FromJson<PlayerStatusData>(payload);
+            if (data == null || string.IsNullOrEmpty(data.playerId)) return;
+            if (_remoteTags.TryGetValue(data.playerId, out var tag) && tag != null)
+                tag.SetHp(data.hp, data.maxHp);
         }
 
         private void OnDespawnPlayer(string payload)
@@ -106,6 +135,7 @@ namespace Astrion.Game
             {
                 Destroy(go);
                 _remotePlayers.Remove(data.playerId);
+                _remoteTags.Remove(data.playerId);
                 Debug.Log($"[Game] Player despawned: {data.playerId}");
             }
         }
@@ -155,11 +185,12 @@ namespace Astrion.Game
 
         // JSON DTOs
         [System.Serializable] public class MoveRequest { public float x, y, z; public int facing; }
-        [System.Serializable] public class SpawnData { public string playerId; public PositionData position; }
+        [System.Serializable] public class SpawnData { public string playerId; public string nickname; public PositionData position; }
         [System.Serializable] public class DespawnData { public string playerId; }
         [System.Serializable] public class MoveData { public string playerId; public PositionData position; public int facing; }
         [System.Serializable] public class ChatData { public string playerId; public string message; }
         [System.Serializable] public class PositionData { public float x, y, z; }
         [System.Serializable] public class SkillCastData { public string playerId; public float x, y; public int dir; public string type; }
+        [System.Serializable] public class PlayerStatusData { public string playerId; public int hp; public int maxHp; }
     }
 }
