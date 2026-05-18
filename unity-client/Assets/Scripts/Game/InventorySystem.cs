@@ -137,14 +137,70 @@ namespace Astrion.Game
             return true;
         }
 
-        /// <summary>Swap two inventory slots (used by drag&drop).</summary>
+        /// <summary>
+        /// Drag-drop handler. Same item id with stack room → merge into target;
+        /// otherwise just swap.
+        /// </summary>
         public void SwapSlots(int a, int b)
         {
             if (a < 0 || a >= SLOT_COUNT || b < 0 || b >= SLOT_COUNT) return;
             if (a == b) return;
-            var tmp = Slots[a];
-            Slots[a] = Slots[b];
-            Slots[b] = tmp;
+            var sa = Slots[a];
+            var sb = Slots[b];
+
+            if (!sa.IsEmpty && !sb.IsEmpty && sa.itemId == sb.itemId)
+            {
+                var def = ItemDatabase.Get(sa.itemId);
+                int stackMax = def != null ? def.maxStack : 1;
+                if (stackMax > 1)
+                {
+                    int canMove = Mathf.Min(sa.qty, stackMax - sb.qty);
+                    if (canMove > 0)
+                    {
+                        Slots[b] = new Slot { itemId = sb.itemId, qty = sb.qty + canMove };
+                        int left = sa.qty - canMove;
+                        Slots[a] = left > 0
+                            ? new Slot { itemId = sa.itemId, qty = left }
+                            : new Slot();
+                        SaveToState();
+                        OnChanged?.Invoke();
+                        return;
+                    }
+                }
+            }
+
+            Slots[a] = sb;
+            Slots[b] = sa;
+            SaveToState();
+            OnChanged?.Invoke();
+        }
+
+        /// <summary>Compact inventory: merge stacks of the same item, then push everything to the front.</summary>
+        public void Compact()
+        {
+            var totals = new Dictionary<string, int>();
+            var order = new List<string>(); // preserve first-seen order
+            for (int i = 0; i < SLOT_COUNT; i++)
+            {
+                var s = Slots[i];
+                if (s.IsEmpty) continue;
+                if (totals.ContainsKey(s.itemId)) totals[s.itemId] += s.qty;
+                else { totals[s.itemId] = s.qty; order.Add(s.itemId); }
+            }
+            for (int i = 0; i < SLOT_COUNT; i++) Slots[i] = new Slot();
+            int idx = 0;
+            foreach (var id in order)
+            {
+                var def = ItemDatabase.Get(id);
+                int stackMax = def != null ? def.maxStack : 1;
+                int left = totals[id];
+                while (left > 0 && idx < SLOT_COUNT)
+                {
+                    int amt = Mathf.Min(left, stackMax);
+                    Slots[idx++] = new Slot { itemId = id, qty = amt };
+                    left -= amt;
+                }
+            }
             SaveToState();
             OnChanged?.Invoke();
         }

@@ -10,6 +10,7 @@ namespace Astrion.UI
         [SerializeField] private GameObject panel;
         [SerializeField] private Transform slotsRoot;
         [SerializeField] private Button closeButton;
+        [SerializeField] private Button sortButton;
         [SerializeField] private KeyCode toggleKey = KeyCode.I;
 
         private Image[] _slotIcons;
@@ -26,6 +27,7 @@ namespace Astrion.UI
         private void Start()
         {
             if (closeButton != null) closeButton.onClick.AddListener(Close);
+            if (sortButton != null) sortButton.onClick.AddListener(OnSortClicked);
             CacheSlots();
             if (InventorySystem.Instance != null)
             {
@@ -67,6 +69,12 @@ namespace Astrion.UI
         private void OnSlotClicked(int idx)
         {
             InventorySystem.Instance?.UseSlot(idx);
+        }
+
+        private void OnSortClicked()
+        {
+            InventorySystem.Instance?.Compact();
+            ToastUI.Instance?.Show("인벤토리 정리 완료", new Color(0.85f, 0.78f, 0.55f));
         }
 
         private void Update()

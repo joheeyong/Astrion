@@ -3696,6 +3696,7 @@ public class ProjectSetup
 
         // Action buttons (정렬 / 분할 / 버리기)
         string[] actLabels = { "⇅  정렬", "⊟  분할", "✕  버리기" };
+        Button[] actBtns = new Button[3];
         for (int i = 0; i < 3; i++)
         {
             var btn = HUD_CreateRT($"Act_{i}", invPanel);
@@ -3714,7 +3715,7 @@ public class ProjectSetup
             lblT2.color = tokInk;
             lblT2.alignment = TextAnchor.MiddleCenter;
             lblT2.text = actLabels[i];
-            btn.gameObject.AddComponent<Button>();
+            actBtns[i] = btn.gameObject.AddComponent<Button>();
         }
 
         var invUI = canvasGo.AddComponent<Astrion.UI.InventoryUI>();
@@ -3722,6 +3723,7 @@ public class ProjectSetup
         invUiSo.FindProperty("panel").objectReferenceValue = invPanel.gameObject;
         invUiSo.FindProperty("slotsRoot").objectReferenceValue = slotsRoot2;
         invUiSo.FindProperty("closeButton").objectReferenceValue = invCloseB;
+        invUiSo.FindProperty("sortButton").objectReferenceValue = actBtns[0];
         invUiSo.ApplyModifiedPropertiesWithoutUndo();
         invPanel.gameObject.SetActive(false);
 
