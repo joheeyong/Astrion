@@ -36,7 +36,13 @@ namespace Astrion.Game
 
             var skills = SkillSystem.Instance;
             int lv = skills != null ? skills.GetLevel(skillId) : 0;
-            if (lv <= 0) return false;
+            if (lv <= 0)
+            {
+                // Class primary attacks always usable (defends against load-order race
+                // where the class skill hasn't been auto-granted yet on first entry).
+                if (skillId == "starbolt" || skillId == "sword_slash") lv = 1;
+                else return false;
+            }
 
             // Cooldown
             float now = Time.time;
@@ -132,7 +138,11 @@ namespace Astrion.Game
         private bool FireSwordSlash(int lv)
         {
             var p = FindPlayer();
-            if (p == null) return false;
+            if (p == null)
+            {
+                Debug.LogWarning("[SwordSlash] player not found");
+                return false;
+            }
             var stats = PlayerStats.Instance;
             int weaponDmg = 0;
             if (stats != null && !string.IsNullOrEmpty(stats.EquippedWeaponId))
@@ -167,6 +177,7 @@ namespace Astrion.Game
             // Visual: arm swing only (no star projectile)
             var anim = p.GetComponent<PlayerAnimator2D>();
             if (anim != null) anim.TriggerAttackMotion();
+            else Debug.LogWarning("[SwordSlash] no PlayerAnimator2D on player");
 
             // Tell others to play the swing visual
             BroadcastSkillCast(origin, p.FacingRight ? 1 : -1, "sword_slash");
