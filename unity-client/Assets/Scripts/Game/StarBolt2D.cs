@@ -65,7 +65,13 @@ namespace Astrion.Game
 
         private void OnTriggerEnter2D(Collider2D other)
         {
-            if (_visualOnly) return; // remote-player visualization — no damage
+            if (_visualOnly)
+            {
+                // Remote-player bolt: still consume on contact with a monster so the
+                // hit is visually obvious; damage stays server-driven via OnHpChanged.
+                if (other.GetComponent<ServerMonster2D>() != null) Destroy(gameObject);
+                return;
+            }
             var dummy = other.GetComponent<TargetDummy2D>();
             if (dummy != null)
             {

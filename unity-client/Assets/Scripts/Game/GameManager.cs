@@ -162,10 +162,30 @@ namespace Astrion.Game
             var data = JsonUtility.FromJson<SkillCastData>(payload);
             if (data == null || data.playerId == _playerId) return; // self — already spawned locally
             if (starBoltPrefab == null) return;
-            var go = Instantiate(starBoltPrefab, new Vector3(data.x, data.y, 0f), Quaternion.identity);
+            var origin = new Vector3(data.x, data.y, 0f);
+            var go = Instantiate(starBoltPrefab, origin, Quaternion.identity);
             go.SetActive(true);
             var bolt = go.GetComponent<Astrion.Game.StarBolt2D>();
-            if (bolt != null) bolt.Init(data.dir, null, visualOnly: true);
+            if (bolt != null) bolt.Init(data.dir, FindHomingTargetForRemote(origin, data.dir), visualOnly: true);
+        }
+
+        // Match the local FireStarbolt homing logic so remote bolts visibly curve toward enemies
+        private Transform FindHomingTargetForRemote(Vector2 origin, int dir)
+        {
+            var monsters = Object.FindObjectsOfType<Astrion.Game.ServerMonster2D>();
+            Transform best = null;
+            float bestDist = float.MaxValue;
+            const float range = 9f;
+            foreach (var m in monsters)
+            {
+                if (m == null) continue;
+                Vector2 to = (Vector2)m.transform.position - origin;
+                if (to.x * dir < 0f) continue; // not in front of the caster
+                float d = to.magnitude;
+                if (d > range) continue;
+                if (d < bestDist) { bestDist = d; best = m.transform; }
+            }
+            return best;
         }
 
         private void OnChatMessage(string payload)

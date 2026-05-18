@@ -102,7 +102,8 @@ namespace Astrion.Game
             var cam = Camera.main;
             if (cam == null) return;
             Vector3 vp = cam.WorldToViewportPoint(transform.position);
-            if (vp.z > 0 && vp.x >= 0f && vp.x <= 1f && vp.y >= 0f && vp.y <= 1f)
+            // Soft margin: just off-screen still shakes a bit so peripheral kills land
+            if (vp.z > 0 && vp.x >= -0.15f && vp.x <= 1.15f && vp.y >= -0.15f && vp.y <= 1.15f)
                 Camera2D.Shake(amount, duration);
         }
     }
