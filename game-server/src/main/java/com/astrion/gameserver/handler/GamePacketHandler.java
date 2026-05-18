@@ -61,12 +61,28 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         JsonNode node = mapper.readTree(packet.getPayload());
         int hp = node.has("hp") ? node.get("hp").asInt() : 0;
         int maxHp = node.has("maxHp") ? node.get("maxHp").asInt() : 0;
+
+        // Combat stats — used later to cap damage. Clamp to sane ranges so a forged
+        // STATUS_UPDATE can't enable arbitrary damage either.
+        if (node.has("level"))      session.level      = Math.min(100, Math.max(1, node.get("level").asInt()));
+        if (node.has("intStat"))    session.intStat    = Math.min(999, Math.max(1, node.get("intStat").asInt()));
+        if (node.has("weaponDmg"))  session.weaponDmg  = Math.min(500, Math.max(0, node.get("weaponDmg").asInt()));
+        if (node.has("starboltLv")) session.starboltLv = Math.min(10,  Math.max(1, node.get("starboltLv").asInt()));
+
         String zoneId = session.getZoneId();
         if (zoneId == null || zoneId.isEmpty()) return;
         String payload = mapper.writeValueAsString(new PlayerStatus(session.getPlayerId(), hp, maxHp));
-        // Broadcast to everyone else in zone (excluding sender)
         worldManager.broadcastToZoneExcept(zoneId,
             new GamePacket(PacketType.PLAYER_STATUS, payload), session.getPlayerId());
+    }
+
+    // Authoritative max damage the client is allowed to claim. Formula mirrors
+    // PlayerStats.ComputeBoltDamage with a 1.3× safety margin to absorb variance + skill bonus.
+    private static int maxAllowedDamage(PlayerSession s) {
+        // Base formula: 5 + INT*2 + LV*3 + weaponDmg + (starboltLv-1)*5
+        int base = 5 + s.intStat * 2 + s.level * 3 + s.weaponDmg + (s.starboltLv - 1) * 5;
+        // Variance up to ±20%, plus small headroom for legitimate skills (e.g. meteor)
+        return Math.max(10, (int) Math.ceil(base * 1.6));
     }
 
     private void handleDropClaim(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
@@ -141,8 +157,15 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         if (session == null) return;
         JsonNode node = mapper.readTree(packet.getPayload());
         String monsterId = node.get("id").asText();
-        int damage = node.has("damage") ? node.get("damage").asInt() : 1;
-        monsterManager.onMonsterHit(session, monsterId, damage);
+        int claimed = node.has("damage") ? node.get("damage").asInt() : 1;
+        int cap = maxAllowedDamage(session);
+        int applied = Math.max(1, Math.min(claimed, cap));
+        if (claimed > cap) {
+            log.warn("[anti-cheat] {} claimed dmg {} -> capped to {} (LV{} INT{} WPN{} BoltLv{})",
+                session.getPlayerId(), claimed, cap,
+                session.level, session.intStat, session.weaponDmg, session.starboltLv);
+        }
+        monsterManager.onMonsterHit(session, monsterId, applied);
     }
 
     private void handleStateRequest(ChannelHandlerContext ctx, GamePacket packet) {

@@ -243,13 +243,30 @@ namespace Astrion.Game
                 if (_saveTimer >= saveDebounceSeconds) FlushSave();
             }
 
-            // Network HP/MaxHP push (throttled to ~3 Hz)
+            // Network HP/MaxHP push (throttled to ~3 Hz). Combat stats ride along
+            // so the server can cap claimed damage against them (anti-cheat).
             if ((Hp != _lastSentHp || MaxHp != _lastSentMaxHp) && Time.time - _lastStatusSentAt >= 0.3f)
             {
                 var nm = NetworkManager.Instance;
                 if (nm != null && nm.IsConnected)
                 {
-                    string json = "{\"hp\":" + Hp + ",\"maxHp\":" + MaxHp + "}";
+                    int wpn = 0;
+                    if (!string.IsNullOrEmpty(EquippedWeaponId))
+                    {
+                        var def = ItemDatabase.Get(EquippedWeaponId);
+                        if (def != null) wpn = def.baseDamage;
+                    }
+                    int starLv = SkillSystem.Instance != null
+                        ? Mathf.Max(1, SkillSystem.Instance.GetLevel("starbolt"))
+                        : 1;
+                    string json =
+                        "{\"hp\":" + Hp +
+                        ",\"maxHp\":" + MaxHp +
+                        ",\"level\":" + Level +
+                        ",\"intStat\":" + Intel +
+                        ",\"weaponDmg\":" + wpn +
+                        ",\"starboltLv\":" + starLv +
+                        "}";
                     nm.SendPacket(PacketType.StatusUpdate, json);
                     _lastSentHp = Hp;
                     _lastSentMaxHp = MaxHp;

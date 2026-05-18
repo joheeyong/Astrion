@@ -25,4 +25,10 @@ public class PlayerSession {
     public void setZoneId(String zoneId) { this.zoneId = zoneId == null ? "" : zoneId; }
     public String getNickname() { return nickname == null || nickname.isEmpty() ? playerId : nickname; }
     public void setNickname(String nickname) { this.nickname = nickname == null ? "" : nickname; }
+
+    // Combat stats reported by the client via STATUS_UPDATE — used to cap incoming damage
+    public int level = 1;
+    public int intStat = 5;
+    public int weaponDmg = 0;
+    public int starboltLv = 1;
 }
