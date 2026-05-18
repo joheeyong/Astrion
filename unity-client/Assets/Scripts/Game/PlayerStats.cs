@@ -23,6 +23,9 @@ namespace Astrion.Game
         public int SkillPoints { get; private set; } = 0;
         public int Gold { get; private set; } = 0;
         public string EquippedWeaponId { get; private set; } = "";
+        public string EquippedHelmetId { get; private set; } = "";
+        public string EquippedArmorId  { get; private set; } = "";
+        public string EquippedRingId   { get; private set; } = "";
 
         public event Action OnChanged;
         public event Action OnDied;
@@ -154,6 +157,9 @@ namespace Astrion.Game
             StatPoints = Mathf.Max(0, s.statPoints);
             SkillPoints = Mathf.Max(0, s.skillPoints);
             EquippedWeaponId = s.equippedWeaponId ?? "";
+            EquippedHelmetId = s.equippedHelmetId ?? "";
+            EquippedArmorId  = s.equippedArmorId  ?? "";
+            EquippedRingId   = s.equippedRingId   ?? "";
             Gold = Mathf.Max(0, s.gold);
             OnChanged?.Invoke();
         }
@@ -192,6 +198,21 @@ namespace Astrion.Game
             OnChanged?.Invoke();
         }
 
+        public void EquipItem(string itemId, string slot)
+        {
+            if (string.IsNullOrEmpty(slot)) return;
+            switch (slot)
+            {
+                case "weapon": EquippedWeaponId = itemId ?? ""; break;
+                case "helmet": EquippedHelmetId = itemId ?? ""; break;
+                case "armor":  EquippedArmorId  = itemId ?? ""; break;
+                case "ring":   EquippedRingId   = itemId ?? ""; break;
+                default: return;
+            }
+            SaveAttributes();
+            OnChanged?.Invoke();
+        }
+
         public int ComputeBoltDamage()
         {
             int weaponDmg = 0;
@@ -214,6 +235,7 @@ namespace Astrion.Game
             if (psm == null) return;
             psm.UpdateAttributes(Level, Exp, Str, Dex, Intel, Luk, StatPoints, EquippedWeaponId);
             psm.UpdateGold(Gold);
+            psm.UpdateEquipment(EquippedWeaponId, EquippedHelmetId, EquippedArmorId, EquippedRingId);
         }
 
         private void Update()

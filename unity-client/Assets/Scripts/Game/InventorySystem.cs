@@ -281,13 +281,13 @@ namespace Astrion.Game
                 case "상자":
                     return OpenBox(slotIndex, def);
                 case "장비":
-                    if (def.baseDamage > 0)
-                    {
-                        PlayerStats.Instance?.EquipWeapon(def.id);
-                        OnChanged?.Invoke();
-                        return true;
-                    }
-                    return false;
+                    string eqSlot = def.equipSlot;
+                    if (string.IsNullOrEmpty(eqSlot) && def.baseDamage > 0) eqSlot = "weapon";
+                    if (string.IsNullOrEmpty(eqSlot)) return false;
+                    PlayerStats.Instance?.EquipItem(def.id, eqSlot);
+                    OnChanged?.Invoke();
+                    Astrion.UI.ToastUI.Instance?.Show($"[장착]  {def.displayName}", ItemDatabase.RarityColor(def.rarity));
+                    return true;
                 case "소비":
                     var stats = PlayerStats.Instance;
                     if (stats == null) return false;

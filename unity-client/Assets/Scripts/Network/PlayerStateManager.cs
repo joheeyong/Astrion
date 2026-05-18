@@ -283,6 +283,15 @@ namespace Astrion.Network
             Save();
         }
 
+        public void UpdateEquipment(string weapon, string helmet, string armor, string ring)
+        {
+            State.equippedWeaponId = weapon ?? "";
+            State.equippedHelmetId = helmet ?? "";
+            State.equippedArmorId  = armor  ?? "";
+            State.equippedRingId   = ring   ?? "";
+            Save();
+        }
+
         public void UpdateSkillPoints(int skillPoints)
         {
             State.skillPoints = skillPoints;

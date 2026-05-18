@@ -1317,6 +1317,7 @@ public class ProjectSetup
         pRb.interpolation = RigidbodyInterpolation2D.Interpolate;
         var pCtrl = playerPrefab2.AddComponent<Astrion.Game.PlayerController2D>();
         playerPrefab2.AddComponent<Astrion.Game.PlayerVisualTinter>();
+        playerPrefab2.AddComponent<Astrion.Game.PlayerEquipmentVisual>();
         var pAnim = playerPrefab2.AddComponent<Astrion.Game.PlayerAnimator2D>();
         var groundCheckGo = new GameObject("GroundCheck");
         groundCheckGo.transform.SetParent(playerPrefab2.transform, false);
@@ -1653,6 +1654,7 @@ public class ProjectSetup
         pRb.interpolation = RigidbodyInterpolation2D.Interpolate;
         var pCtrl = playerPrefab2.AddComponent<Astrion.Game.PlayerController2D>();
         playerPrefab2.AddComponent<Astrion.Game.PlayerVisualTinter>();
+        playerPrefab2.AddComponent<Astrion.Game.PlayerEquipmentVisual>();
         var pAnim = playerPrefab2.AddComponent<Astrion.Game.PlayerAnimator2D>();
         var groundCheckGo = new GameObject("GroundCheck");
         groundCheckGo.transform.SetParent(playerPrefab2.transform, false);
@@ -1833,6 +1835,7 @@ public class ProjectSetup
         pRb.interpolation = RigidbodyInterpolation2D.Interpolate;
         var pCtrl = playerPrefab2.AddComponent<Astrion.Game.PlayerController2D>();
         playerPrefab2.AddComponent<Astrion.Game.PlayerVisualTinter>();
+        playerPrefab2.AddComponent<Astrion.Game.PlayerEquipmentVisual>();
         var pAnim = playerPrefab2.AddComponent<Astrion.Game.PlayerAnimator2D>();
         var groundCheckGo = new GameObject("GroundCheck");
         groundCheckGo.transform.SetParent(playerPrefab2.transform, false);
@@ -2527,6 +2530,22 @@ public class ProjectSetup
         llSR.sprite = parts.leg;
         llSR.sortingOrder = 9;
         leftLeg = llGo.transform;
+
+        // === Equipment overlay slots (filled at runtime by PlayerEquipmentVisual) ===
+        AddEquipSlot(container.transform, "ArmorVisual",  new Vector3( 0.00f,  0.05f, 0), 12);
+        AddEquipSlot(container.transform, "HelmetVisual", new Vector3( 0.00f,  0.42f, 0), 14);
+        AddEquipSlot(container.transform, "WeaponVisual", new Vector3( 0.22f,  0.05f, 0), 14);
+        AddEquipSlot(container.transform, "RingVisual",   new Vector3(-0.18f,  0.32f, 0), 14);
+    }
+
+    private static void AddEquipSlot(Transform parent, string name, Vector3 localPos, int sortingOrder)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        go.transform.localPosition = localPos;
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sortingOrder = sortingOrder;
+        go.SetActive(false);
     }
 
     // ---- Procedural texture helpers ----

@@ -26,6 +26,9 @@ namespace Astrion.Network
         public int statLuk = 5;
         public int statPoints = 5;
         public string equippedWeaponId = "";
+        public string equippedHelmetId = "";
+        public string equippedArmorId = "";
+        public string equippedRingId = "";
         public string lastScene = ""; // last game scene the player was in
         public int skillPoints = 0;
         public string[] learnedSkillIds = new string[0];
