@@ -14,6 +14,7 @@ namespace Astrion.UI
         [SerializeField] private Button deleteButton;
         [SerializeField] private Text selectedInfoName;
         [SerializeField] private Text selectedInfoDetail;
+        [SerializeField] private GameObject characterPreview;
         [SerializeField] private GameObject confirmPanel;
         [SerializeField] private Text confirmText;
         [SerializeField] private Button confirmYesButton;
@@ -120,6 +121,7 @@ namespace Astrion.UI
             createButton.gameObject.SetActive(true);
             selectedInfoName.text = hasChars ? "Select a character" : "";
             selectedInfoDetail.text = hasChars ? "" : "No characters yet. Create one to begin!";
+            if (characterPreview != null) characterPreview.SetActive(false);
         }
 
         private void SelectSlot(int index)
@@ -131,6 +133,11 @@ namespace Astrion.UI
             var c = _characters[index];
             selectedInfoName.text = c.name;
             selectedInfoDetail.text = $"{c.className}  |  Level {c.level}";
+            if (characterPreview != null)
+            {
+                characterPreview.SetActive(true);
+                ApplyClassTint(characterPreview, c.className);
+            }
 
             for (int i = 0; i < slotContainer.childCount; i++)
             {
@@ -190,6 +197,36 @@ namespace Astrion.UI
         {
             NetworkManager.Instance.OnPacketReceived -= HandlePacket;
             SceneManager.LoadScene("CharacterCreateScene");
+        }
+
+        // Tint Body/Arm/Leg parts of the preview to roughly reflect the class.
+        // (Body parts use white sprites with the chosen color; Image.color tints them.)
+        private static void ApplyClassTint(GameObject preview, string className)
+        {
+            Color bodyColor;
+            Color legColor;
+            switch (className)
+            {
+                case "Warrior":  bodyColor = new Color(0.62f, 0.16f, 0.16f); legColor = new Color(0.32f, 0.22f, 0.18f); break;
+                case "Mage":     bodyColor = new Color(0.30f, 0.32f, 0.65f); legColor = new Color(0.18f, 0.18f, 0.32f); break;
+                case "Archer":   bodyColor = new Color(0.30f, 0.55f, 0.32f); legColor = new Color(0.30f, 0.22f, 0.14f); break;
+                case "Thief":    bodyColor = new Color(0.22f, 0.22f, 0.26f); legColor = new Color(0.16f, 0.16f, 0.20f); break;
+                default:         bodyColor = new Color(0.30f, 0.48f, 0.22f); legColor = new Color(0.38f, 0.26f, 0.16f); break;
+            }
+            var visual = preview.transform.Find("CharVisual");
+            if (visual == null) return;
+            for (int i = 0; i < visual.childCount; i++)
+            {
+                var child = visual.GetChild(i);
+                var img = child.GetComponent<Image>();
+                if (img == null) continue;
+                string n = child.name;
+                if (n == "Body" || n == "LeftArm" || n == "RightArm")
+                    img.color = bodyColor;
+                else if (n == "LeftLeg" || n == "RightLeg")
+                    img.color = legColor;
+                // Head keeps its sprite (skin + hair baked in)
+            }
         }
 
         private void OnDestroy()

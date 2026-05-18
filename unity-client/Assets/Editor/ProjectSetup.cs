@@ -654,6 +654,21 @@ public class ProjectSetup
         inRect.offsetMin = Vector2.zero;
         inRect.offsetMax = new Vector2(-40, 0);
 
+        // ===== Character preview (above info name) =====
+        var previewGo = CreateUIElement("CharacterPreview", canvasGo.transform);
+        var previewRT = previewGo.GetComponent<RectTransform>();
+        previewRT.anchorMin = new Vector2(0.35f, 0.7f);
+        previewRT.anchorMax = new Vector2(1f, 0.95f);
+        previewRT.offsetMin = new Vector2(0, 0);
+        previewRT.offsetMax = new Vector2(-40, 0);
+        // Build a single placeholder visual (default colors) — CharacterSelectUI toggles visibility
+        var previewParts = MakePlayerParts(
+            shirt: new Color(0.30f, 0.48f, 0.22f),
+            hair:  new Color(0.32f, 0.22f, 0.12f),
+            pants: new Color(0.38f, 0.26f, 0.16f));
+        BuildPlayerVisualUI(previewRT, previewParts, scale: 3.2f);
+        previewGo.SetActive(false);
+
         // Selected info: detail
         var infoDetailGo = CreateUIElement("SelectedInfoDetail", canvasGo.transform);
         var infoDetailText = infoDetailGo.AddComponent<Text>();
@@ -836,6 +851,7 @@ public class ProjectSetup
         so.FindProperty("deleteButton").objectReferenceValue = deleteBtn;
         so.FindProperty("selectedInfoName").objectReferenceValue = infoNameText;
         so.FindProperty("selectedInfoDetail").objectReferenceValue = infoDetailText;
+        so.FindProperty("characterPreview").objectReferenceValue = previewGo;
         so.FindProperty("confirmPanel").objectReferenceValue = confirmPanelGo;
         so.FindProperty("confirmText").objectReferenceValue = confirmText;
         so.FindProperty("confirmYesButton").objectReferenceValue = yesBtn;
@@ -2412,6 +2428,42 @@ public class ProjectSetup
                 tex.SetPixel(x, y, c);
             }
         tex.Apply(); return tex;
+    }
+
+    // UI version: lays the same sprite parts out as RectTransform + Image children so it
+    // can be shown inside a ScreenSpaceCamera canvas (CharacterSelectScene preview, etc.).
+    private static void BuildPlayerVisualUI(RectTransform parent, PlayerParts parts, float scale)
+    {
+        var ctr = new GameObject("CharVisual");
+        var cRT = ctr.AddComponent<RectTransform>();
+        cRT.SetParent(parent, false);
+        cRT.anchorMin = cRT.anchorMax = new Vector2(0.5f, 0.5f);
+        cRT.pivot = new Vector2(0.5f, 0.5f);
+        cRT.anchoredPosition = Vector2.zero;
+        cRT.sizeDelta = new Vector2(64, 96);
+        cRT.localScale = new Vector3(scale, scale, 1f);
+
+        // Add in back→front order so sibling index matches sorting
+        AddVisualUIPart(cRT, "LeftLeg",  parts.leg,  new Vector2(-6, -22));
+        AddVisualUIPart(cRT, "LeftArm",  parts.arm,  new Vector2(-12,  6));
+        AddVisualUIPart(cRT, "RightLeg", parts.leg,  new Vector2( 6, -22));
+        AddVisualUIPart(cRT, "Body",     parts.body, new Vector2( 0,  4));
+        AddVisualUIPart(cRT, "RightArm", parts.arm,  new Vector2(12,   6));
+        AddVisualUIPart(cRT, "Head",     parts.head, new Vector2( 0,  30));
+    }
+
+    private static void AddVisualUIPart(RectTransform parent, string name, Sprite sprite, Vector2 pos)
+    {
+        var go = new GameObject(name);
+        var rt = go.AddComponent<RectTransform>();
+        rt.SetParent(parent, false);
+        rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = pos;
+        rt.sizeDelta = sprite.rect.size;
+        var img = go.AddComponent<Image>();
+        img.sprite = sprite;
+        img.raycastTarget = false;
     }
 
     private static void BuildPlayerVisual(GameObject root, PlayerParts parts,
