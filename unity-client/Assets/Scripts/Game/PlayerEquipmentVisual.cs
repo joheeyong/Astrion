@@ -96,7 +96,7 @@ namespace Astrion.Game
         private static void EnsureSpritesBuilt()
         {
             if (_daggerSprite == null) _daggerSprite = MakeRectSprite(5, 18);
-            if (_swordSprite  == null) _swordSprite  = MakeSwordSprite(6, 32);
+            if (_swordSprite  == null) _swordSprite  = MakeSwordSprite(8, 56);
             if (_bowSprite    == null) _bowSprite    = MakeBowSprite(18, 24);
             if (_helmetSprite == null) _helmetSprite = MakeHelmetSprite(20, 10);
             if (_armorSprite  == null) _armorSprite  = MakeArmorSprite(26, 30);
@@ -109,29 +109,43 @@ namespace Astrion.Game
             for (int y = 0; y < h; y++)
                 for (int x = 0; x < w; x++)
                     tex.SetPixel(x, y, new Color(0, 0, 0, 0));
-            // Blade (top ~70%): white rect with dark edges
-            int hilt = Mathf.RoundToInt(h * 0.18f);
-            for (int y = hilt + 3; y < h; y++)
+            int hilt = Mathf.RoundToInt(h * 0.15f);  // ~15% grip
+            int guardThickness = 3;
+            int tipLen = Mathf.Max(2, Mathf.RoundToInt(h * 0.08f)); // tapered tip
+
+            // Blade (rectangle from above crossguard up to start of tip)
+            int bladeStart = hilt + guardThickness;
+            int bladeEnd = h - tipLen;
+            for (int y = bladeStart; y < bladeEnd; y++)
                 for (int x = 1; x < w - 1; x++)
                 {
-                    bool edge = x == 1 || x == w - 2 || y == h - 1;
+                    bool edge = x == 1 || x == w - 2;
                     tex.SetPixel(x, y, edge ? new Color(0.05f, 0.04f, 0.06f) : Color.white);
                 }
-            // Pointed tip
-            tex.SetPixel(0, h - 2, new Color(0, 0, 0, 0));
-            tex.SetPixel(w - 1, h - 2, new Color(0, 0, 0, 0));
-            // Crossguard (horizontal bar)
-            for (int x = 0; x < w; x++)
+            // Tapered tip
+            for (int y = bladeEnd; y < h; y++)
             {
-                tex.SetPixel(x, hilt + 1, new Color(0.30f, 0.22f, 0.10f));
-                tex.SetPixel(x, hilt + 2, new Color(0.30f, 0.22f, 0.10f));
+                int taper = (y - bladeEnd) + 1;
+                for (int x = 1 + taper; x < w - 1 - taper; x++)
+                {
+                    bool edge = (x == 1 + taper) || (x == w - 2 - taper) || (y == h - 1);
+                    tex.SetPixel(x, y, edge ? new Color(0.05f, 0.04f, 0.06f) : Color.white);
+                }
             }
-            // Grip
+            // Crossguard (wider than blade, dark brown)
+            for (int t = 0; t < guardThickness; t++)
+                for (int x = 0; x < w; x++)
+                    tex.SetPixel(x, hilt + t, new Color(0.32f, 0.22f, 0.10f));
+            // Grip (slimmer brown)
             for (int y = 0; y < hilt; y++)
                 for (int x = 2; x < w - 2; x++)
-                    tex.SetPixel(x, y, new Color(0.18f, 0.12f, 0.06f));
+                    tex.SetPixel(x, y, new Color(0.20f, 0.13f, 0.06f));
+            // Pommel (round-ish bottom)
+            for (int x = 2; x < w - 2; x++)
+                tex.SetPixel(x, 0, new Color(0.35f, 0.24f, 0.12f));
             tex.Apply();
-            return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.15f), 100);
+            // Pivot at the grip — sword extends "up" from the hand
+            return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.10f), 100);
         }
 
         private static Sprite MakeRectSprite(int w, int h)
