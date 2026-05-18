@@ -118,6 +118,11 @@ namespace Astrion.Network
                 Debug.Log($"[Drop] +{d.quantity} {name} (claimed)");
                 Color tint = def != null ? ItemDatabase.RarityColor(def.rarity) : new Color(0.85f, 0.78f, 0.55f);
                 Astrion.UI.ToastUI.Instance?.Show($"[+]  {name}  × {d.quantity}", tint);
+
+                // Epic+ drops are worth ack'ing — silent loss of a legendary
+                // would be miserable. Lower rarities ride the regular debounced save.
+                if (def != null && def.rarity >= ItemDatabase.Rarity.Epic)
+                    PlayerStateManager.Instance?.SaveImportant($"드롭: {name}");
             }
             catch { /* ignore */ }
         }

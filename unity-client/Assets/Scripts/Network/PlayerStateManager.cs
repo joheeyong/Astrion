@@ -4,6 +4,8 @@ using UnityEngine;
 
 namespace Astrion.Network
 {
+    [System.Serializable] internal class AckPayload { public string saveId; }
+
     public class PlayerStateManager : MonoBehaviour
     {
         public static PlayerStateManager Instance { get; private set; }
@@ -54,12 +56,98 @@ namespace Astrion.Network
         {
             if (!ServerSupportsState) return; // skip until handshake confirms support
             if (NetworkManager.Instance == null || !NetworkManager.Instance.IsConnected) return;
+            // Routine saves: send without saveId so they don't trigger the ACK path
+            State.saveId = "";
             string json = JsonUtility.ToJson(State);
             NetworkManager.Instance.SendPacket(PacketType.StateSave, json);
         }
 
+        /// Reliable save with server ACK + retry. Use for level-up, boss kills,
+        /// epic+ drops — anything where a silent fail would feel bad.
+        public void SaveImportant(string reason)
+        {
+            if (!ServerSupportsState) return;
+            if (NetworkManager.Instance == null || !NetworkManager.Instance.IsConnected)
+            {
+                Debug.LogWarning($"[PlayerStateManager] SaveImportant({reason}) skipped — disconnected");
+                return;
+            }
+            string saveId = System.Guid.NewGuid().ToString("N");
+            State.saveId = saveId;
+            string json = JsonUtility.ToJson(State);
+            State.saveId = ""; // reset so subsequent routine Save() doesn't reuse
+            NetworkManager.Instance.SendPacket(PacketType.StateSave, json);
+            _pendingAcks[saveId] = new PendingAck { sentAt = Time.unscaledTime, payload = json, reason = reason, retried = false };
+            Debug.Log($"[PlayerStateManager] SaveImportant({reason}) sent saveId={saveId.Substring(0, 8)}");
+        }
+
+        private class PendingAck { public float sentAt; public string payload; public string reason; public bool retried; }
+        private readonly Dictionary<string, PendingAck> _pendingAcks = new Dictionary<string, PendingAck>();
+        private const float AckTimeoutSeconds = 5f;
+
+        private void Update()
+        {
+            if (_pendingAcks.Count == 0) return;
+            float now = Time.unscaledTime;
+            List<string> toRemove = null;
+            List<string> toRetry = null;
+            List<string> toFail = null;
+            foreach (var kv in _pendingAcks)
+            {
+                float age = now - kv.Value.sentAt;
+                if (age < AckTimeoutSeconds) continue;
+                if (!kv.Value.retried)
+                {
+                    (toRetry ??= new List<string>()).Add(kv.Key);
+                }
+                else
+                {
+                    (toFail ??= new List<string>()).Add(kv.Key);
+                    (toRemove ??= new List<string>()).Add(kv.Key);
+                }
+            }
+            if (toRetry != null)
+            {
+                foreach (var id in toRetry)
+                {
+                    var p = _pendingAcks[id];
+                    p.retried = true;
+                    p.sentAt = now;
+                    if (NetworkManager.Instance != null && NetworkManager.Instance.IsConnected)
+                        NetworkManager.Instance.SendPacket(PacketType.StateSave, p.payload);
+                    Debug.LogWarning($"[PlayerStateManager] ACK timeout — retrying saveId={id.Substring(0,8)} ({p.reason})");
+                }
+            }
+            if (toFail != null)
+            {
+                foreach (var id in toFail)
+                {
+                    var p = _pendingAcks[id];
+                    Debug.LogError($"[PlayerStateManager] SAVE FAILED saveId={id.Substring(0,8)} ({p.reason})");
+                    Astrion.UI.ToastUI.Instance?.Show($"저장 실패: {p.reason}",
+                        new Color(0.95f, 0.30f, 0.30f));
+                }
+            }
+            if (toRemove != null)
+                foreach (var id in toRemove) _pendingAcks.Remove(id);
+        }
+
         private void HandlePacket(GamePacket packet)
         {
+            if (packet.Type == PacketType.StateAck)
+            {
+                try
+                {
+                    var ack = JsonUtility.FromJson<AckPayload>(packet.Payload);
+                    if (ack != null && !string.IsNullOrEmpty(ack.saveId)
+                        && _pendingAcks.Remove(ack.saveId))
+                    {
+                        Debug.Log($"[PlayerStateManager] ACK saveId={ack.saveId.Substring(0,8)}");
+                    }
+                }
+                catch { /* ignore */ }
+                return;
+            }
             if (packet.Type != PacketType.StateData) return;
 
             try

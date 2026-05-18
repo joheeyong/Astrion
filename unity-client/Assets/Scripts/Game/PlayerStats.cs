@@ -119,6 +119,8 @@ namespace Astrion.Game
                 Astrion.UI.ToastUI.Instance?.Show(
                     $"LEVEL UP!  Lv.{Level}   +5 STAT  +1 SKILL",
                     new Color(1f, 0.85f, 0.30f));
+                // Important event — request a server ACK
+                PlayerStateManager.Instance?.SaveImportant("레벨업");
             }
         }
 

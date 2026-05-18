@@ -37,7 +37,8 @@ public enum PacketType {
     DROP_SPAWN(0x96),
     DROP_GRANTED(0x97),
     DROP_REMOVED(0x98),
-    PLAYER_STATUS(0x99);
+    PLAYER_STATUS(0x99),
+    STATE_ACK(0x9A);
 
     private final int code;
 

@@ -32,5 +32,6 @@ namespace Astrion.Network
         public int[] learnedSkillLevels = new int[0];
         public string[] hotbarSkillIds = new string[0]; // length 5 when populated; "" = empty slot
         public int gold = 0;
+        public string saveId = ""; // populated only by SaveImportant; server strips before persisting
     }
 }

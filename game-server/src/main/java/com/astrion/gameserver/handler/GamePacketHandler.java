@@ -9,6 +9,7 @@ import com.astrion.gameserver.world.PlayerSession;
 import com.astrion.gameserver.world.WorldManager;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.timeout.IdleStateEvent;
@@ -190,7 +191,33 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
     private void handleStateSave(ChannelHandlerContext ctx, GamePacket packet) {
         PlayerSession session = worldManager.getSession(ctx.channel());
         if (session == null) return;
-        redisManager.savePlayerState(session.getPlayerId(), packet.getPayload());
+        String json = packet.getPayload();
+        String saveId = null;
+
+        // If the client tagged this save with a saveId, ACK it. Strip the field
+        // before persisting so Redis stores clean state (saveId is per-attempt).
+        try {
+            JsonNode node = mapper.readTree(json);
+            if (node != null && node.has("saveId")) {
+                String s = node.get("saveId").asText();
+                if (s != null && !s.isEmpty()) {
+                    saveId = s;
+                    if (node instanceof ObjectNode) {
+                        ((ObjectNode) node).remove("saveId");
+                        json = mapper.writeValueAsString(node);
+                    }
+                }
+            }
+        } catch (Exception e) { /* fall through; persist raw payload */ }
+
+        redisManager.savePlayerState(session.getPlayerId(), json);
+
+        if (saveId != null) {
+            try {
+                String ack = "{\"saveId\":\"" + saveId + "\"}";
+                ctx.writeAndFlush(new GamePacket(PacketType.STATE_ACK, ack));
+            } catch (Exception e) { /* ignore */ }
+        }
     }
 
     private void handleLogin(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
