@@ -13,6 +13,8 @@ namespace Astrion.Game
 
         private Transform _target;
         private Camera _cam;
+        private float _shakeAmount;
+        private float _shakeUntil;
 
         private void Awake()
         {
@@ -44,6 +46,28 @@ namespace Astrion.Game
             }
 
             transform.position = Vector3.Lerp(transform.position, desired, smoothSpeed * Time.deltaTime);
+
+            // Apply shake on top of the smoothed position
+            if (Time.time < _shakeUntil && _shakeAmount > 0f)
+            {
+                float falloff = Mathf.Clamp01((_shakeUntil - Time.time) / 0.20f);
+                Vector2 jitter = Random.insideUnitCircle * _shakeAmount * falloff;
+                transform.position += new Vector3(jitter.x, jitter.y, 0f);
+            }
+        }
+
+        /// Trigger a small camera shake. Stacks (longer / stronger wins).
+        public static void Shake(float amount, float duration)
+        {
+            var cam = Camera.main;
+            if (cam == null) return;
+            var c2d = cam.GetComponent<Camera2D>();
+            if (c2d == null) return;
+            float until = Time.time + duration;
+            if (until > c2d._shakeUntil) c2d._shakeUntil = until;
+            if (amount > c2d._shakeAmount) c2d._shakeAmount = amount;
+            // Reset amount when shake window expires (next call will set fresh)
+            if (Time.time >= c2d._shakeUntil - duration) c2d._shakeAmount = Mathf.Max(c2d._shakeAmount, amount);
         }
 
         private void AcquireTarget()

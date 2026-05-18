@@ -31,7 +31,12 @@ namespace Astrion.Game
             if (damage > 0)
                 DamagePopup2D.Spawn(transform.position + Vector3.up * 0.6f, damage,
                                     new Color(1f, 0.95f, 0.30f));
-            if (gameObject.activeInHierarchy) StartCoroutine(FlashRed());
+            if (gameObject.activeInHierarchy)
+            {
+                StartCoroutine(FlashRed());
+                ApplyKnockback();
+            }
+            ShakeCameraIfOnScreen(0.10f, 0.10f);
         }
 
         public void OnDeath(int damage)
@@ -39,6 +44,7 @@ namespace Astrion.Game
             if (damage > 0)
                 DamagePopup2D.Spawn(transform.position + Vector3.up * 0.6f, damage,
                                     new Color(1f, 0.35f, 0.30f), large: true);
+            ShakeCameraIfOnScreen(0.22f, 0.18f);
             Destroy(gameObject);
         }
 
@@ -54,9 +60,50 @@ namespace Astrion.Game
             if (_sr == null) _sr = GetComponentInChildren<SpriteRenderer>();
             if (_sr == null) yield break;
             var orig = _sr.color;
-            _sr.color = new Color(1f, 0.5f, 0.5f);
-            yield return new WaitForSeconds(0.1f);
+            _sr.color = new Color(1f, 0.30f, 0.30f);
+            yield return new WaitForSeconds(0.08f);
+            if (_sr != null) _sr.color = Color.Lerp(orig, new Color(1f, 0.45f, 0.45f), 0.5f);
+            yield return new WaitForSeconds(0.07f);
             if (_sr != null) _sr.color = orig;
+        }
+
+        // Visual knockback only (sprite container offset; server position is authoritative)
+        private void ApplyKnockback()
+        {
+            if (_sr == null) _sr = GetComponentInChildren<SpriteRenderer>();
+            if (_sr == null) return;
+            var player = Object.FindObjectOfType<PlayerController2D>();
+            float dir = 1f;
+            if (player != null)
+                dir = transform.position.x >= player.transform.position.x ? 1f : -1f;
+            StartCoroutine(KnockbackVisual(_sr.transform, dir));
+        }
+
+        private System.Collections.IEnumerator KnockbackVisual(Transform t, float dir)
+        {
+            Vector3 baseLocal = Vector3.zero;
+            float duration = 0.14f;
+            float peak = 0.20f; // world-units to nudge
+            float elapsed = 0f;
+            while (elapsed < duration && t != null)
+            {
+                elapsed += Time.deltaTime;
+                float u = elapsed / duration;
+                // ease-out: fast start, settle back to 0
+                float curve = Mathf.Sin(u * Mathf.PI) * (1f - u * 0.4f);
+                t.localPosition = baseLocal + new Vector3(dir * peak * curve, 0f, 0f);
+                yield return null;
+            }
+            if (t != null) t.localPosition = baseLocal;
+        }
+
+        private void ShakeCameraIfOnScreen(float amount, float duration)
+        {
+            var cam = Camera.main;
+            if (cam == null) return;
+            Vector3 vp = cam.WorldToViewportPoint(transform.position);
+            if (vp.z > 0 && vp.x >= 0f && vp.x <= 1f && vp.y >= 0f && vp.y <= 1f)
+                Camera2D.Shake(amount, duration);
         }
     }
 }
