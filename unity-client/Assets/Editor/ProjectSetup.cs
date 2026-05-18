@@ -1382,6 +1382,23 @@ public class ProjectSetup
         });
         npcSo.ApplyModifiedPropertiesWithoutUndo();
 
+        // === Shop NPC: 미라 (떠돌이 상인 — 등대섬에 종종 들름) ===
+        var miraParts = MakePlayerParts(
+            shirt: new Color(0.42f, 0.18f, 0.32f),  // wine cloak
+            hair:  new Color(0.62f, 0.48f, 0.20f),  // honey blonde
+            pants: new Color(0.32f, 0.22f, 0.14f));
+        var mira = new GameObject("NPC_Mira_Shop");
+        mira.transform.position = new Vector3(-3f, -2.5f, 0);
+        BuildPlayerVisual(mira, miraParts, out _, out _, out _, out _, out _);
+        var miraCol = mira.AddComponent<BoxCollider2D>();
+        miraCol.size = new Vector2(2.4f, 2.2f);
+        miraCol.offset = Vector2.zero;
+        miraCol.isTrigger = true;
+        var miraNpc = mira.AddComponent<Astrion.Game.ShopNPC2D>();
+        var miraSo = new SerializedObject(miraNpc);
+        miraSo.FindProperty("npcName").stringValue = "미라";
+        miraSo.ApplyModifiedPropertiesWithoutUndo();
+
         // === StarBolt prefab template (off-screen, used by PlayerController2D.Instantiate) ===
         var boltTex = MakeStarBoltTex(32);
         var boltSpr = TexToSprite(boltTex);
