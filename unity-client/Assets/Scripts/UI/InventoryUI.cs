@@ -12,6 +12,8 @@ namespace Astrion.UI
         [SerializeField] private Transform tabsRoot;
         [SerializeField] private Button closeButton;
         [SerializeField] private Button sortButton;
+        [SerializeField] private Sprite tabActiveSprite;
+        [SerializeField] private Sprite tabInactiveSprite;
         [SerializeField] private KeyCode toggleKey = KeyCode.I;
 
         // Tab order matches ProjectSetup: 장비, 소비, 기타, 설치, 캐쉬
@@ -113,11 +115,16 @@ namespace Astrion.UI
             {
                 bool active = i == _currentTab;
                 if (_tabBgs[i] != null)
-                    _tabBgs[i].color = active ? Color.white : new Color(0.60f, 0.55f, 0.45f, 1f);
+                {
+                    // Toggle sprite directly — color-mul over a tinted sprite hid the diff
+                    if (active && tabActiveSprite != null) _tabBgs[i].sprite = tabActiveSprite;
+                    else if (!active && tabInactiveSprite != null) _tabBgs[i].sprite = tabInactiveSprite;
+                    _tabBgs[i].color = Color.white;
+                }
                 if (_tabLabels[i] != null)
                     _tabLabels[i].color = active
                         ? new Color(0.10f, 0.07f, 0.04f)
-                        : new Color(0.55f, 0.48f, 0.38f);
+                        : new Color(0.78f, 0.72f, 0.55f);
             }
         }
 

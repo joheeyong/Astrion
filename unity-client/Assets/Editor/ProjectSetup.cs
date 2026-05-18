@@ -3688,7 +3688,9 @@ public class ProjectSetup
         invCloseXT.alignment = TextAnchor.MiddleCenter;
         invCloseXT.text = "×";
 
-        // Tabs (5)
+        // Tabs (5) — active/inactive sprites shared so InventoryUI can toggle
+        Sprite tabActiveSpr   = parchmentSpr;
+        Sprite tabInactiveSpr = TexToSprite(MakeRoundRectTex(64, 32, 4, tokWoodLite));
         string[] tabLabels = { "장비", "소비", "기타", "설치", "캐쉬" };
         var tabsRow = HUD_CreateRT("Tabs", invPanel);
         tabsRow.anchorMin = new Vector2(0, 1); tabsRow.anchorMax = new Vector2(1, 1);
@@ -3705,7 +3707,7 @@ public class ProjectSetup
             tab.sizeDelta = new Vector2(tabW - 4, 32);
             bool active = i == 0;
             var tabBg = tab.gameObject.AddComponent<Image>();
-            tabBg.sprite = active ? parchmentSpr : TexToSprite(MakeRoundRectTex(64, 32, 4, tokWoodLite));
+            tabBg.sprite = active ? tabActiveSpr : tabInactiveSpr;
             tabBg.type = Image.Type.Sliced;
             var tabT = HUD_CreateRT("Label", tab);
             tabT.anchorMin = Vector2.zero; tabT.anchorMax = Vector2.one;
@@ -3889,6 +3891,8 @@ public class ProjectSetup
         invUiSo.FindProperty("tabsRoot").objectReferenceValue = tabsRow;
         invUiSo.FindProperty("closeButton").objectReferenceValue = invCloseB;
         invUiSo.FindProperty("sortButton").objectReferenceValue = actBtns[0];
+        invUiSo.FindProperty("tabActiveSprite").objectReferenceValue = tabActiveSpr;
+        invUiSo.FindProperty("tabInactiveSprite").objectReferenceValue = tabInactiveSpr;
         invUiSo.ApplyModifiedPropertiesWithoutUndo();
         invPanel.gameObject.SetActive(false);
 
