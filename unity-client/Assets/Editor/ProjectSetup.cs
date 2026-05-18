@@ -2905,6 +2905,11 @@ public class ProjectSetup
             numT.color = new Color(1f, 0.88f, 0.45f);
             numT.alignment = TextAnchor.UpperLeft;
             numT.text = (i + 1).ToString();
+
+            // Drag&drop: hotbar slots are both sources (bound skill) and drop targets
+            var hotDrag = slot.gameObject.AddComponent<Astrion.UI.DraggableSlot>();
+            hotDrag.kind = Astrion.UI.SlotKind.Hotbar;
+            hotDrag.slotIndex = i;
         }
 
         // HotbarHUD: binds hotbar state to slot visuals
@@ -3616,6 +3621,9 @@ public class ProjectSetup
 
                 slot.gameObject.AddComponent<Astrion.UI.ItemSlotRef>();
                 slot.gameObject.AddComponent<Astrion.UI.TooltipTrigger>();
+                var invDrag = slot.gameObject.AddComponent<Astrion.UI.DraggableSlot>();
+                invDrag.kind = Astrion.UI.SlotKind.Inventory;
+                invDrag.slotIndex = idx;
             }
 
         // Selected item tooltip
@@ -3795,6 +3803,10 @@ public class ProjectSetup
             iconLblT.color = new Color(0.10f, 0.07f, 0.04f);
             iconLblT.alignment = TextAnchor.MiddleCenter;
             iconLblT.text = s.letter;
+
+            var skillDrag = icon.gameObject.AddComponent<Astrion.UI.DraggableSlot>();
+            skillDrag.kind = Astrion.UI.SlotKind.Skill;
+            skillDrag.skillId = s.id;
 
             // Name
             var sNameRT = HUD_CreateRT("Name", row);

@@ -109,6 +109,18 @@ namespace Astrion.Game
             OnChanged?.Invoke();
         }
 
+        /// <summary>Swap two inventory slots (used by drag&drop).</summary>
+        public void SwapSlots(int a, int b)
+        {
+            if (a < 0 || a >= SLOT_COUNT || b < 0 || b >= SLOT_COUNT) return;
+            if (a == b) return;
+            var tmp = Slots[a];
+            Slots[a] = Slots[b];
+            Slots[b] = tmp;
+            SaveToState();
+            OnChanged?.Invoke();
+        }
+
         /// <summary>Use the first consumable that restores HP (forHp=true) or MP (forHp=false).</summary>
         public bool UseFirstConsumable(bool forHp)
         {
