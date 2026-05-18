@@ -2962,8 +2962,8 @@ public class ProjectSetup
             ("BtnGuild","G",   "길드",  new Color(0.18f, 0.14f, 0.10f, 1f), false, actNone),
             ("BtnSys",  "ESC", "메뉴",  new Color(0.55f, 0.18f, 0.18f, 1f), true,  Astrion.UI.MenuButtonAction.Action.System),
         };
-        float cellW = (246f - 12f) / 3f;
-        float cellH = (100f - 6f) / 2f;
+        float menuCellW = (246f - 12f) / 3f;
+        float menuCellH = (100f - 6f) / 2f;
         for (int mi = 0; mi < menuBtnsConfig.Length; mi++)
         {
             var cfg = menuBtnsConfig[mi];
@@ -2972,8 +2972,8 @@ public class ProjectSetup
             var bRT = HUD_CreateRT(cfg.id, menuGridRoot);
             bRT.anchorMin = bRT.anchorMax = new Vector2(0, 0);
             bRT.pivot = new Vector2(0, 0);
-            bRT.anchoredPosition = new Vector2(col * (cellW + 6), (1 - row) * (cellH + 6));
-            bRT.sizeDelta = new Vector2(cellW, cellH);
+            bRT.anchoredPosition = new Vector2(col * (menuCellW + 6), (1 - row) * (menuCellH + 6));
+            bRT.sizeDelta = new Vector2(menuCellW, menuCellH);
             var bImg = bRT.gameObject.AddComponent<Image>();
             bImg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 6, cfg.tint));
             bImg.type = Image.Type.Sliced;
