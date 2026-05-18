@@ -22,6 +22,14 @@ namespace Astrion.Game
         private float _bodyBaseY;
         private bool _hasBodyBaseY;
 
+        private float _attackStartAt = -1f;
+        private const float AttackDuration = 0.25f;
+
+        public void TriggerAttackMotion()
+        {
+            _attackStartAt = Time.time;
+        }
+
         private void Awake()
         {
             _ctrl = GetComponent<PlayerController2D>();
@@ -85,6 +93,31 @@ namespace Astrion.Game
                 targetLA = 0f; targetRA = 0f;
                 targetLL = 0f; targetRL = 0f;
                 targetBob = 0f;
+            }
+
+            // Attack motion overrides arm targets (legs/body keep their underlying motion)
+            float attackElapsed = Time.time - _attackStartAt;
+            if (_attackStartAt >= 0f && attackElapsed < AttackDuration)
+            {
+                float t = Mathf.Clamp01(attackElapsed / AttackDuration);
+                // Two-stage swing: 0..0.4 wind-up back, 0.4..1 sweep forward
+                float swingArc;
+                if (t < 0.4f)
+                {
+                    float u = t / 0.4f;
+                    swingArc = Mathf.Lerp(0f, -95f, u); // pull arm back
+                }
+                else
+                {
+                    float u = (t - 0.4f) / 0.6f;
+                    // ease-out forward sweep
+                    float ease = 1f - (1f - u) * (1f - u);
+                    swingArc = Mathf.Lerp(-95f, 70f, ease);
+                }
+                // Right arm does the swing (matches starbolt origin offset +0.35x)
+                targetRA = swingArc;
+                // Left arm braces slightly back
+                targetLA = Mathf.Lerp(targetLA, -15f, 0.7f);
             }
 
             ApplyRotation(leftArm, targetLA);

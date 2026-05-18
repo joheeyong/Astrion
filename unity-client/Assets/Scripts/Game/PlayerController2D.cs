@@ -149,6 +149,10 @@ namespace Astrion.Game
             Vector3 origin = transform.position + new Vector3(_facingRight ? 0.35f : -0.35f, 0.15f, 0f);
             int dir = _facingRight ? 1 : -1;
 
+            // Trigger arm-swing animation
+            var animator = GetComponent<PlayerAnimator2D>();
+            if (animator != null) animator.TriggerAttackMotion();
+
             var go = Instantiate(starBoltPrefab, origin, Quaternion.identity);
             go.SetActive(true);
             var bolt = go.GetComponent<StarBolt2D>();
