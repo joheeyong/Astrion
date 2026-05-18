@@ -287,6 +287,11 @@ namespace Astrion.UI
             var s = inv.Slots[slotIdx];
             if (s.IsEmpty) return;
             var def = ItemDatabase.Get(s.itemId);
+            if (def != null && def.untradable)
+            {
+                ToastUI.Instance?.Show("교환·판매 불가 아이템입니다.", new Color(0.95f, 0.55f, 0.30f));
+                return;
+            }
             int price = def != null ? def.sellPrice : 1;
             if (!inv.RemoveOneFromSlot(slotIdx)) return;
             stats.AddGold(price);

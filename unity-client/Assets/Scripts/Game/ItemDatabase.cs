@@ -22,6 +22,7 @@ namespace Astrion.Game
             public int manaAmount = 0; // for potions (MP)
             public int sellPrice = 1;  // gold given when sold to a vendor
             public string equipSlot = ""; // "weapon" / "helmet" / "armor" / "ring"
+            public bool untradable = false; // bound to character — cannot be sold or traded
         }
 
         public static Color RarityColor(Rarity r)
@@ -159,39 +160,90 @@ namespace Astrion.Game
                 },
                 ["weapon_box"] = new ItemDef
                 {
-                    id = "weapon_box", displayName = "무기 상자",
-                    description = "직업에 맞는 기본 무기가 들어 있다.\n클릭으로 열기.",
+                    id = "weapon_box", displayName = "[귀속] 무기 상자",
+                    description = "직업에 맞는 기본 무기가 들어 있다.\n클릭으로 열기.\n교환·판매 불가.",
                     iconColor = new Color(0.75f, 0.55f, 0.30f),
                     iconLetter = "📦", maxStack = 99,
                     rarity = Rarity.Uncommon, itemType = "상자",
-                    sellPrice = 5,
+                    sellPrice = 0, untradable = true,
                 },
                 ["helmet_box"] = new ItemDef
                 {
-                    id = "helmet_box", displayName = "투구 상자",
-                    description = "초보 투구가 들어 있다.\n클릭으로 열기.",
+                    id = "helmet_box", displayName = "[귀속] 투구 상자",
+                    description = "초보 투구가 들어 있다.\n클릭으로 열기.\n교환·판매 불가.",
                     iconColor = new Color(0.55f, 0.65f, 0.72f),
                     iconLetter = "📦", maxStack = 99,
                     rarity = Rarity.Uncommon, itemType = "상자",
-                    sellPrice = 5,
+                    sellPrice = 0, untradable = true,
                 },
                 ["armor_box"] = new ItemDef
                 {
-                    id = "armor_box", displayName = "갑옷 상자",
-                    description = "초보 갑옷이 들어 있다.\n클릭으로 열기.",
+                    id = "armor_box", displayName = "[귀속] 갑옷 상자",
+                    description = "초보 갑옷이 들어 있다.\n클릭으로 열기.\n교환·판매 불가.",
                     iconColor = new Color(0.65f, 0.65f, 0.70f),
                     iconLetter = "📦", maxStack = 99,
                     rarity = Rarity.Uncommon, itemType = "상자",
-                    sellPrice = 5,
+                    sellPrice = 0, untradable = true,
                 },
                 ["ring_box"] = new ItemDef
                 {
-                    id = "ring_box", displayName = "반지 상자",
-                    description = "신비한 반지가 들어 있다.\n클릭으로 열기.",
+                    id = "ring_box", displayName = "[귀속] 반지 상자",
+                    description = "신비한 반지가 들어 있다.\n클릭으로 열기.\n교환·판매 불가.",
                     iconColor = new Color(0.85f, 0.65f, 0.30f),
                     iconLetter = "📦", maxStack = 99,
                     rarity = Rarity.Uncommon, itemType = "상자",
-                    sellPrice = 5,
+                    sellPrice = 0, untradable = true,
+                },
+                // Bound variants — rewarded by boxes; same stats, cannot be sold/traded.
+                ["bronze_dagger_bound"] = new ItemDef
+                {
+                    id = "bronze_dagger_bound", displayName = "[귀속] 청동 단검",
+                    description = "박스에서 나온 청동 단검. 공격력 +8.\n교환·판매 불가.",
+                    iconColor = new Color(0.72f, 0.50f, 0.22f),
+                    iconLetter = "검", maxStack = 1,
+                    rarity = Rarity.Uncommon, itemType = "장비",
+                    baseDamage = 8, sellPrice = 0, equipSlot = "weapon",
+                    untradable = true,
+                },
+                ["star_bow_bound"] = new ItemDef
+                {
+                    id = "star_bow_bound", displayName = "[귀속] 옛 별의 활",
+                    description = "박스에서 나온 별빛 활. 공격력 +10.\n교환·판매 불가.",
+                    iconColor = new Color(0.55f, 0.40f, 0.20f),
+                    iconLetter = "활", maxStack = 1,
+                    rarity = Rarity.Uncommon, itemType = "장비",
+                    baseDamage = 10, sellPrice = 0, equipSlot = "weapon",
+                    untradable = true,
+                },
+                ["leather_helmet_bound"] = new ItemDef
+                {
+                    id = "leather_helmet_bound", displayName = "[귀속] 가죽 투구",
+                    description = "박스에서 나온 가죽 투구.\n교환·판매 불가.",
+                    iconColor = new Color(0.55f, 0.38f, 0.22f),
+                    iconLetter = "투", maxStack = 1,
+                    rarity = Rarity.Common, itemType = "장비",
+                    sellPrice = 0, equipSlot = "helmet",
+                    untradable = true,
+                },
+                ["chain_armor_bound"] = new ItemDef
+                {
+                    id = "chain_armor_bound", displayName = "[귀속] 사슬 갑옷",
+                    description = "박스에서 나온 사슬 갑옷.\n교환·판매 불가.",
+                    iconColor = new Color(0.55f, 0.58f, 0.62f),
+                    iconLetter = "갑", maxStack = 1,
+                    rarity = Rarity.Uncommon, itemType = "장비",
+                    sellPrice = 0, equipSlot = "armor",
+                    untradable = true,
+                },
+                ["stardust_ring_bound"] = new ItemDef
+                {
+                    id = "stardust_ring_bound", displayName = "[귀속] 별 가루 반지",
+                    description = "박스에서 나온 별 가루 반지.\n교환·판매 불가.",
+                    iconColor = new Color(0.92f, 0.72f, 0.30f),
+                    iconLetter = "반", maxStack = 1,
+                    rarity = Rarity.Epic, itemType = "장비",
+                    sellPrice = 0, equipSlot = "ring",
+                    untradable = true,
                 },
             };
             _initialized = true;

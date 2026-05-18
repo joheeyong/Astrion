@@ -9,6 +9,7 @@ import com.astrion.gameserver.world.PlayerSession;
 import com.astrion.gameserver.world.WorldManager;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -175,18 +176,7 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         PlayerSession session = worldManager.getSession(ctx.channel());
         if (session == null) return;
         String json = redisManager.getPlayerState(session.getPlayerId());
-        if (json == null) {
-            // Brand-new player — hand out starter kit:
-            //   bread x3, 50 G, and four sealed boxes (weapon / helmet / armor / ring)
-            //   that the client unpacks into class-appropriate gear on use.
-            json = "{"
-                + "\"inventoryItemIds\":[\"bread\",\"weapon_box\",\"helmet_box\",\"armor_box\",\"ring_box\"],"
-                + "\"inventoryQuantities\":[3,1,1,1,1],"
-                + "\"gold\":50"
-                + "}";
-            redisManager.savePlayerState(session.getPlayerId(), json);
-            log.info("Starter kit granted to new player {}", session.getPlayerId());
-        }
+        if (json == null) json = "{}";
         ctx.writeAndFlush(new GamePacket(PacketType.STATE_DATA, json));
     }
 
@@ -411,6 +401,43 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
 
         // Save character
         redisManager.saveCharacter(session.getPlayerId(), charName, charClass, 1);
+
+        // Grant a starter kit (bread + 4 bound boxes) for every NEW character on this account.
+        // Inventory is shared per account, so we APPEND to whatever's already there.
+        // Gold is only granted the first time (when the account has no state yet).
+        try {
+            String stateJson = redisManager.getPlayerState(session.getPlayerId());
+            ObjectNode obj;
+            boolean firstEver = (stateJson == null);
+            if (firstEver) {
+                obj = mapper.createObjectNode();
+            } else {
+                JsonNode node = mapper.readTree(stateJson);
+                obj = (node instanceof ObjectNode) ? (ObjectNode) node : mapper.createObjectNode();
+            }
+
+            ArrayNode ids = obj.has("inventoryItemIds") && obj.get("inventoryItemIds").isArray()
+                ? (ArrayNode) obj.get("inventoryItemIds") : mapper.createArrayNode();
+            ArrayNode qtys = obj.has("inventoryQuantities") && obj.get("inventoryQuantities").isArray()
+                ? (ArrayNode) obj.get("inventoryQuantities") : mapper.createArrayNode();
+
+            String[] starterIds  = { "bread", "weapon_box", "helmet_box", "armor_box", "ring_box" };
+            int[]    starterQtys = { 3, 1, 1, 1, 1 };
+            for (int i = 0; i < starterIds.length; i++) {
+                ids.add(starterIds[i]);
+                qtys.add(starterQtys[i]);
+            }
+            obj.set("inventoryItemIds", ids);
+            obj.set("inventoryQuantities", qtys);
+
+            if (firstEver) obj.put("gold", 50);
+
+            redisManager.savePlayerState(session.getPlayerId(), mapper.writeValueAsString(obj));
+            log.info("Starter kit appended for {} on new character {} (firstEver={})",
+                session.getPlayerId(), charName, firstEver);
+        } catch (Exception e) {
+            log.warn("Failed to append starter kit for {}: {}", session.getPlayerId(), e.getMessage());
+        }
 
         String result = mapper.writeValueAsString(new CharacterCreateResult(true, "Character created!"));
         ctx.writeAndFlush(new GamePacket(PacketType.CHARACTER_CREATE_RESULT, result));

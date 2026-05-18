@@ -143,12 +143,12 @@ namespace Astrion.Game
                 case "weapon_box":
                     switch (cls)
                     {
-                        case "Archer": return "star_bow";
-                        default:       return "bronze_dagger";
+                        case "Archer": return "star_bow_bound";
+                        default:       return "bronze_dagger_bound";
                     }
-                case "helmet_box": return "leather_helmet";
-                case "armor_box":  return "chain_armor";
-                case "ring_box":   return "stardust_ring";
+                case "helmet_box": return "leather_helmet_bound";
+                case "armor_box":  return "chain_armor_bound";
+                case "ring_box":   return "stardust_ring_bound";
             }
             return "";
         }
