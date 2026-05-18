@@ -109,6 +109,50 @@ namespace Astrion.Game
             OnChanged?.Invoke();
         }
 
+        private bool OpenBox(int slotIndex, ItemDatabase.ItemDef boxDef)
+        {
+            string rewardId = ResolveBoxReward(boxDef.id);
+            if (string.IsNullOrEmpty(rewardId)) return false;
+            // Make sure the reward will fit before consuming the box
+            if (!HasFreeSlotFor(rewardId))
+            {
+                Astrion.UI.ToastUI.Instance?.Show("인벤토리가 가득 찼습니다.",
+                    new Color(0.95f, 0.55f, 0.30f));
+                return false;
+            }
+            // Decrement the box first, then Add the reward (so a stackable reward
+            // can land in the just-freed slot if needed)
+            var s = Slots[slotIndex];
+            Slots[slotIndex] = new Slot { itemId = s.itemId, qty = s.qty - 1 };
+            if (Slots[slotIndex].qty <= 0) Slots[slotIndex] = new Slot();
+            Add(rewardId, 1);
+            var rdef = ItemDatabase.Get(rewardId);
+            string name = rdef != null ? rdef.displayName : rewardId;
+            Color tint = rdef != null ? ItemDatabase.RarityColor(rdef.rarity) : Color.white;
+            Astrion.UI.ToastUI.Instance?.Show($"[상자]  {name} 획득!", tint);
+            SaveToState();
+            OnChanged?.Invoke();
+            return true;
+        }
+
+        private static string ResolveBoxReward(string boxId)
+        {
+            string cls = UnityEngine.PlayerPrefs.GetString("characterClass", "");
+            switch (boxId)
+            {
+                case "weapon_box":
+                    switch (cls)
+                    {
+                        case "Archer": return "star_bow";
+                        default:       return "bronze_dagger";
+                    }
+                case "helmet_box": return "leather_helmet";
+                case "armor_box":  return "chain_armor";
+                case "ring_box":   return "stardust_ring";
+            }
+            return "";
+        }
+
         /// <summary>True if at least one of itemId×1 can be added (existing stack room or any empty slot).</summary>
         public bool HasFreeSlotFor(string itemId)
         {
@@ -234,6 +278,8 @@ namespace Astrion.Game
 
             switch (def.itemType)
             {
+                case "상자":
+                    return OpenBox(slotIndex, def);
                 case "장비":
                     if (def.baseDamage > 0)
                     {

@@ -156,6 +156,42 @@ namespace Astrion.Game
                     rarity = Rarity.Epic, itemType = "장비",
                     sellPrice = 180,
                 },
+                ["weapon_box"] = new ItemDef
+                {
+                    id = "weapon_box", displayName = "무기 상자",
+                    description = "직업에 맞는 기본 무기가 들어 있다.\n클릭으로 열기.",
+                    iconColor = new Color(0.75f, 0.55f, 0.30f),
+                    iconLetter = "📦", maxStack = 99,
+                    rarity = Rarity.Uncommon, itemType = "상자",
+                    sellPrice = 5,
+                },
+                ["helmet_box"] = new ItemDef
+                {
+                    id = "helmet_box", displayName = "투구 상자",
+                    description = "초보 투구가 들어 있다.\n클릭으로 열기.",
+                    iconColor = new Color(0.55f, 0.65f, 0.72f),
+                    iconLetter = "📦", maxStack = 99,
+                    rarity = Rarity.Uncommon, itemType = "상자",
+                    sellPrice = 5,
+                },
+                ["armor_box"] = new ItemDef
+                {
+                    id = "armor_box", displayName = "갑옷 상자",
+                    description = "초보 갑옷이 들어 있다.\n클릭으로 열기.",
+                    iconColor = new Color(0.65f, 0.65f, 0.70f),
+                    iconLetter = "📦", maxStack = 99,
+                    rarity = Rarity.Uncommon, itemType = "상자",
+                    sellPrice = 5,
+                },
+                ["ring_box"] = new ItemDef
+                {
+                    id = "ring_box", displayName = "반지 상자",
+                    description = "신비한 반지가 들어 있다.\n클릭으로 열기.",
+                    iconColor = new Color(0.85f, 0.65f, 0.30f),
+                    iconLetter = "📦", maxStack = 99,
+                    rarity = Rarity.Uncommon, itemType = "상자",
+                    sellPrice = 5,
+                },
             };
             _initialized = true;
         }

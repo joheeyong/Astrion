@@ -176,10 +176,12 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         if (session == null) return;
         String json = redisManager.getPlayerState(session.getPlayerId());
         if (json == null) {
-            // Brand-new player — hand out starter kit (bread x3 + 50 G)
+            // Brand-new player — hand out starter kit:
+            //   bread x3, 50 G, and four sealed boxes (weapon / helmet / armor / ring)
+            //   that the client unpacks into class-appropriate gear on use.
             json = "{"
-                + "\"inventoryItemIds\":[\"bread\"],"
-                + "\"inventoryQuantities\":[3],"
+                + "\"inventoryItemIds\":[\"bread\",\"weapon_box\",\"helmet_box\",\"armor_box\",\"ring_box\"],"
+                + "\"inventoryQuantities\":[3,1,1,1,1],"
                 + "\"gold\":50"
                 + "}";
             redisManager.savePlayerState(session.getPlayerId(), json);
