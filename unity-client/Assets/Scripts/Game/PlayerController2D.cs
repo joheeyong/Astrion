@@ -22,6 +22,7 @@ namespace Astrion.Game
         private Rigidbody2D _rb;
         private Transform _spriteContainer;
         private bool _isGrounded;
+        private bool _wasGrounded;
         private bool _onLadder;
         private bool _climbing;
         private float _baseGravity;
@@ -90,8 +91,16 @@ namespace Astrion.Game
                 else if (jumpPressed && _isGrounded)
                 {
                     _rb.velocity = new Vector2(_rb.velocity.x, jumpForce);
+                    SpawnDust(spread: 0.30f, drift: -_rb.velocity.x * 0.15f);
                 }
             }
+
+            // Landing detection — air → ground transition this frame
+            if (_isGrounded && !_wasGrounded)
+            {
+                SpawnDust(spread: 0.40f, drift: 0f);
+            }
+            _wasGrounded = _isGrounded;
 
             // Facing also locked while airborne — don't flip mid-jump
             if (_isGrounded || _climbing)
@@ -270,5 +279,15 @@ namespace Astrion.Game
         }
 
         public void SetJoystick(Joystick j) => joystick = j;
+
+        private void SpawnDust(float spread, float drift)
+        {
+            Vector3 feet = groundCheck != null
+                ? groundCheck.position
+                : transform.position + new Vector3(0f, -0.42f, 0f);
+            // Two puffs slightly offset on either side
+            DustPuff2D.Spawn(feet + new Vector3(-spread * 0.5f, 0f, 0f), -drift);
+            DustPuff2D.Spawn(feet + new Vector3( spread * 0.5f, 0f, 0f),  drift);
+        }
     }
 }
