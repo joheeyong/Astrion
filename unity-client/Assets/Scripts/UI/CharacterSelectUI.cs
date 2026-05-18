@@ -199,34 +199,11 @@ namespace Astrion.UI
             SceneManager.LoadScene("CharacterCreateScene");
         }
 
-        // Tint Body/Arm/Leg parts of the preview to roughly reflect the class.
-        // (Body parts use white sprites with the chosen color; Image.color tints them.)
+        // Preview uses the same class color table as the in-game player (PlayerVisualTinter)
         private static void ApplyClassTint(GameObject preview, string className)
         {
-            Color bodyColor;
-            Color legColor;
-            switch (className)
-            {
-                case "Warrior":  bodyColor = new Color(0.62f, 0.16f, 0.16f); legColor = new Color(0.32f, 0.22f, 0.18f); break;
-                case "Mage":     bodyColor = new Color(0.30f, 0.32f, 0.65f); legColor = new Color(0.18f, 0.18f, 0.32f); break;
-                case "Archer":   bodyColor = new Color(0.30f, 0.55f, 0.32f); legColor = new Color(0.30f, 0.22f, 0.14f); break;
-                case "Thief":    bodyColor = new Color(0.22f, 0.22f, 0.26f); legColor = new Color(0.16f, 0.16f, 0.20f); break;
-                default:         bodyColor = new Color(0.30f, 0.48f, 0.22f); legColor = new Color(0.38f, 0.26f, 0.16f); break;
-            }
             var visual = preview.transform.Find("CharVisual");
-            if (visual == null) return;
-            for (int i = 0; i < visual.childCount; i++)
-            {
-                var child = visual.GetChild(i);
-                var img = child.GetComponent<Image>();
-                if (img == null) continue;
-                string n = child.name;
-                if (n == "Body" || n == "LeftArm" || n == "RightArm")
-                    img.color = bodyColor;
-                else if (n == "LeftLeg" || n == "RightLeg")
-                    img.color = legColor;
-                // Head keeps its sprite (skin + hair baked in)
-            }
+            Astrion.Game.PlayerVisualTinter.ApplyToUI(visual, className);
         }
 
         private void OnDestroy()

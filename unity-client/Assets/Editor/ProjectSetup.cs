@@ -1316,6 +1316,7 @@ public class ProjectSetup
         pRb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
         pRb.interpolation = RigidbodyInterpolation2D.Interpolate;
         var pCtrl = playerPrefab2.AddComponent<Astrion.Game.PlayerController2D>();
+        playerPrefab2.AddComponent<Astrion.Game.PlayerVisualTinter>();
         var pAnim = playerPrefab2.AddComponent<Astrion.Game.PlayerAnimator2D>();
         var groundCheckGo = new GameObject("GroundCheck");
         groundCheckGo.transform.SetParent(playerPrefab2.transform, false);
@@ -1651,6 +1652,7 @@ public class ProjectSetup
         pRb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
         pRb.interpolation = RigidbodyInterpolation2D.Interpolate;
         var pCtrl = playerPrefab2.AddComponent<Astrion.Game.PlayerController2D>();
+        playerPrefab2.AddComponent<Astrion.Game.PlayerVisualTinter>();
         var pAnim = playerPrefab2.AddComponent<Astrion.Game.PlayerAnimator2D>();
         var groundCheckGo = new GameObject("GroundCheck");
         groundCheckGo.transform.SetParent(playerPrefab2.transform, false);
@@ -1830,6 +1832,7 @@ public class ProjectSetup
         pRb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
         pRb.interpolation = RigidbodyInterpolation2D.Interpolate;
         var pCtrl = playerPrefab2.AddComponent<Astrion.Game.PlayerController2D>();
+        playerPrefab2.AddComponent<Astrion.Game.PlayerVisualTinter>();
         var pAnim = playerPrefab2.AddComponent<Astrion.Game.PlayerAnimator2D>();
         var groundCheckGo = new GameObject("GroundCheck");
         groundCheckGo.transform.SetParent(playerPrefab2.transform, false);
