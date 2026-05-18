@@ -135,8 +135,8 @@ namespace Astrion.UI
             selectedInfoDetail.text = $"{c.className}  |  Level {c.level}";
             if (characterPreview != null)
             {
+                // Preview uses the default sprite colors so it matches the in-game player.
                 characterPreview.SetActive(true);
-                ApplyClassTint(characterPreview, c.className);
             }
 
             for (int i = 0; i < slotContainer.childCount; i++)
@@ -199,12 +199,7 @@ namespace Astrion.UI
             SceneManager.LoadScene("CharacterCreateScene");
         }
 
-        // Preview uses the same class color table as the in-game player (PlayerVisualTinter)
-        private static void ApplyClassTint(GameObject preview, string className)
-        {
-            var visual = preview.transform.Find("CharVisual");
-            Astrion.Game.PlayerVisualTinter.ApplyToUI(visual, className);
-        }
+        // (Class tint intentionally disabled — preview matches default in-game sprite.)
 
         private void OnDestroy()
         {

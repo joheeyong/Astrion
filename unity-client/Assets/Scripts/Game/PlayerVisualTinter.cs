@@ -13,10 +13,10 @@ namespace Astrion.Game
 
         private void Start()
         {
-            string cls = !string.IsNullOrEmpty(overrideClass)
-                ? overrideClass
-                : PlayerPrefs.GetString("characterClass", "");
-            ApplyTo(transform, cls);
+            // Per-class tinting is disabled for now. The sprite already has a
+            // baked-in shirt/pants color; multiplying with a class color produces
+            // a muddy mix that doesn't match the preview. Proper class differentiation
+            // will require generating the sprite white at runtime — left as a follow-up.
         }
 
         public static (Color body, Color leg) ClassColors(string className)
