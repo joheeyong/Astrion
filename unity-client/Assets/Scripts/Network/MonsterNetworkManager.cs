@@ -70,13 +70,21 @@ namespace Astrion.Network
             {
                 if (NetworkManager.Instance != null && NetworkManager.Instance.IsConnected)
                 {
-                    string json = "{\"zoneId\":\"" + zoneId + "\"}";
+                    string nickname = UnityEngine.PlayerPrefs.GetString("characterName", "");
+                    string nickPart = string.IsNullOrEmpty(nickname) ? "" : ",\"nickname\":\"" + EscapeJson(nickname) + "\"";
+                    string json = "{\"zoneId\":\"" + zoneId + "\"" + nickPart + "}";
                     NetworkManager.Instance.SendPacket(PacketType.ZoneEnter, json);
-                    Debug.Log($"[Monsters] ZONE_ENTER {zoneId}");
+                    Debug.Log($"[Monsters] ZONE_ENTER {zoneId} nickname={nickname}");
                     yield break;
                 }
                 yield return null;
             }
+        }
+
+        private static string EscapeJson(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            return s.Replace("\\", "\\\\").Replace("\"", "\\\"");
         }
 
         private string SceneToZone(string sceneName)

@@ -98,6 +98,10 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         if (session == null) return;
         JsonNode node = mapper.readTree(packet.getPayload());
         String newZone = node.has("zoneId") ? node.get("zoneId").asText() : "";
+        if (node.has("nickname")) {
+            String nick = node.get("nickname").asText();
+            if (nick != null && !nick.isEmpty()) session.setNickname(nick);
+        }
         String oldZone = session.getZoneId();
 
         if (!java.util.Objects.equals(oldZone, newZone)) {
@@ -109,7 +113,7 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             }
             session.setZoneId(newZone);
             // Announce this player to the new zone
-            String spawnData = mapper.writeValueAsString(new SpawnData(session.getPlayerId(), session.getPlayerId(), session.getPosition()));
+            String spawnData = mapper.writeValueAsString(new SpawnData(session.getPlayerId(), session.getNickname(), session.getPosition()));
             worldManager.broadcastToZone(newZone,
                 new GamePacket(PacketType.SPAWN_PLAYER, spawnData));
             // Send back a snapshot of existing players in this zone (so the new arrival sees them)
@@ -127,7 +131,7 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         for (PlayerSession other : worldManager.getAllSessions()) {
             if (other.getPlayerId().equals(selfId)) continue;
             if (!zoneId.equals(other.getZoneId())) continue;
-            String spawnData = mapper.writeValueAsString(new SpawnData(other.getPlayerId(), other.getPlayerId(), other.getPosition()));
+            String spawnData = mapper.writeValueAsString(new SpawnData(other.getPlayerId(), other.getNickname(), other.getPosition()));
             self.getChannel().writeAndFlush(new GamePacket(PacketType.SPAWN_PLAYER, spawnData));
         }
     }
