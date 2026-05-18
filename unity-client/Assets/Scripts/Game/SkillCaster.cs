@@ -174,9 +174,9 @@ namespace Astrion.Game
                 hits++;
             }
 
-            // Visual: arm swing only (no star projectile)
+            // Visual: large arm swing (no star projectile)
             var anim = p.GetComponent<PlayerAnimator2D>();
-            if (anim != null) anim.TriggerAttackMotion();
+            if (anim != null) anim.TriggerAttackMotion(bigSwing: true);
             else Debug.LogWarning("[SwordSlash] no PlayerAnimator2D on player");
 
             // Tell others to play the swing visual

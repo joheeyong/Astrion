@@ -23,11 +23,14 @@ namespace Astrion.Game
         private bool _hasBodyBaseY;
 
         private float _attackStartAt = -1f;
+        private bool _attackBigSwing;
         private const float AttackDuration = 0.25f;
+        private const float BigSwingDuration = 0.38f;
 
-        public void TriggerAttackMotion()
+        public void TriggerAttackMotion(bool bigSwing = false)
         {
             _attackStartAt = Time.time;
+            _attackBigSwing = bigSwing;
         }
 
         private void Awake()
@@ -96,28 +99,34 @@ namespace Astrion.Game
             }
 
             // Attack motion overrides arm targets (legs/body keep their underlying motion)
+            float dur = _attackBigSwing ? BigSwingDuration : AttackDuration;
             float attackElapsed = Time.time - _attackStartAt;
-            if (_attackStartAt >= 0f && attackElapsed < AttackDuration)
+            if (_attackStartAt >= 0f && attackElapsed < dur)
             {
-                float t = Mathf.Clamp01(attackElapsed / AttackDuration);
-                // Two-stage swing: 0..0.4 wind-up back, 0.4..1 sweep forward
+                float t = Mathf.Clamp01(attackElapsed / dur);
+                // Two-stage swing: 0..0.35 wind-up back, 0.35..1 sweep forward
+                // Big swing uses much wider arc (135° back -> 120° forward = 255° total)
+                float windAngle  = _attackBigSwing ? -135f : -95f;
+                float swingAngle = _attackBigSwing ?  120f :  70f;
                 float swingArc;
-                if (t < 0.4f)
+                if (t < 0.35f)
                 {
-                    float u = t / 0.4f;
-                    swingArc = Mathf.Lerp(0f, -95f, u); // pull arm back
+                    float u = t / 0.35f;
+                    // ease-in for the wind-up so it feels weighty
+                    float ease = u * u;
+                    swingArc = Mathf.Lerp(0f, windAngle, ease);
                 }
                 else
                 {
-                    float u = (t - 0.4f) / 0.6f;
-                    // ease-out forward sweep
-                    float ease = 1f - (1f - u) * (1f - u);
-                    swingArc = Mathf.Lerp(-95f, 70f, ease);
+                    float u = (t - 0.35f) / 0.65f;
+                    // ease-out forward sweep — fast start, settle
+                    float ease = 1f - (1f - u) * (1f - u) * (1f - u);
+                    swingArc = Mathf.Lerp(windAngle, swingAngle, ease);
                 }
-                // Right arm does the swing (matches starbolt origin offset +0.35x)
                 targetRA = swingArc;
-                // Left arm braces slightly back
-                targetLA = Mathf.Lerp(targetLA, -15f, 0.7f);
+                // For big swings the left arm also braces back further
+                float leftBrace = _attackBigSwing ? -35f : -15f;
+                targetLA = Mathf.Lerp(targetLA, leftBrace, 0.7f);
             }
 
             ApplyRotation(leftArm, targetLA);
