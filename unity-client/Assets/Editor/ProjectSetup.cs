@@ -2771,12 +2771,12 @@ public class ProjectSetup
         goldText.color = new Color(0.94f, 0.78f, 0.30f);
         goldText.text = "◆ 0 G"; goldText.alignment = TextAnchor.MiddleLeft;
 
-        // ========== TOP-LEFT: Map name + Minimap (under CharPanel) ==========
+        // ========== TOP-RIGHT: Map name + Minimap (MapleStory-style) ==========
         var minimapPanel = HUD_CreateRT("MinimapPanel", root);
-        minimapPanel.anchorMin = minimapPanel.anchorMax = new Vector2(0, 1);
-        minimapPanel.pivot = new Vector2(0, 1);
-        minimapPanel.anchoredPosition = new Vector2(16, -118);
-        minimapPanel.sizeDelta = new Vector2(200, 140);
+        minimapPanel.anchorMin = minimapPanel.anchorMax = new Vector2(1, 1);
+        minimapPanel.pivot = new Vector2(1, 1);
+        minimapPanel.anchoredPosition = new Vector2(-16, -16);
+        minimapPanel.sizeDelta = new Vector2(220, 150);
         var minimapBg = minimapPanel.gameObject.AddComponent<Image>();
         minimapBg.sprite = panelSpr; minimapBg.type = Image.Type.Sliced;
 
@@ -2818,62 +2818,64 @@ public class ProjectSetup
         mmLabelT.alignment = TextAnchor.MiddleCenter;
         mmLabelT.text = "MINIMAP";
 
-        // ========== TOP-RIGHT: Coords + FPS ==========
+        // ========== TOP-RIGHT (under minimap): Coords + FPS ==========
         var coordsRT = HUD_CreateRT("CoordsPanel", root);
         coordsRT.anchorMin = coordsRT.anchorMax = new Vector2(1, 1);
         coordsRT.pivot = new Vector2(1, 1);
-        coordsRT.anchoredPosition = new Vector2(-16, -16);
-        coordsRT.sizeDelta = new Vector2(150, 30);
+        coordsRT.anchoredPosition = new Vector2(-16, -174); // below minimap (-16 -16 -150 + 8 padding)
+        coordsRT.sizeDelta = new Vector2(150, 26);
         var coordsBg = coordsRT.gameObject.AddComponent<Image>();
         coordsBg.sprite = panelSpr; coordsBg.type = Image.Type.Sliced;
         var coordsTextRT = HUD_CreateRT("Text", coordsRT);
         coordsTextRT.anchorMin = Vector2.zero; coordsTextRT.anchorMax = Vector2.one;
         coordsTextRT.offsetMin = coordsTextRT.offsetMax = Vector2.zero;
         var coordsText = coordsTextRT.gameObject.AddComponent<Text>();
-        coordsText.font = font; coordsText.fontSize = 12;
+        coordsText.font = font; coordsText.fontSize = 11;
         coordsText.color = textWhite; coordsText.alignment = TextAnchor.MiddleCenter;
         coordsText.text = "X: 0.0  Y: 0.0";
 
         var fpsRT = HUD_CreateRT("FPSCounter", root);
         fpsRT.anchorMin = fpsRT.anchorMax = new Vector2(1, 1);
         fpsRT.pivot = new Vector2(1, 1);
-        fpsRT.anchoredPosition = new Vector2(-16, -52);
-        fpsRT.sizeDelta = new Vector2(120, 22);
+        fpsRT.anchoredPosition = new Vector2(-16, -206);
+        fpsRT.sizeDelta = new Vector2(120, 18);
         var fpsText = fpsRT.gameObject.AddComponent<Text>();
-        fpsText.font = font; fpsText.fontSize = 12;
+        fpsText.font = font; fpsText.fontSize = 11;
         fpsText.color = new Color(0.7f, 0.85f, 0.45f);
         fpsText.alignment = TextAnchor.MiddleRight;
         fpsText.text = "60 FPS";
 
-        // ========== BOTTOM-CENTER: Action bar (HP/MP/EXP + hotbar) ==========
+        // ========== BOTTOM-CENTER: MapleStory-style action bar
+        // Layout: [HP/MP/EXP (3 stacked rows)]  [Hotbar 5 slots]  [Menu 2x3]
         var actionRoot = HUD_CreateRT("ActionRoot", root);
         actionRoot.anchorMin = actionRoot.anchorMax = new Vector2(0.5f, 0);
         actionRoot.pivot = new Vector2(0.5f, 0);
         actionRoot.anchoredPosition = new Vector2(0, 12);
-        actionRoot.sizeDelta = new Vector2(680, 138);
+        actionRoot.sizeDelta = new Vector2(900, 120);
 
         var arBg = actionRoot.gameObject.AddComponent<Image>();
         arBg.sprite = panelSpr; arBg.type = Image.Type.Sliced;
 
-        // Bars row (HP | MP | EXP)
-        Image hpFill = CreateMapleBar(actionRoot, "HPBar", new Vector2(14, 100), new Vector2(212, 22),
+        // Bars: 3 stacked rows on the left (HP top, MP middle, EXP bottom)
+        Image hpFill = CreateMapleBar(actionRoot, "HPBar", new Vector2(14, 84), new Vector2(280, 20),
             hpGrad, barBgSpr, font, "100/100", out Text hpBarText);
-        Image mpFill = CreateMapleBar(actionRoot, "MPBar", new Vector2(234, 100), new Vector2(212, 22),
+        Image mpFill = CreateMapleBar(actionRoot, "MPBar", new Vector2(14, 56), new Vector2(280, 20),
             mpGrad, barBgSpr, font, "50/50", out Text mpBarText);
-        Image expFill = CreateMapleBar(actionRoot, "EXPBar", new Vector2(454, 100), new Vector2(212, 22),
+        Image expFill = CreateMapleBar(actionRoot, "EXPBar", new Vector2(14, 28), new Vector2(280, 20),
             expGrad, barBgSpr, font, "35.0%", out Text expBarText);
 
-        // Hotbar slots (5 — match HotbarSystem.SLOT_COUNT)
-        float slotSize = 72f;
-        float slotGap = 8f;
-        float totalW = slotSize * 5 + slotGap * 4;
-        float startX = (actionRoot.sizeDelta.x - totalW) * 0.5f;
+        // Hotbar slots (5 — center column)
+        float slotSize = 56f;
+        float slotGap = 6f;
+        float totalHotW = slotSize * 5 + slotGap * 4;
+        float hotbarStartX = 320f; // right of HP/MP/EXP
+        float hotbarStartY = (120f - slotSize) * 0.5f;
         for (int i = 0; i < 5; i++)
         {
             var slot = HUD_CreateRT($"Slot_{i}", actionRoot);
             slot.anchorMin = slot.anchorMax = new Vector2(0, 0);
             slot.pivot = new Vector2(0, 0);
-            slot.anchoredPosition = new Vector2(startX + i * (slotSize + slotGap), 10);
+            slot.anchoredPosition = new Vector2(hotbarStartX + i * (slotSize + slotGap), hotbarStartY);
             slot.sizeDelta = new Vector2(slotSize, slotSize);
             var slotImg = slot.gameObject.AddComponent<Image>();
             slotImg.sprite = slotSpr; slotImg.type = Image.Type.Sliced;
@@ -2942,6 +2944,69 @@ public class ProjectSetup
         var hotbarSo = new UnityEditor.SerializedObject(hotbarHud);
         hotbarSo.FindProperty("actionRoot").objectReferenceValue = actionRoot;
         hotbarSo.ApplyModifiedPropertiesWithoutUndo();
+
+        // === Menu shortcut grid (2 rows × 3 cols) on the right of the action bar ===
+        // C / I / K  (top)   M / G / ESC (bottom)
+        var menuGridRoot = HUD_CreateRT("MenuGrid", actionRoot);
+        menuGridRoot.anchorMin = menuGridRoot.anchorMax = new Vector2(0, 0);
+        menuGridRoot.pivot = new Vector2(0, 0);
+        menuGridRoot.anchoredPosition = new Vector2(640, 10);
+        menuGridRoot.sizeDelta = new Vector2(246, 100);
+
+        var actNone = (Astrion.UI.MenuButtonAction.Action?)null;
+        (string id, string keyLabel, string textLabel, Color tint, bool enabled, Astrion.UI.MenuButtonAction.Action? act)[] menuBtnsConfig = {
+            ("BtnChar", "C",   "정보",  new Color(0.42f, 0.28f, 0.15f, 1f), true,  Astrion.UI.MenuButtonAction.Action.CharInfo),
+            ("BtnInv",  "I",   "가방",  new Color(0.42f, 0.28f, 0.15f, 1f), true,  Astrion.UI.MenuButtonAction.Action.Inventory),
+            ("BtnSkill","K",   "스킬",  new Color(0.42f, 0.28f, 0.15f, 1f), true,  Astrion.UI.MenuButtonAction.Action.Skills),
+            ("BtnMap",  "M",   "지도",  new Color(0.30f, 0.24f, 0.16f, 1f), true,  Astrion.UI.MenuButtonAction.Action.Minimap),
+            ("BtnGuild","G",   "길드",  new Color(0.18f, 0.14f, 0.10f, 1f), false, actNone),
+            ("BtnSys",  "ESC", "메뉴",  new Color(0.55f, 0.18f, 0.18f, 1f), true,  Astrion.UI.MenuButtonAction.Action.System),
+        };
+        float cellW = (246f - 12f) / 3f;
+        float cellH = (100f - 6f) / 2f;
+        for (int mi = 0; mi < menuBtnsConfig.Length; mi++)
+        {
+            var cfg = menuBtnsConfig[mi];
+            int col = mi % 3;
+            int row = mi / 3;
+            var bRT = HUD_CreateRT(cfg.id, menuGridRoot);
+            bRT.anchorMin = bRT.anchorMax = new Vector2(0, 0);
+            bRT.pivot = new Vector2(0, 0);
+            bRT.anchoredPosition = new Vector2(col * (cellW + 6), (1 - row) * (cellH + 6));
+            bRT.sizeDelta = new Vector2(cellW, cellH);
+            var bImg = bRT.gameObject.AddComponent<Image>();
+            bImg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 6, cfg.tint));
+            bImg.type = Image.Type.Sliced;
+            var bBtn = bRT.gameObject.AddComponent<Button>();
+            bBtn.interactable = cfg.enabled;
+            if (cfg.act.HasValue)
+            {
+                var mba = bRT.gameObject.AddComponent<Astrion.UI.MenuButtonAction>();
+                mba.action = cfg.act.Value;
+            }
+            // Key label (large)
+            var keyRT = HUD_CreateRT("Key", bRT);
+            keyRT.anchorMin = new Vector2(0, 0.4f); keyRT.anchorMax = new Vector2(1, 1);
+            keyRT.offsetMin = keyRT.offsetMax = Vector2.zero;
+            var keyT = keyRT.gameObject.AddComponent<Text>();
+            keyT.font = font;
+            keyT.fontSize = cfg.keyLabel.Length > 1 ? 14 : 18;
+            keyT.fontStyle = FontStyle.Bold;
+            keyT.color = new Color(0.96f, 0.92f, 0.78f);
+            keyT.alignment = TextAnchor.MiddleCenter;
+            keyT.raycastTarget = false;
+            keyT.text = cfg.keyLabel;
+            // Small label (bottom)
+            var lblRT = HUD_CreateRT("Lbl", bRT);
+            lblRT.anchorMin = new Vector2(0, 0); lblRT.anchorMax = new Vector2(1, 0.45f);
+            lblRT.offsetMin = lblRT.offsetMax = Vector2.zero;
+            var lblT = lblRT.gameObject.AddComponent<Text>();
+            lblT.font = font; lblT.fontSize = 10;
+            lblT.color = new Color(0.78f, 0.72f, 0.60f);
+            lblT.alignment = TextAnchor.MiddleCenter;
+            lblT.raycastTarget = false;
+            lblT.text = cfg.textLabel;
+        }
 
         // ========== BOTTOM-LEFT: Chat panel ==========
         var chatPanel = HUD_CreateRT("ChatPanel", root);
@@ -4419,25 +4484,7 @@ public class ProjectSetup
         sysSo.ApplyModifiedPropertiesWithoutUndo();
         sysPanel.gameObject.SetActive(false);
 
-        // Top-right menu (☰) button — opens system menu
-        var menuBtnRT = HUD_CreateRT("MenuBtn", root);
-        menuBtnRT.anchorMin = menuBtnRT.anchorMax = new Vector2(1, 1);
-        menuBtnRT.pivot = new Vector2(1, 1);
-        menuBtnRT.anchoredPosition = new Vector2(-12, -12);
-        menuBtnRT.sizeDelta = new Vector2(40, 40);
-        var menuBtnImg = menuBtnRT.gameObject.AddComponent<Image>();
-        menuBtnImg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 8, new Color(0.10f, 0.08f, 0.06f, 0.92f)));
-        menuBtnImg.type = Image.Type.Sliced;
-        var menuBtn = menuBtnRT.gameObject.AddComponent<Button>();
-        menuBtn.onClick.AddListener(() => sysUI.Toggle());
-        var menuTRT = HUD_CreateRT("Icon", menuBtnRT);
-        menuTRT.anchorMin = Vector2.zero; menuTRT.anchorMax = Vector2.one;
-        menuTRT.offsetMin = menuTRT.offsetMax = Vector2.zero;
-        var menuT = menuTRT.gameObject.AddComponent<Text>();
-        menuT.font = font; menuT.fontSize = 22; menuT.fontStyle = FontStyle.Bold;
-        menuT.color = new Color(0.92f, 0.86f, 0.72f);
-        menuT.alignment = TextAnchor.MiddleCenter;
-        menuT.text = "☰";
+        // (Top-right ☰ removed — the action bar's ESC button now covers system menu.)
     }
 
     private static Image CreateMapleBar(RectTransform parent, string name, Vector2 pos, Vector2 size,
