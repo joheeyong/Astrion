@@ -4236,6 +4236,95 @@ public class ProjectSetup
         shopGoldT.alignment = TextAnchor.MiddleRight;
         shopGoldT.text = "보유  ◆ 0 G";
 
+        // Tab buttons (Buy / Sell) — right of header
+        Button MakeTabBtn(string nm, string label, float xOffset) {
+            var tRT = HUD_CreateRT(nm, shopPanel);
+            tRT.anchorMin = tRT.anchorMax = new Vector2(1, 1);
+            tRT.pivot = new Vector2(1, 1);
+            tRT.anchoredPosition = new Vector2(xOffset, -10);
+            tRT.sizeDelta = new Vector2(64, 26);
+            var tImg = tRT.gameObject.AddComponent<Image>();
+            tImg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 6, new Color(0.85f, 0.65f, 0.22f, 1f)));
+            tImg.type = Image.Type.Sliced;
+            var tBtn = tRT.gameObject.AddComponent<Button>();
+            var tLblRT = HUD_CreateRT("L", tRT);
+            tLblRT.anchorMin = Vector2.zero; tLblRT.anchorMax = Vector2.one;
+            tLblRT.offsetMin = tLblRT.offsetMax = Vector2.zero;
+            var tLbl = tLblRT.gameObject.AddComponent<Text>();
+            tLbl.font = font; tLbl.fontSize = 13; tLbl.fontStyle = FontStyle.Bold;
+            tLbl.color = new Color(0.12f, 0.08f, 0.04f);
+            tLbl.alignment = TextAnchor.MiddleCenter;
+            tLbl.text = label;
+            return tBtn;
+        }
+        var buyTab = MakeTabBtn("BuyTab", "구매", -116);
+        var sellTab = MakeTabBtn("SellTab", "판매", -46);
+
+        // Sell grid root (overlaps Rows, only one visible at a time)
+        var sellGridRoot = HUD_CreateRT("SellGrid", shopPanel);
+        sellGridRoot.anchorMin = new Vector2(0, 0); sellGridRoot.anchorMax = new Vector2(1, 1);
+        sellGridRoot.offsetMin = new Vector2(16, 48); sellGridRoot.offsetMax = new Vector2(-16, -48);
+        const int SELL_COLS = 6;
+        const int SELL_ROWS = 4;
+        int sellSlots = SELL_COLS * SELL_ROWS;
+        float cellW = (508f - 16f * 2 - (SELL_COLS - 1) * 6f) / SELL_COLS; // approx
+        float cellH = 78f;
+        for (int s = 0; s < sellSlots; s++)
+        {
+            int rr = s / SELL_COLS;
+            int cc = s % SELL_COLS;
+            var cell = HUD_CreateRT($"SellSlot_{s}", sellGridRoot);
+            cell.anchorMin = cell.anchorMax = new Vector2(0, 1);
+            cell.pivot = new Vector2(0, 1);
+            cell.anchoredPosition = new Vector2(cc * (cellW + 6), -rr * (cellH + 6));
+            cell.sizeDelta = new Vector2(cellW, cellH);
+            var cellImg = cell.gameObject.AddComponent<Image>();
+            cellImg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 6, new Color(0.10f, 0.08f, 0.06f, 0.92f)));
+            cellImg.type = Image.Type.Sliced;
+            cell.gameObject.AddComponent<Button>();
+
+            var sIconRT = HUD_CreateRT("Icon", cell);
+            sIconRT.anchorMin = new Vector2(0, 0.30f); sIconRT.anchorMax = new Vector2(1, 1);
+            sIconRT.offsetMin = new Vector2(8, 4); sIconRT.offsetMax = new Vector2(-8, -4);
+            var sIconImg = sIconRT.gameObject.AddComponent<Image>();
+            sIconImg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 4, Color.white));
+            sIconImg.color = Color.white;
+            sIconImg.raycastTarget = false;
+            sIconRT.gameObject.SetActive(false);
+            var sLetterRT = HUD_CreateRT("Letter", sIconRT);
+            sLetterRT.anchorMin = Vector2.zero; sLetterRT.anchorMax = Vector2.one;
+            sLetterRT.offsetMin = sLetterRT.offsetMax = Vector2.zero;
+            var sLetterT = sLetterRT.gameObject.AddComponent<Text>();
+            sLetterT.font = font; sLetterT.fontSize = 20; sLetterT.fontStyle = FontStyle.Bold;
+            sLetterT.color = new Color(0.10f, 0.07f, 0.04f);
+            sLetterT.alignment = TextAnchor.MiddleCenter;
+            sLetterT.raycastTarget = false;
+
+            var sQtyRT = HUD_CreateRT("Qty", cell);
+            sQtyRT.anchorMin = new Vector2(1, 0.30f); sQtyRT.anchorMax = new Vector2(1, 1);
+            sQtyRT.pivot = new Vector2(1, 0);
+            sQtyRT.anchoredPosition = new Vector2(-4, 4);
+            sQtyRT.sizeDelta = new Vector2(28, 14);
+            var sQtyT = sQtyRT.gameObject.AddComponent<Text>();
+            sQtyT.font = font; sQtyT.fontSize = 10; sQtyT.fontStyle = FontStyle.Bold;
+            sQtyT.color = new Color(0.92f, 0.86f, 0.72f);
+            sQtyT.alignment = TextAnchor.LowerRight;
+            sQtyT.raycastTarget = false;
+
+            var sPriceRT = HUD_CreateRT("Price", cell);
+            sPriceRT.anchorMin = new Vector2(0, 0); sPriceRT.anchorMax = new Vector2(1, 0.30f);
+            sPriceRT.offsetMin = sPriceRT.offsetMax = Vector2.zero;
+            var sPriceT = sPriceRT.gameObject.AddComponent<Text>();
+            sPriceT.font = font; sPriceT.fontSize = 10; sPriceT.fontStyle = FontStyle.Bold;
+            sPriceT.color = new Color(0.94f, 0.78f, 0.30f);
+            sPriceT.alignment = TextAnchor.MiddleCenter;
+            sPriceT.raycastTarget = false;
+
+            cell.gameObject.AddComponent<Astrion.UI.ItemSlotRef>();
+            cell.gameObject.AddComponent<Astrion.UI.TooltipTrigger>();
+        }
+        sellGridRoot.gameObject.SetActive(false);
+
         var shopUI = canvasGo.AddComponent<Astrion.UI.ShopUI>();
         var shopSo = new UnityEditor.SerializedObject(shopUI);
         shopSo.FindProperty("panel").objectReferenceValue = shopPanel.gameObject;
@@ -4243,6 +4332,9 @@ public class ProjectSetup
         shopSo.FindProperty("goldText").objectReferenceValue = shopGoldT;
         shopSo.FindProperty("rowsRoot").objectReferenceValue = shopRowsRoot;
         shopSo.FindProperty("closeButton").objectReferenceValue = shopCloseB;
+        shopSo.FindProperty("buyTabButton").objectReferenceValue = buyTab;
+        shopSo.FindProperty("sellTabButton").objectReferenceValue = sellTab;
+        shopSo.FindProperty("sellGridRoot").objectReferenceValue = sellGridRoot;
         shopSo.ApplyModifiedPropertiesWithoutUndo();
         shopPanel.gameObject.SetActive(false);
 

@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Astrion.Game;
 
@@ -23,10 +22,22 @@ namespace Astrion.UI
         [SerializeField] private Transform rowsRoot;
         [SerializeField] private Button closeButton;
 
-        // Default catalogue — set in Inspector or via SetCatalog
+        // Sell tab
+        [SerializeField] private Button buyTabButton;
+        [SerializeField] private Button sellTabButton;
+        [SerializeField] private Transform sellGridRoot;
+
+        // Default catalogue
         [SerializeField] private List<ShopEntry> defaultCatalog = new List<ShopEntry>();
 
         public bool IsOpen => panel != null && panel.activeSelf;
+
+        private bool _sellMode;
+        private Image[] _sellIcons;
+        private Text[] _sellLetters;
+        private Text[] _sellQtys;
+        private Text[] _sellPrices;
+        private ItemSlotRef[] _sellRefs;
 
         private void Awake()
         {
@@ -43,6 +54,10 @@ namespace Astrion.UI
         {
             if (closeButton != null) closeButton.onClick.AddListener(Close);
             if (PlayerStats.Instance != null) PlayerStats.Instance.OnChanged += RefreshGold;
+            if (InventorySystem.Instance != null) InventorySystem.Instance.OnChanged += RefreshSellGrid;
+
+            if (buyTabButton != null) buyTabButton.onClick.AddListener(() => SetTab(false));
+            if (sellTabButton != null) sellTabButton.onClick.AddListener(() => SetTab(true));
 
             if (defaultCatalog == null || defaultCatalog.Count == 0)
             {
@@ -56,6 +71,7 @@ namespace Astrion.UI
                 };
             }
             WireRows();
+            CacheSellSlots();
         }
 
         private void Update()
@@ -68,6 +84,7 @@ namespace Astrion.UI
         {
             if (headerText) headerText.text = $"상점  ·  {vendorName}";
             if (panel) panel.SetActive(true);
+            SetTab(false); // always start on Buy
             RefreshGold();
             RefreshRows();
         }
@@ -75,6 +92,29 @@ namespace Astrion.UI
         public void Close()
         {
             if (panel) panel.SetActive(false);
+        }
+
+        private void SetTab(bool sellMode)
+        {
+            _sellMode = sellMode;
+            if (rowsRoot != null) rowsRoot.gameObject.SetActive(!sellMode);
+            if (sellGridRoot != null) sellGridRoot.gameObject.SetActive(sellMode);
+            UpdateTabVisual();
+            if (sellMode) RefreshSellGrid();
+        }
+
+        private void UpdateTabVisual()
+        {
+            if (buyTabButton != null)
+            {
+                var img = buyTabButton.GetComponent<Image>();
+                if (img != null) img.color = _sellMode ? new Color(0.30f, 0.24f, 0.16f, 1f) : new Color(0.85f, 0.65f, 0.22f, 1f);
+            }
+            if (sellTabButton != null)
+            {
+                var img = sellTabButton.GetComponent<Image>();
+                if (img != null) img.color = _sellMode ? new Color(0.85f, 0.65f, 0.22f, 1f) : new Color(0.30f, 0.24f, 0.16f, 1f);
+            }
         }
 
         private void RefreshGold()
@@ -145,7 +185,6 @@ namespace Astrion.UI
                     buyBtn.interactable = canAfford;
                 }
 
-                // Tooltip hook: expose itemId on the icon (the part players actually hover)
                 var iconRef = row.Find("Icon")?.GetComponent<ItemSlotRef>();
                 if (iconRef != null) iconRef.itemId = entry.itemId;
             }
@@ -159,11 +198,18 @@ namespace Astrion.UI
             var inv = InventorySystem.Instance;
             if (stats == null || inv == null) return;
 
-            if (!stats.SpendGold(entry.price))
+            if (stats.Gold < entry.price)
             {
                 ToastUI.Instance?.Show("골드가 부족합니다.", new Color(0.95f, 0.30f, 0.30f));
                 return;
             }
+            // Find a free inventory slot before charging
+            if (!inv.HasFreeSlotFor(entry.itemId))
+            {
+                ToastUI.Instance?.Show("인벤토리가 가득 찼습니다.", new Color(0.95f, 0.55f, 0.30f));
+                return;
+            }
+            stats.SpendGold(entry.price);
             inv.Add(entry.itemId, 1);
             var def = ItemDatabase.Get(entry.itemId);
             string name = def != null ? def.displayName : entry.itemId;
@@ -171,6 +217,83 @@ namespace Astrion.UI
             ToastUI.Instance?.Show($"[구매]  {name}  -{entry.price:N0} G", tint);
             RefreshGold();
             RefreshRows();
+        }
+
+        // === Sell tab ===
+
+        private void CacheSellSlots()
+        {
+            if (sellGridRoot == null) return;
+            int count = InventorySystem.SLOT_COUNT;
+            _sellIcons = new Image[count];
+            _sellLetters = new Text[count];
+            _sellQtys = new Text[count];
+            _sellPrices = new Text[count];
+            _sellRefs = new ItemSlotRef[count];
+            for (int i = 0; i < count; i++)
+            {
+                var slot = sellGridRoot.Find($"SellSlot_{i}");
+                if (slot == null) continue;
+                _sellIcons[i] = slot.Find("Icon")?.GetComponent<Image>();
+                _sellLetters[i] = slot.Find("Icon/Letter")?.GetComponent<Text>();
+                _sellQtys[i] = slot.Find("Qty")?.GetComponent<Text>();
+                _sellPrices[i] = slot.Find("Price")?.GetComponent<Text>();
+                _sellRefs[i] = slot.GetComponent<ItemSlotRef>();
+                var btn = slot.GetComponent<Button>();
+                if (btn == null) btn = slot.gameObject.AddComponent<Button>();
+                int idx = i;
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(() => OnSellClicked(idx));
+            }
+        }
+
+        private void RefreshSellGrid()
+        {
+            if (!_sellMode || sellGridRoot == null) return;
+            var inv = InventorySystem.Instance;
+            if (inv == null || _sellIcons == null) return;
+            for (int i = 0; i < InventorySystem.SLOT_COUNT; i++)
+            {
+                if (_sellIcons[i] == null) continue;
+                var s = inv.Slots[i];
+                if (_sellRefs[i] != null) _sellRefs[i].itemId = s.IsEmpty ? "" : s.itemId;
+                if (s.IsEmpty)
+                {
+                    _sellIcons[i].gameObject.SetActive(false);
+                    if (_sellQtys[i] != null) _sellQtys[i].text = "";
+                    if (_sellPrices[i] != null) _sellPrices[i].text = "";
+                }
+                else
+                {
+                    var def = ItemDatabase.Get(s.itemId);
+                    _sellIcons[i].gameObject.SetActive(true);
+                    if (def != null)
+                    {
+                        _sellIcons[i].color = def.iconColor;
+                        if (_sellLetters[i] != null) _sellLetters[i].text = def.iconLetter;
+                        if (_sellPrices[i] != null) _sellPrices[i].text = $"{def.sellPrice}G";
+                    }
+                    if (_sellQtys[i] != null) _sellQtys[i].text = s.qty > 1 ? s.qty.ToString() : "";
+                }
+            }
+        }
+
+        private void OnSellClicked(int slotIdx)
+        {
+            var inv = InventorySystem.Instance;
+            var stats = PlayerStats.Instance;
+            if (inv == null || stats == null) return;
+            if (slotIdx < 0 || slotIdx >= InventorySystem.SLOT_COUNT) return;
+            var s = inv.Slots[slotIdx];
+            if (s.IsEmpty) return;
+            var def = ItemDatabase.Get(s.itemId);
+            int price = def != null ? def.sellPrice : 1;
+            if (!inv.RemoveOneFromSlot(slotIdx)) return;
+            stats.AddGold(price);
+            string name = def != null ? def.displayName : s.itemId;
+            Color tint = def != null ? ItemDatabase.RarityColor(def.rarity) : Color.white;
+            ToastUI.Instance?.Show($"[판매]  {name}  +{price:N0} G", tint);
+            RefreshGold();
         }
     }
 }

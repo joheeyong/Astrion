@@ -109,6 +109,34 @@ namespace Astrion.Game
             OnChanged?.Invoke();
         }
 
+        /// <summary>True if at least one of itemId×1 can be added (existing stack room or any empty slot).</summary>
+        public bool HasFreeSlotFor(string itemId)
+        {
+            var def = ItemDatabase.Get(itemId);
+            if (def == null) return false;
+            if (def.maxStack > 1)
+            {
+                for (int i = 0; i < SLOT_COUNT; i++)
+                    if (Slots[i].itemId == itemId && Slots[i].qty < def.maxStack) return true;
+            }
+            for (int i = 0; i < SLOT_COUNT; i++)
+                if (Slots[i].IsEmpty) return true;
+            return false;
+        }
+
+        /// <summary>Remove one unit from a slot. Returns true if something was removed.</summary>
+        public bool RemoveOneFromSlot(int slotIndex)
+        {
+            if (slotIndex < 0 || slotIndex >= SLOT_COUNT) return false;
+            var s = Slots[slotIndex];
+            if (s.IsEmpty) return false;
+            Slots[slotIndex] = new Slot { itemId = s.itemId, qty = s.qty - 1 };
+            if (Slots[slotIndex].qty <= 0) Slots[slotIndex] = new Slot();
+            SaveToState();
+            OnChanged?.Invoke();
+            return true;
+        }
+
         /// <summary>Swap two inventory slots (used by drag&drop).</summary>
         public void SwapSlots(int a, int b)
         {

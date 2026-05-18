@@ -20,6 +20,7 @@ namespace Astrion.Game
             public int baseDamage = 0; // for weapons
             public int healAmount = 0; // for potions (HP)
             public int manaAmount = 0; // for potions (MP)
+            public int sellPrice = 1;  // gold given when sold to a vendor
         }
 
         public static Color RarityColor(Rarity r)
@@ -63,7 +64,7 @@ namespace Astrion.Game
                     iconColor = new Color(0.78f, 0.55f, 0.28f),
                     iconLetter = "빵", maxStack = 99,
                     rarity = Rarity.Common, itemType = "소비",
-                    healAmount = 20,
+                    healAmount = 20, sellPrice = 3,
                 },
                 ["elixir"] = new ItemDef
                 {
@@ -72,7 +73,7 @@ namespace Astrion.Game
                     iconColor = new Color(0.30f, 0.55f, 0.92f),
                     iconLetter = "약", maxStack = 99,
                     rarity = Rarity.Uncommon, itemType = "소비",
-                    manaAmount = 15,
+                    manaAmount = 15, sellPrice = 8,
                 },
                 ["stardust"] = new ItemDef
                 {
@@ -81,6 +82,7 @@ namespace Astrion.Game
                     iconColor = new Color(0.95f, 0.78f, 0.30f),
                     iconLetter = "★", maxStack = 999,
                     rarity = Rarity.Rare, itemType = "기타",
+                    sellPrice = 5,
                 },
                 ["dagger"] = new ItemDef
                 {
@@ -89,7 +91,7 @@ namespace Astrion.Game
                     iconColor = new Color(0.55f, 0.45f, 0.35f),
                     iconLetter = "검", maxStack = 1,
                     rarity = Rarity.Common, itemType = "장비",
-                    baseDamage = 5,
+                    baseDamage = 5, sellPrice = 8,
                 },
                 ["bronze_dagger"] = new ItemDef
                 {
@@ -98,7 +100,7 @@ namespace Astrion.Game
                     iconColor = new Color(0.72f, 0.50f, 0.22f),
                     iconLetter = "검", maxStack = 1,
                     rarity = Rarity.Uncommon, itemType = "장비",
-                    baseDamage = 8,
+                    baseDamage = 8, sellPrice = 25,
                 },
                 ["iron_dagger"] = new ItemDef
                 {
@@ -107,7 +109,7 @@ namespace Astrion.Game
                     iconColor = new Color(0.62f, 0.65f, 0.72f),
                     iconLetter = "검", maxStack = 1,
                     rarity = Rarity.Rare, itemType = "장비",
-                    baseDamage = 12,
+                    baseDamage = 12, sellPrice = 90,
                 },
                 ["dawn_dagger"] = new ItemDef
                 {
@@ -116,7 +118,7 @@ namespace Astrion.Game
                     iconColor = new Color(0.95f, 0.75f, 0.30f),
                     iconLetter = "검", maxStack = 1,
                     rarity = Rarity.Legend, itemType = "장비",
-                    baseDamage = 18,
+                    baseDamage = 18, sellPrice = 250,
                 },
                 ["star_bow"] = new ItemDef
                 {
@@ -125,7 +127,7 @@ namespace Astrion.Game
                     iconColor = new Color(0.55f, 0.40f, 0.20f),
                     iconLetter = "활", maxStack = 1,
                     rarity = Rarity.Uncommon, itemType = "장비",
-                    baseDamage = 10,
+                    baseDamage = 10, sellPrice = 30,
                 },
                 ["leather_helmet"] = new ItemDef
                 {
@@ -134,6 +136,7 @@ namespace Astrion.Game
                     iconColor = new Color(0.55f, 0.38f, 0.22f),
                     iconLetter = "투", maxStack = 1,
                     rarity = Rarity.Common, itemType = "장비",
+                    sellPrice = 40,
                 },
                 ["chain_armor"] = new ItemDef
                 {
@@ -142,6 +145,7 @@ namespace Astrion.Game
                     iconColor = new Color(0.55f, 0.58f, 0.62f),
                     iconLetter = "갑", maxStack = 1,
                     rarity = Rarity.Uncommon, itemType = "장비",
+                    sellPrice = 70,
                 },
                 ["stardust_ring"] = new ItemDef
                 {
@@ -150,6 +154,7 @@ namespace Astrion.Game
                     iconColor = new Color(0.92f, 0.72f, 0.30f),
                     iconLetter = "반", maxStack = 1,
                     rarity = Rarity.Epic, itemType = "장비",
+                    sellPrice = 180,
                 },
             };
             _initialized = true;
