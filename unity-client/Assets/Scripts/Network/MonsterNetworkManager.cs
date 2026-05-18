@@ -102,11 +102,32 @@ namespace Astrion.Network
         {
             switch (packet.Type)
             {
-                case PacketType.MonsterSpawn: OnSpawn(packet.Payload); break;
-                case PacketType.MonsterMove:  OnMove(packet.Payload);  break;
-                case PacketType.MonsterHp:    OnHp(packet.Payload);    break;
-                case PacketType.MonsterDie:   OnDie(packet.Payload);   break;
+                case PacketType.MonsterSpawn:  OnSpawn(packet.Payload);  break;
+                case PacketType.MonsterMove:   OnMove(packet.Payload);   break;
+                case PacketType.MonsterHp:     OnHp(packet.Payload);     break;
+                case PacketType.MonsterDie:    OnDie(packet.Payload);    break;
+                case PacketType.MonsterAttack: OnAttack(packet.Payload); break;
             }
+        }
+
+        private void OnAttack(string payload)
+        {
+            try
+            {
+                var d = JsonUtility.FromJson<AttackData>(payload);
+                if (d == null) return;
+                // Show a hit flash on the monster sprite regardless of target
+                if (_monsters.TryGetValue(d.id, out var m) && m != null)
+                    m.OnAttackAnimation();
+                // Apply damage only when we're the target
+                string myId = UnityEngine.PlayerPrefs.GetString("playerId", "");
+                if (d.targetPlayerId == myId && d.damage > 0)
+                {
+                    Astrion.Game.PlayerStats.Instance?.ApplyDamage(d.damage);
+                    Astrion.Game.Camera2D.Shake(0.18f, 0.14f);
+                }
+            }
+            catch { /* ignore */ }
         }
 
         private void OnSpawn(string payload)
@@ -274,5 +295,6 @@ namespace Astrion.Network
         [System.Serializable] private class MoveData  { public string id; public float x, y; public int direction; }
         [System.Serializable] private class HpData    { public string id; public int hp; public int damage; }
         [System.Serializable] private class DieData   { public string id; public int damage; }
+        [System.Serializable] private class AttackData { public string id; public string targetPlayerId; public int damage; }
     }
 }

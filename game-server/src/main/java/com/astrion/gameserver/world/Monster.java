@@ -18,6 +18,16 @@ public class Monster {
     public int goldReward = 8; // gold given to last hitter on death
     public String lastHitterId = "";
 
+    // Aggro / combat
+    public String targetPlayerId = "";
+    public long aggroUntil = 0L;          // ms timestamp; 0 = no aggro
+    public long lastAttackAt = 0L;
+    public int contactDamage = 5;
+    public float aggroSpeedMul = 1.5f;
+    public float attackRange = 0.9f;
+    public long attackCooldownMs = 1000L;
+    public long aggroDurationMs = 10_000L;
+
     // Drop table — populated by MonsterManager.spawnFresh
     public java.util.List<MonsterManager.DropEntry> dropTable;
     public float dropChance = 0.5f;

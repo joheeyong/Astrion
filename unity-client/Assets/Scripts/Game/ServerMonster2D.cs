@@ -48,6 +48,33 @@ namespace Astrion.Game
             Destroy(gameObject);
         }
 
+        public void OnAttackAnimation()
+        {
+            // Brief lunge visual when the monster bites/contacts the player
+            if (_sr != null) StartCoroutine(AttackLunge());
+        }
+
+        private System.Collections.IEnumerator AttackLunge()
+        {
+            if (_sr == null) yield break;
+            var t = _sr.transform;
+            Vector3 baseLocal = Vector3.zero;
+            float dur = 0.18f;
+            float peak = 0.18f;
+            float elapsed = 0f;
+            while (elapsed < dur && t != null)
+            {
+                elapsed += Time.deltaTime;
+                float u = elapsed / dur;
+                float curve = Mathf.Sin(u * Mathf.PI);
+                // Lunge in current facing direction (flipX = facing left)
+                float dir = (_sr != null && _sr.flipX) ? -1f : 1f;
+                t.localPosition = baseLocal + new Vector3(dir * peak * curve, 0f, 0f);
+                yield return null;
+            }
+            if (t != null) t.localPosition = baseLocal;
+        }
+
         private void Update()
         {
             var cur = (Vector2)transform.position;

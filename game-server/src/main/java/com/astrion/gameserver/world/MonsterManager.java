@@ -78,6 +78,12 @@ public class MonsterManager {
         m.goldReward = 120;
         m.dropChance = 1.0f; // boss always drops
         m.dropTable = makeShadowHulkDropTable();
+        // Boss combat profile — hits harder, longer chase
+        m.contactDamage = 30;
+        m.aggroSpeedMul = 1.8f;
+        m.attackRange = 1.3f;
+        m.attackCooldownMs = 1400L;
+        m.aggroDurationMs = 20_000L;
         monsters.put(id, m);
         return m;
     }
@@ -97,6 +103,8 @@ public class MonsterManager {
         m.dropChance = 0.5f;
         m.goldReward = 8;
         m.dropTable = makeSlimeDropTable();
+        // Slime combat profile
+        m.contactDamage = 7;
         monsters.put(id, m);
         return m;
     }
@@ -206,13 +214,54 @@ public class MonsterManager {
                     }
                     continue;
                 }
-                // Patrol AI
-                m.x += m.direction * m.speed * dt;
-                if (Math.abs(m.x - m.originX) > m.patrolRange) {
-                    m.direction = -m.direction;
-                    m.x = m.originX + m.direction * m.patrolRange;
+                boolean aggro = !m.targetPlayerId.isEmpty() && now < m.aggroUntil;
+                if (aggro) {
+                    PlayerSession target = worldManager.getSessionByPlayerId(m.targetPlayerId);
+                    if (target == null || !m.zoneId.equals(target.getZoneId())) {
+                        // Lost the target — drop aggro
+                        m.targetPlayerId = "";
+                        m.aggroUntil = 0L;
+                    } else {
+                        var p = target.getPosition();
+                        float dx = p.getX() - m.x;
+                        float dy = p.getY() - m.y;
+                        float dist = (float) Math.sqrt(dx * dx + dy * dy);
+
+                        if (dist <= m.attackRange) {
+                            // In range — try to attack on cooldown
+                            if (now - m.lastAttackAt >= m.attackCooldownMs) {
+                                m.lastAttackAt = now;
+                                try {
+                                    ObjectNode atk = mapper.createObjectNode();
+                                    atk.put("id", m.id);
+                                    atk.put("targetPlayerId", m.targetPlayerId);
+                                    atk.put("damage", m.contactDamage);
+                                    worldManager.broadcastToZone(m.zoneId,
+                                        new GamePacket(PacketType.MONSTER_ATTACK,
+                                            mapper.writeValueAsString(atk)));
+                                } catch (Exception e) { /* ignore */ }
+                            }
+                            // Face the player while attacking
+                            m.direction = dx >= 0 ? 1 : -1;
+                        } else {
+                            // Chase — move horizontally toward target
+                            float chaseSpeed = m.speed * m.aggroSpeedMul;
+                            float moveAmt = chaseSpeed * dt;
+                            if (Math.abs(dx) <= moveAmt) m.x = p.getX();
+                            else m.x += Math.signum(dx) * moveAmt;
+                            m.direction = dx >= 0 ? 1 : -1;
+                        }
+                    }
                 }
-                // Throttled broadcast
+                if (!aggro) {
+                    // Patrol AI (default)
+                    m.x += m.direction * m.speed * dt;
+                    if (Math.abs(m.x - m.originX) > m.patrolRange) {
+                        m.direction = -m.direction;
+                        m.x = m.originX + m.direction * m.patrolRange;
+                    }
+                }
+                // Throttled broadcast — also fires when chasing so client sees movement
                 if (now - m.lastBroadcastAt >= BROADCAST_INTERVAL_MS
                     || m.direction != m.lastBroadcastDir) {
                     broadcastMove(m);
@@ -269,6 +318,9 @@ public class MonsterManager {
         int applied = Math.min(m.hp, Math.max(1, damage));
         m.hp = Math.max(0, m.hp - applied);
         m.lastHitterId = attacker.getPlayerId();
+        // Aggro on first / each hit — hostile until aggroDuration after last hit
+        m.targetPlayerId = attacker.getPlayerId();
+        m.aggroUntil = System.currentTimeMillis() + m.aggroDurationMs;
         if (m.hp <= 0) {
             m.dead = true;
             m.respawnAt = System.currentTimeMillis() + RESPAWN_DELAY_MS;

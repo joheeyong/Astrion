@@ -40,5 +40,6 @@ namespace Astrion.Network
         DropRemoved = 0x98,
         PlayerStatus = 0x99,
         StateAck = 0x9A,
+        MonsterAttack = 0x9B,
     }
 }
