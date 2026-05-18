@@ -15,6 +15,7 @@ namespace Astrion.UI
         private Image[] _slotIcons;
         private Text[] _slotLetters;
         private Text[] _slotQtys;
+        private ItemSlotRef[] _slotRefs;
         private bool _cached;
 
         private void Awake()
@@ -45,6 +46,7 @@ namespace Astrion.UI
             _slotIcons = new Image[InventorySystem.SLOT_COUNT];
             _slotLetters = new Text[InventorySystem.SLOT_COUNT];
             _slotQtys = new Text[InventorySystem.SLOT_COUNT];
+            _slotRefs = new ItemSlotRef[InventorySystem.SLOT_COUNT];
             for (int i = 0; i < InventorySystem.SLOT_COUNT; i++)
             {
                 var slot = slotsRoot.Find($"Slot_{i}");
@@ -52,6 +54,7 @@ namespace Astrion.UI
                 _slotIcons[i] = slot.Find("Icon")?.GetComponent<Image>();
                 _slotLetters[i] = slot.Find("Icon/Letter")?.GetComponent<Text>();
                 _slotQtys[i] = slot.Find("Qty")?.GetComponent<Text>();
+                _slotRefs[i] = slot.GetComponent<ItemSlotRef>();
                 var btn = slot.GetComponent<Button>();
                 if (btn == null) btn = slot.gameObject.AddComponent<Button>();
                 int idx = i;
@@ -94,6 +97,7 @@ namespace Astrion.UI
             {
                 if (_slotIcons[i] == null) continue;
                 var s = inv.Slots[i];
+                if (_slotRefs[i] != null) _slotRefs[i].itemId = s.IsEmpty ? "" : s.itemId;
                 if (s.IsEmpty)
                 {
                     _slotIcons[i].gameObject.SetActive(false);

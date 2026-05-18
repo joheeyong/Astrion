@@ -3613,6 +3613,9 @@ public class ProjectSetup
                 var qtySh = qtyRT.gameObject.AddComponent<Shadow>();
                 qtySh.effectColor = new Color(0, 0, 0, 0.95f);
                 qtySh.effectDistance = new Vector2(1, -1);
+
+                slot.gameObject.AddComponent<Astrion.UI.ItemSlotRef>();
+                slot.gameObject.AddComponent<Astrion.UI.TooltipTrigger>();
             }
 
         // Selected item tooltip
@@ -4026,6 +4029,58 @@ public class ProjectSetup
         toastSo.FindProperty("toastTemplate").objectReferenceValue = toastTpl.gameObject;
         toastSo.ApplyModifiedPropertiesWithoutUndo();
 
+        // ========== ITEM TOOLTIP ==========
+        var tipPanel = HUD_CreateRT("ItemTooltipPanel", root);
+        tipPanel.anchorMin = tipPanel.anchorMax = new Vector2(0.5f, 0.5f);
+        tipPanel.pivot = new Vector2(0, 1);
+        tipPanel.sizeDelta = new Vector2(260, 140);
+        var tipBg = tipPanel.gameObject.AddComponent<Image>();
+        tipBg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 6, new Color(0.05f, 0.05f, 0.07f, 0.97f)));
+        tipBg.type = Image.Type.Sliced;
+        tipBg.raycastTarget = false;
+
+        var tipTitleRT = HUD_CreateRT("Title", tipPanel);
+        tipTitleRT.anchorMin = new Vector2(0, 1); tipTitleRT.anchorMax = new Vector2(1, 1);
+        tipTitleRT.pivot = new Vector2(0.5f, 1);
+        tipTitleRT.anchoredPosition = new Vector2(0, -8);
+        tipTitleRT.sizeDelta = new Vector2(-16, 22);
+        var tipTitleT = tipTitleRT.gameObject.AddComponent<Text>();
+        tipTitleT.font = font; tipTitleT.fontSize = 15; tipTitleT.fontStyle = FontStyle.Bold;
+        tipTitleT.color = Color.white;
+        tipTitleT.alignment = TextAnchor.MiddleLeft;
+        tipTitleT.raycastTarget = false;
+
+        var tipRarityRT = HUD_CreateRT("Rarity", tipPanel);
+        tipRarityRT.anchorMin = new Vector2(0, 1); tipRarityRT.anchorMax = new Vector2(1, 1);
+        tipRarityRT.pivot = new Vector2(0.5f, 1);
+        tipRarityRT.anchoredPosition = new Vector2(0, -32);
+        tipRarityRT.sizeDelta = new Vector2(-16, 16);
+        var tipRarityT = tipRarityRT.gameObject.AddComponent<Text>();
+        tipRarityT.font = font; tipRarityT.fontSize = 10; tipRarityT.fontStyle = FontStyle.Bold;
+        tipRarityT.color = new Color(0.78f, 0.72f, 0.60f);
+        tipRarityT.alignment = TextAnchor.MiddleLeft;
+        tipRarityT.raycastTarget = false;
+
+        var tipBodyRT = HUD_CreateRT("Body", tipPanel);
+        tipBodyRT.anchorMin = new Vector2(0, 0); tipBodyRT.anchorMax = new Vector2(1, 1);
+        tipBodyRT.offsetMin = new Vector2(8, 8); tipBodyRT.offsetMax = new Vector2(-8, -50);
+        var tipBodyT = tipBodyRT.gameObject.AddComponent<Text>();
+        tipBodyT.font = font; tipBodyT.fontSize = 12;
+        tipBodyT.color = new Color(0.92f, 0.86f, 0.72f);
+        tipBodyT.alignment = TextAnchor.UpperLeft;
+        tipBodyT.horizontalOverflow = HorizontalWrapMode.Wrap;
+        tipBodyT.verticalOverflow = VerticalWrapMode.Overflow;
+        tipBodyT.raycastTarget = false;
+
+        var tipUI = canvasGo.AddComponent<Astrion.UI.ItemTooltipUI>();
+        var tipSo = new UnityEditor.SerializedObject(tipUI);
+        tipSo.FindProperty("panel").objectReferenceValue = tipPanel;
+        tipSo.FindProperty("titleText").objectReferenceValue = tipTitleT;
+        tipSo.FindProperty("rarityText").objectReferenceValue = tipRarityT;
+        tipSo.FindProperty("bodyText").objectReferenceValue = tipBodyT;
+        tipSo.ApplyModifiedPropertiesWithoutUndo();
+        tipPanel.gameObject.SetActive(false);
+
         // ========== SHOP UI ==========
         var shopPanel = HUD_CreateRT("ShopPanel", root);
         shopPanel.anchorMin = shopPanel.anchorMax = new Vector2(0.5f, 0.5f);
@@ -4105,6 +4160,9 @@ public class ProjectSetup
             iconLblT.color = new Color(0.10f, 0.07f, 0.04f);
             iconLblT.alignment = TextAnchor.MiddleCenter;
             iconLblT.text = "?";
+
+            icon.gameObject.AddComponent<Astrion.UI.ItemSlotRef>();
+            icon.gameObject.AddComponent<Astrion.UI.TooltipTrigger>();
 
             // Name (top, left of price)
             var nm = HUD_CreateRT("Name", row);

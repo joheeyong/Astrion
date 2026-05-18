@@ -144,6 +144,10 @@ namespace Astrion.UI
                     bool canAfford = PlayerStats.Instance != null && PlayerStats.Instance.Gold >= entry.price;
                     buyBtn.interactable = canAfford;
                 }
+
+                // Tooltip hook: expose itemId on the icon (the part players actually hover)
+                var iconRef = row.Find("Icon")?.GetComponent<ItemSlotRef>();
+                if (iconRef != null) iconRef.itemId = entry.itemId;
             }
         }
 
