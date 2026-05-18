@@ -245,6 +245,16 @@ namespace Astrion.Game
                     sellPrice = 0, equipSlot = "ring",
                     untradable = true,
                 },
+                ["warrior_sword_bound"] = new ItemDef
+                {
+                    id = "warrior_sword_bound", displayName = "[귀속] 수련의 검",
+                    description = "전사가 처음 받는 검. 공격력 +7.\n교환·판매 불가.",
+                    iconColor = new Color(0.78f, 0.80f, 0.85f),
+                    iconLetter = "검", maxStack = 1,
+                    rarity = Rarity.Common, itemType = "장비",
+                    baseDamage = 7, sellPrice = 0, equipSlot = "weapon",
+                    untradable = true,
+                },
             };
             _initialized = true;
         }

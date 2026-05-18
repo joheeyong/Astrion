@@ -62,6 +62,17 @@ namespace Astrion.Game
                     isActive = true, mpCost = 8, cooldown = 6f,
                     isStarter = false,
                 },
+                ["sword_slash"] = new SkillDef
+                {
+                    id = "sword_slash",
+                    displayName = "베기",
+                    description = "전방을 검으로 베어 근접 적에게 피해.\n레벨당 데미지 +5",
+                    iconColor = new Color(0.85f, 0.85f, 0.90f),
+                    iconLetter = "⚔",
+                    maxLevel = 5, unlockLevel = 1,
+                    isActive = true, mpCost = 2, cooldown = 0.40f,
+                    isStarter = false,
+                },
             };
             _initialized = true;
         }

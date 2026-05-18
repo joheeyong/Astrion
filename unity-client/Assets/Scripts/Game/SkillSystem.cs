@@ -61,6 +61,12 @@ namespace Astrion.Game
                     _levels[def.id] = 1;
                 }
             }
+            // Class-specific starter skill
+            string cls = UnityEngine.PlayerPrefs.GetString("characterClass", "");
+            if (cls == "Warrior" && GetLevel("sword_slash") == 0)
+            {
+                _levels["sword_slash"] = 1;
+            }
             SaveToState();
             OnChanged?.Invoke();
         }

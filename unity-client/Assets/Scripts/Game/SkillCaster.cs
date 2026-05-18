@@ -53,6 +53,7 @@ namespace Astrion.Game
                 case "starbolt":      fired = FireStarbolt(); break;
                 case "meteor":        fired = FireMeteor(lv); break;
                 case "stellar_heal":  fired = FireStellarHeal(lv); break;
+                case "sword_slash":   fired = FireSwordSlash(lv); break;
                 default: return false;
             }
             if (!fired) return false;
@@ -125,6 +126,50 @@ namespace Astrion.Game
             BroadcastSkillCast(origin, p.FacingRight ? 1 : -1, "meteor");
 
             // meteor results visible via damage popups
+            return true;
+        }
+
+        private bool FireSwordSlash(int lv)
+        {
+            var p = FindPlayer();
+            if (p == null) return false;
+            var stats = PlayerStats.Instance;
+            int weaponDmg = 0;
+            if (stats != null && !string.IsNullOrEmpty(stats.EquippedWeaponId))
+            {
+                var def = ItemDatabase.Get(stats.EquippedWeaponId);
+                if (def != null) weaponDmg = def.baseDamage;
+            }
+            int baseDmg = 5 + (stats != null ? stats.Str * 2 + stats.Level * 3 : 0) + weaponDmg + (lv - 1) * 5;
+            float variance = baseDmg * 0.2f;
+            int dmg = Mathf.Max(1, Mathf.RoundToInt(baseDmg + Random.Range(-variance, variance)));
+
+            // Hit everything in a narrow front cone
+            Vector2 origin = p.transform.position;
+            float facing = p.FacingRight ? 1f : -1f;
+            float reach = 1.7f;
+            float halfHeight = 0.7f;
+
+            var monsters = Object.FindObjectsOfType<ServerMonster2D>();
+            int hits = 0;
+            var nm = Astrion.Network.MonsterNetworkManager.Instance;
+            foreach (var m in monsters)
+            {
+                if (m == null) continue;
+                Vector2 to = (Vector2)m.transform.position - origin;
+                if (to.x * facing < -0.1f) continue;        // behind
+                if (Mathf.Abs(to.x) > reach) continue;
+                if (Mathf.Abs(to.y) > halfHeight) continue;
+                if (nm != null) nm.SendHit(m.Id, dmg);
+                hits++;
+            }
+
+            // Visual: arm swing only (no star projectile)
+            var anim = p.GetComponent<PlayerAnimator2D>();
+            if (anim != null) anim.TriggerAttackMotion();
+
+            // Tell others to play the swing visual
+            BroadcastSkillCast(origin, p.FacingRight ? 1 : -1, "sword_slash");
             return true;
         }
 

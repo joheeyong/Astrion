@@ -11,6 +11,7 @@ namespace Astrion.Game
 
         // Cached procedural sprites — shared across instances
         private static Sprite _daggerSprite;
+        private static Sprite _swordSprite;
         private static Sprite _bowSprite;
         private static Sprite _helmetSprite;
         private static Sprite _armorSprite;
@@ -51,8 +52,9 @@ namespace Astrion.Game
             if (string.IsNullOrEmpty(id)) { _weaponSR.gameObject.SetActive(false); return; }
             var def = ItemDatabase.Get(id);
             if (def == null) { _weaponSR.gameObject.SetActive(false); return; }
-            bool isBow = id == "star_bow";
-            _weaponSR.sprite = isBow ? _bowSprite : _daggerSprite;
+            bool isBow   = id == "star_bow" || id == "star_bow_bound";
+            bool isSword = id.Contains("sword");
+            _weaponSR.sprite = isBow ? _bowSprite : (isSword ? _swordSprite : _daggerSprite);
             _weaponSR.color = def.iconColor;
             _weaponSR.gameObject.SetActive(true);
         }
@@ -94,10 +96,42 @@ namespace Astrion.Game
         private static void EnsureSpritesBuilt()
         {
             if (_daggerSprite == null) _daggerSprite = MakeRectSprite(5, 18);
+            if (_swordSprite  == null) _swordSprite  = MakeSwordSprite(6, 32);
             if (_bowSprite    == null) _bowSprite    = MakeBowSprite(18, 24);
             if (_helmetSprite == null) _helmetSprite = MakeHelmetSprite(20, 10);
             if (_armorSprite  == null) _armorSprite  = MakeArmorSprite(26, 30);
             if (_ringSprite   == null) _ringSprite   = MakeRingSprite(8);
+        }
+
+        private static Sprite MakeSwordSprite(int w, int h)
+        {
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                    tex.SetPixel(x, y, new Color(0, 0, 0, 0));
+            // Blade (top ~70%): white rect with dark edges
+            int hilt = Mathf.RoundToInt(h * 0.18f);
+            for (int y = hilt + 3; y < h; y++)
+                for (int x = 1; x < w - 1; x++)
+                {
+                    bool edge = x == 1 || x == w - 2 || y == h - 1;
+                    tex.SetPixel(x, y, edge ? new Color(0.05f, 0.04f, 0.06f) : Color.white);
+                }
+            // Pointed tip
+            tex.SetPixel(0, h - 2, new Color(0, 0, 0, 0));
+            tex.SetPixel(w - 1, h - 2, new Color(0, 0, 0, 0));
+            // Crossguard (horizontal bar)
+            for (int x = 0; x < w; x++)
+            {
+                tex.SetPixel(x, hilt + 1, new Color(0.30f, 0.22f, 0.10f));
+                tex.SetPixel(x, hilt + 2, new Color(0.30f, 0.22f, 0.10f));
+            }
+            // Grip
+            for (int y = 0; y < hilt; y++)
+                for (int x = 2; x < w - 2; x++)
+                    tex.SetPixel(x, y, new Color(0.18f, 0.12f, 0.06f));
+            tex.Apply();
+            return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.15f), 100);
         }
 
         private static Sprite MakeRectSprite(int w, int h)

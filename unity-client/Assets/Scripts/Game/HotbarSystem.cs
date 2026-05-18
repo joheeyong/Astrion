@@ -54,12 +54,16 @@ namespace Astrion.Game
                     _slots[i] = s.hotbarSkillIds[i] ?? "";
             }
 
-            // Default: slot 0 = starbolt if learned and nothing set
+            // Default: slot 0 gets the class's primary attack if nothing's bound yet
             bool empty = true;
             for (int i = 0; i < SLOT_COUNT; i++) if (!string.IsNullOrEmpty(_slots[i])) { empty = false; break; }
-            if (empty && SkillSystem.Instance != null && SkillSystem.Instance.IsLearned("starbolt"))
+            if (empty && SkillSystem.Instance != null)
             {
-                _slots[0] = "starbolt";
+                string cls = UnityEngine.PlayerPrefs.GetString("characterClass", "");
+                string primary = (cls == "Warrior" && SkillSystem.Instance.IsLearned("sword_slash"))
+                    ? "sword_slash"
+                    : (SkillSystem.Instance.IsLearned("starbolt") ? "starbolt" : "");
+                if (!string.IsNullOrEmpty(primary)) _slots[0] = primary;
             }
 
             SaveToState();

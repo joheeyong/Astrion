@@ -427,6 +427,14 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
                 ids.add(starterIds[i]);
                 qtys.add(starterQtys[i]);
             }
+
+            // Warrior gets a starter sword and auto-equips it
+            if ("Warrior".equals(charClass)) {
+                ids.add("warrior_sword_bound");
+                qtys.add(1);
+                obj.put("equippedWeaponId", "warrior_sword_bound");
+            }
+
             obj.set("inventoryItemIds", ids);
             obj.set("inventoryQuantities", qtys);
 

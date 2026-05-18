@@ -114,10 +114,12 @@ namespace Astrion.Game
             bool shopOpen = Astrion.UI.ShopUI.Instance != null && Astrion.UI.ShopUI.Instance.IsOpen;
             if (!Astrion.UI.GameHUD.IsChatFocused && !sysOpen && !shopOpen)
             {
-                // Q = quick-cast starbolt (always)
+                // Q = class-specific quick-cast (Warrior swings the sword; others fire starbolt)
                 if (Input.GetKeyDown(KeyCode.Q))
                 {
-                    SkillCaster.Instance?.Cast("starbolt");
+                    string cls = PlayerPrefs.GetString("characterClass", "");
+                    if (cls == "Warrior") SkillCaster.Instance?.Cast("sword_slash");
+                    else                  SkillCaster.Instance?.Cast("starbolt");
                 }
                 // 1~5 = hotbar slots
                 if      (Input.GetKeyDown(KeyCode.Alpha1)) HotbarSystem.Instance?.TryTrigger(0);
