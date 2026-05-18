@@ -124,7 +124,7 @@ namespace Astrion.Game
             // Broadcast SkillCast so others see it
             BroadcastSkillCast(origin, p.FacingRight ? 1 : -1, "meteor");
 
-            Debug.Log($"[Meteor] hit {hit} monsters for {dmg}");
+            // meteor results visible via damage popups
             return true;
         }
 
@@ -140,7 +140,7 @@ namespace Astrion.Game
             Vector2 origin = p != null ? (Vector2)p.transform.position : Vector2.zero;
             int dir = (p != null && p.FacingRight) ? 1 : -1;
             BroadcastSkillCast(origin, dir, "stellar_heal");
-            Debug.Log($"[StellarHeal] +{heal} HP");
+            // heal visible via HP bar jump
             return true;
         }
 

@@ -78,7 +78,6 @@ namespace Astrion.Network
             State.saveId = ""; // reset so subsequent routine Save() doesn't reuse
             NetworkManager.Instance.SendPacket(PacketType.StateSave, json);
             _pendingAcks[saveId] = new PendingAck { sentAt = Time.unscaledTime, payload = json, reason = reason, retried = false };
-            Debug.Log($"[PlayerStateManager] SaveImportant({reason}) sent saveId={saveId.Substring(0, 8)}");
         }
 
         private class PendingAck { public float sentAt; public string payload; public string reason; public bool retried; }
@@ -139,11 +138,8 @@ namespace Astrion.Network
                 try
                 {
                     var ack = JsonUtility.FromJson<AckPayload>(packet.Payload);
-                    if (ack != null && !string.IsNullOrEmpty(ack.saveId)
-                        && _pendingAcks.Remove(ack.saveId))
-                    {
-                        Debug.Log($"[PlayerStateManager] ACK saveId={ack.saveId.Substring(0,8)}");
-                    }
+                    if (ack != null && !string.IsNullOrEmpty(ack.saveId))
+                        _pendingAcks.Remove(ack.saveId);
                 }
                 catch { /* ignore */ }
                 return;
@@ -175,7 +171,7 @@ namespace Astrion.Network
 
             IsLoaded = true;
             ServerSupportsState = true;
-            Debug.Log($"[PlayerStateManager] State loaded: quest={State.questId} progress={State.questProgress}/{State.questTarget} fragments={State.collectedFragmentIds.Length}");
+            // state load: kept silent — UI surfaces what changed
             OnLoaded?.Invoke();
         }
 

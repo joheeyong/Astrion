@@ -412,8 +412,8 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             if (firstEver) {
                 obj = mapper.createObjectNode();
             } else {
-                JsonNode node = mapper.readTree(stateJson);
-                obj = (node instanceof ObjectNode) ? (ObjectNode) node : mapper.createObjectNode();
+                JsonNode loaded = mapper.readTree(stateJson);
+                obj = (loaded instanceof ObjectNode) ? (ObjectNode) loaded : mapper.createObjectNode();
             }
 
             ArrayNode ids = obj.has("inventoryItemIds") && obj.get("inventoryItemIds").isArray()

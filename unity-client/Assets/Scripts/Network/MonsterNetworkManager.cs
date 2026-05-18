@@ -74,7 +74,7 @@ namespace Astrion.Network
                     string nickPart = string.IsNullOrEmpty(nickname) ? "" : ",\"nickname\":\"" + EscapeJson(nickname) + "\"";
                     string json = "{\"zoneId\":\"" + zoneId + "\"" + nickPart + "}";
                     NetworkManager.Instance.SendPacket(PacketType.ZoneEnter, json);
-                    Debug.Log($"[Monsters] ZONE_ENTER {zoneId} nickname={nickname}");
+                    // zone transitions visible via HUD map name
                     yield break;
                 }
                 yield return null;

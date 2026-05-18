@@ -113,9 +113,7 @@ namespace Astrion.Game
             // SaveAttributes covers Exp/Level/Stats, FlushSave covers HP/MP changes from level-up.
             SaveAttributes();
             FlushSave();
-            Debug.Log($"[PlayerStats] +{amount} EXP  ({before}→{Exp}/{ExpForNextLevel(Level)})" +
-                      (Level != prevLevel ? $"  LEVEL UP! Lv.{prevLevel}→Lv.{Level}" : "") +
-                      "  [saved]");
+            // exp/level changes are visible via HUD bar + toast; no console spam
 
             if (Level != prevLevel)
             {
@@ -320,7 +318,7 @@ namespace Astrion.Game
             SaveAttributes();
             OnChanged?.Invoke();
             Astrion.UI.ToastUI.Instance?.Show($"[+ {amount} 골드]", new Color(0.94f, 0.78f, 0.30f));
-            Debug.Log($"[PlayerStats] +{amount} gold (total {Gold})");
+            // gold change visible via CharPanel HUD + toast
         }
 
         public bool SpendGold(int amount)

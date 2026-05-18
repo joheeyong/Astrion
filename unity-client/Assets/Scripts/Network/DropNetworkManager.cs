@@ -115,7 +115,7 @@ namespace Astrion.Network
                     InventorySystem.Instance.Add(d.itemId, d.quantity);
                 var def = ItemDatabase.Get(d.itemId);
                 string name = def != null ? def.displayName : d.itemId;
-                Debug.Log($"[Drop] +{d.quantity} {name} (claimed)");
+                // pickup visible via toast + inventory
                 Color tint = def != null ? ItemDatabase.RarityColor(def.rarity) : new Color(0.85f, 0.78f, 0.55f);
                 Astrion.UI.ToastUI.Instance?.Show($"[+]  {name}  × {d.quantity}", tint);
 

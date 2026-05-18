@@ -24,7 +24,7 @@ namespace Astrion.Game
                 return;
             }
 
-            Debug.Log($"[Game] Entered game as {_playerId}");
+            // entered game — no console noise
             NetworkManager.Instance.OnPacketReceived += HandlePacket;
 
             // Spawn local player or use scene-time PlayerPrefab
@@ -116,7 +116,7 @@ namespace Astrion.Game
                 tag.SetHp(100, 100); // until first PLAYER_STATUS arrives
                 _remoteTags[data.playerId] = tag;
 
-                Debug.Log($"[Game] Player spawned: {data.playerId} ({data.nickname})");
+                // remote spawn visible via on-screen player
             }
         }
 
@@ -136,7 +136,7 @@ namespace Astrion.Game
                 Destroy(go);
                 _remotePlayers.Remove(data.playerId);
                 _remoteTags.Remove(data.playerId);
-                Debug.Log($"[Game] Player despawned: {data.playerId}");
+                // remote despawn — silent
             }
         }
 
@@ -192,7 +192,7 @@ namespace Astrion.Game
         {
             var data = JsonUtility.FromJson<ChatData>(payload);
             if (data == null || string.IsNullOrEmpty(data.message)) return;
-            Debug.Log($"[Chat] {data.playerId}: {data.message}");
+            // chat shown in HUD panel; not duplicated to console
             var hud = Astrion.UI.GameHUD.Instance;
             if (hud != null) hud.AppendChatLine(data.playerId, data.message);
         }

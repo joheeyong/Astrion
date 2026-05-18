@@ -51,7 +51,7 @@ namespace Astrion.Game
             if (Time.time - _lastTransitionTime < cooldown) return;
             _lastTransitionTime = Time.time;
             PortalTransition.FromScene = SceneManager.GetActiveScene().name;
-            Debug.Log($"[Portal] {PortalTransition.FromScene} → {targetScene}");
+            // portal transition shown via scene change + fade
             SceneManager.LoadScene(targetScene);
         }
     }
