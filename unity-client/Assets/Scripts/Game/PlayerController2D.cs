@@ -73,7 +73,12 @@ namespace Astrion.Game
             }
             else
             {
-                _rb.velocity = new Vector2(h * moveSpeed, _rb.velocity.y);
+                // Horizontal control only on the ground — once airborne, the
+                // takeoff velocity is locked (no mid-air strafing).
+                if (_isGrounded)
+                {
+                    _rb.velocity = new Vector2(h * moveSpeed, _rb.velocity.y);
+                }
 
                 if (_onLadder && Mathf.Abs(v) > 0.5f)
                 {
@@ -88,8 +93,12 @@ namespace Astrion.Game
                 }
             }
 
-            if (h < -0.1f) SetFacing(false);
-            else if (h > 0.1f) SetFacing(true);
+            // Facing also locked while airborne — don't flip mid-jump
+            if (_isGrounded || _climbing)
+            {
+                if (h < -0.1f) SetFacing(false);
+                else if (h > 0.1f) SetFacing(true);
+            }
 
             // Skills (suppressed while typing in chat or while a blocking modal is open)
             bool sysOpen = Astrion.UI.SystemMenuUI.Instance != null && Astrion.UI.SystemMenuUI.Instance.IsOpen;
