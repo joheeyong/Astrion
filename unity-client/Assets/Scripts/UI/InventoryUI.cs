@@ -9,14 +9,26 @@ namespace Astrion.UI
     {
         [SerializeField] private GameObject panel;
         [SerializeField] private Transform slotsRoot;
+        [SerializeField] private Transform tabsRoot;
         [SerializeField] private Button closeButton;
         [SerializeField] private Button sortButton;
         [SerializeField] private KeyCode toggleKey = KeyCode.I;
+
+        // Tab order matches ProjectSetup: 장비, 소비, 기타, 설치, 캐쉬
+        private const int TAB_COUNT = 5;
+        private const int TAB_EQUIP = 0;
+        private const int TAB_USE = 1;
+        private const int TAB_ETC = 2;
+        private const int TAB_INSTALL = 3;
+        private const int TAB_CASH = 4;
 
         private Image[] _slotIcons;
         private Text[] _slotLetters;
         private Text[] _slotQtys;
         private ItemSlotRef[] _slotRefs;
+        private Image[] _tabBgs;
+        private Text[] _tabLabels;
+        private int _currentTab = TAB_EQUIP;
         private bool _cached;
 
         private void Awake()
@@ -29,6 +41,7 @@ namespace Astrion.UI
             if (closeButton != null) closeButton.onClick.AddListener(Close);
             if (sortButton != null) sortButton.onClick.AddListener(OnSortClicked);
             CacheSlots();
+            CacheTabs();
             if (InventorySystem.Instance != null)
             {
                 InventorySystem.Instance.OnChanged += Refresh;
@@ -66,9 +79,60 @@ namespace Astrion.UI
             _cached = true;
         }
 
+        private void CacheTabs()
+        {
+            if (tabsRoot == null) return;
+            _tabBgs = new Image[TAB_COUNT];
+            _tabLabels = new Text[TAB_COUNT];
+            for (int i = 0; i < TAB_COUNT; i++)
+            {
+                var tab = tabsRoot.Find($"Tab_{i}");
+                if (tab == null) continue;
+                _tabBgs[i] = tab.GetComponent<Image>();
+                _tabLabels[i] = tab.Find("Label")?.GetComponent<Text>();
+                var btn = tab.GetComponent<Button>();
+                if (btn == null) btn = tab.gameObject.AddComponent<Button>();
+                int idx = i;
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(() => SetTab(idx));
+            }
+        }
+
+        private void SetTab(int idx)
+        {
+            if (idx < 0 || idx >= TAB_COUNT) return;
+            _currentTab = idx;
+            RefreshTabVisuals();
+            Refresh();
+        }
+
+        private void RefreshTabVisuals()
+        {
+            if (_tabBgs == null) return;
+            for (int i = 0; i < TAB_COUNT; i++)
+            {
+                bool active = i == _currentTab;
+                if (_tabBgs[i] != null)
+                    _tabBgs[i].color = active ? Color.white : new Color(0.60f, 0.55f, 0.45f, 1f);
+                if (_tabLabels[i] != null)
+                    _tabLabels[i].color = active
+                        ? new Color(0.10f, 0.07f, 0.04f)
+                        : new Color(0.55f, 0.48f, 0.38f);
+            }
+        }
+
         private void OnSlotClicked(int idx)
         {
-            InventorySystem.Instance?.UseSlot(idx);
+            if (idx < 0 || idx >= InventorySystem.SLOT_COUNT) return;
+            // Only allow use when the slot's item belongs to the active tab
+            var inv = InventorySystem.Instance;
+            if (inv == null) return;
+            var s = inv.Slots[idx];
+            if (s.IsEmpty) return;
+            var def = ItemDatabase.Get(s.itemId);
+            if (def == null) return;
+            if (TabOf(def.itemType) != _currentTab) return;
+            inv.UseSlot(idx);
         }
 
         private void OnSortClicked()
@@ -95,9 +159,24 @@ namespace Astrion.UI
         public void Toggle() { if (panel) panel.SetActive(!panel.activeSelf); }
         public void Close() { if (panel) panel.SetActive(false); }
 
+        private static int TabOf(string itemType)
+        {
+            switch (itemType)
+            {
+                case "장비": return TAB_EQUIP;
+                case "소비": return TAB_USE;
+                case "기타": return TAB_ETC;
+                case "상자": return TAB_ETC;   // boxes live under 기타
+                case "설치": return TAB_INSTALL;
+                case "캐쉬": return TAB_CASH;
+                default:     return TAB_ETC;
+            }
+        }
+
         private void Refresh()
         {
             if (!_cached) CacheSlots();
+            RefreshTabVisuals();
             var inv = InventorySystem.Instance;
             if (inv == null) return;
 
@@ -105,8 +184,16 @@ namespace Astrion.UI
             {
                 if (_slotIcons[i] == null) continue;
                 var s = inv.Slots[i];
-                if (_slotRefs[i] != null) _slotRefs[i].itemId = s.IsEmpty ? "" : s.itemId;
-                if (s.IsEmpty)
+                bool visible = !s.IsEmpty;
+                if (visible)
+                {
+                    var def = ItemDatabase.Get(s.itemId);
+                    if (def != null && TabOf(def.itemType) != _currentTab) visible = false;
+                }
+
+                if (_slotRefs[i] != null) _slotRefs[i].itemId = visible ? s.itemId : "";
+
+                if (!visible)
                 {
                     _slotIcons[i].gameObject.SetActive(false);
                     if (_slotQtys[i] != null) _slotQtys[i].text = "";

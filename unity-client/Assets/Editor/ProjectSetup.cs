@@ -3867,6 +3867,7 @@ public class ProjectSetup
         var invUiSo = new UnityEditor.SerializedObject(invUI);
         invUiSo.FindProperty("panel").objectReferenceValue = invPanel.gameObject;
         invUiSo.FindProperty("slotsRoot").objectReferenceValue = slotsRoot2;
+        invUiSo.FindProperty("tabsRoot").objectReferenceValue = tabsRow;
         invUiSo.FindProperty("closeButton").objectReferenceValue = invCloseB;
         invUiSo.FindProperty("sortButton").objectReferenceValue = actBtns[0];
         invUiSo.ApplyModifiedPropertiesWithoutUndo();
