@@ -45,13 +45,19 @@ namespace Astrion.Game
 
             if (climbing)
             {
-                _phase += Time.deltaTime * walkCycleSpeed * 0.7f;
+                // Climbing pose: both arms reaching up, alternating which hand
+                // grips higher; legs make small stepping motions; body bobs.
+                _phase += Time.deltaTime * walkCycleSpeed * 0.55f;
                 float s = Mathf.Sin(_phase);
-                targetLA = s * 70f;
-                targetRA = -s * 70f;
-                targetLL = -s * 20f;
-                targetRL = s * 20f;
-                targetBob = 0f;
+                // Arms held overhead (~ ±160°) with ±10° alternation so one
+                // hand is always slightly higher than the other.
+                targetLA =  160f + s * 12f;
+                targetRA = -160f - s * 12f;
+                // Legs alternate up/down by ~22° — feet planted on rungs
+                targetLL = -s * 22f;
+                targetRL =  s * 22f;
+                // Small body bob — slight rise/fall as you grip rungs
+                targetBob = s * 0.03f;
             }
             else if (!grounded)
             {
