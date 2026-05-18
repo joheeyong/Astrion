@@ -181,13 +181,43 @@ namespace Astrion.UI
             PlayerPrefs.Save();
             NetworkManager.Instance.OnPacketReceived -= HandlePacket;
 
-            // Resume in the last game scene if saved; otherwise default to MainScene
-            string target = "MainScene";
+            // Re-request state right before entering — server may have appended a
+            // starter kit when this character was just created, and our cached
+            // state from login is stale.
             var psm = PlayerStateManager.Instance;
+            if (psm != null)
+            {
+                psm.OnLoaded += LoadGameSceneAfterStateReady;
+                psm.RequestLoad();
+                // Safety: if STATE_DATA doesn't arrive within 2s, load anyway
+                StartCoroutine(SafetyLoadAfterDelay(2f));
+            }
+            else
+            {
+                SceneManager.LoadScene("MainScene");
+            }
+        }
+
+        private bool _entered;
+
+        private System.Collections.IEnumerator SafetyLoadAfterDelay(float seconds)
+        {
+            yield return new WaitForSecondsRealtime(seconds);
+            if (!_entered) LoadGameSceneAfterStateReady();
+        }
+
+        private void LoadGameSceneAfterStateReady()
+        {
+            if (_entered) return;
+            _entered = true;
+            var psm = PlayerStateManager.Instance;
+            if (psm != null) psm.OnLoaded -= LoadGameSceneAfterStateReady;
+
+            string target = "MainScene";
             if (psm != null && psm.IsLoaded)
             {
                 string last = psm.State?.lastScene ?? "";
-                if (last == "MainScene" || last == "ForgottenWoodsScene")
+                if (last == "MainScene" || last == "ForgottenWoodsScene" || last == "CitadelOfDawnScene")
                     target = last;
             }
             SceneManager.LoadScene(target);
