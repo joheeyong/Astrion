@@ -149,7 +149,16 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         PlayerSession session = worldManager.getSession(ctx.channel());
         if (session == null) return;
         String json = redisManager.getPlayerState(session.getPlayerId());
-        if (json == null) json = "{}";
+        if (json == null) {
+            // Brand-new player — hand out starter kit (bread x3 + 50 G)
+            json = "{"
+                + "\"inventoryItemIds\":[\"bread\"],"
+                + "\"inventoryQuantities\":[3],"
+                + "\"gold\":50"
+                + "}";
+            redisManager.savePlayerState(session.getPlayerId(), json);
+            log.info("Starter kit granted to new player {}", session.getPlayerId());
+        }
         ctx.writeAndFlush(new GamePacket(PacketType.STATE_DATA, json));
     }
 

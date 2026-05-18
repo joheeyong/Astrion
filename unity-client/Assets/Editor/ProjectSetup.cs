@@ -159,6 +159,10 @@ public class ProjectSetup
         var deathGo = new GameObject("DeathSystem");
         deathGo.AddComponent<Astrion.Game.DeathSystem>();
 
+        // LevelUpEffect (DDOL — gold flash + particle burst on level up)
+        var levelFxGo = new GameObject("LevelUpEffect");
+        levelFxGo.AddComponent<Astrion.Game.LevelUpEffect>();
+
         // Canvas
         var canvasGo = new GameObject("Canvas");
         var canvas = canvasGo.AddComponent<Canvas>();

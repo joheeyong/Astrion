@@ -26,6 +26,7 @@ namespace Astrion.Game
 
         public event Action OnChanged;
         public event Action OnDied;
+        public event Action OnLeveledUp;
 
         public bool IsDead { get; private set; }
 
@@ -130,6 +131,7 @@ namespace Astrion.Game
             MaxMp += 5;
             Hp = MaxHp;   // full restore on level up
             Mp = MaxMp;
+            OnLeveledUp?.Invoke();
         }
 
         private void RestoreFromState()
