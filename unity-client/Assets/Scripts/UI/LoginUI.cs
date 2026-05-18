@@ -113,6 +113,10 @@ namespace Astrion.UI
                 PlayerPrefs.SetString("playerId", result.playerId);
                 PlayerPrefs.Save();
 
+                // Cache credentials in-memory for auto-reconnect (not persisted)
+                Astrion.Network.SessionCredentials.Username = usernameInput.text.Trim();
+                Astrion.Network.SessionCredentials.Password = passwordInput.text;
+
                 // Request persisted game state (quest progress, collected items) from server.
                 // Server must support STATE_REQUEST (0x09); see PlayerStateManager.ServerSupportsState
                 // as the runtime guard.

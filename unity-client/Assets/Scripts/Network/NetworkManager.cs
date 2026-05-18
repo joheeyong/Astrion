@@ -28,6 +28,7 @@ namespace Astrion.Network
 
         public event Action<GamePacket> OnPacketReceived;
         public event Action OnConnected;
+        public event Action OnDisconnected;
         public bool IsConnected => _isConnected;
 
         private void Awake()
@@ -128,6 +129,8 @@ namespace Astrion.Network
                 if (_isConnected)
                     Debug.LogError($"[Network] Receive error: {e.Message}");
             }
+            // Receive loop exited — make sure the rest of the app knows
+            if (_isConnected) Disconnect();
         }
 
         private bool ReadExact(byte[] buffer, int count)
@@ -156,10 +159,15 @@ namespace Astrion.Network
 
         public void Disconnect()
         {
+            bool wasConnected = _isConnected;
             _isConnected = false;
-            _stream?.Close();
-            _client?.Close();
+            try { _stream?.Close(); } catch { /* ignore */ }
+            try { _client?.Close(); } catch { /* ignore */ }
+            _stream = null;
+            _client = null;
             Debug.Log("[Network] Disconnected");
+            if (wasConnected)
+                _mainThreadActions.Enqueue(() => OnDisconnected?.Invoke());
         }
 
         private void OnDestroy()

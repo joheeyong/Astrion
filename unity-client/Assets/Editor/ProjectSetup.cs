@@ -159,6 +159,10 @@ public class ProjectSetup
         var deathGo = new GameObject("DeathSystem");
         deathGo.AddComponent<Astrion.Game.DeathSystem>();
 
+        // ReconnectSystem (DDOL — auto-reconnect on TCP drop)
+        var reconnectGo = new GameObject("ReconnectSystem");
+        reconnectGo.AddComponent<Astrion.Network.ReconnectSystem>();
+
         // LevelUpEffect (DDOL — gold flash + particle burst on level up)
         var levelFxGo = new GameObject("LevelUpEffect");
         levelFxGo.AddComponent<Astrion.Game.LevelUpEffect>();

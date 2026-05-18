@@ -128,6 +128,8 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
                     new GamePacket(PacketType.DESPAWN_PLAYER, despawnData));
             }
             session.setZoneId(newZone);
+            // Zone change is a legitimate "teleport" — skip the next move validation
+            session.lastMoveAt = 0L;
             // Announce this player to the new zone
             String spawnData = mapper.writeValueAsString(new SpawnData(session.getPlayerId(), session.getNickname(), session.getPosition()));
             worldManager.broadcastToZone(newZone,
@@ -256,6 +258,12 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         }
     }
 
+    // Movement anti-cheat thresholds — wide enough to absorb 1s lag spikes and
+    // the player's worst-case dash + jump combo, tight enough to reject teleports.
+    private static final double MAX_MOVE_SPEED = 12.0;   // world units per second
+    private static final double MOVE_GRACE_SECONDS = 0.5; // soft margin (lag spike absorber)
+    private static final double MOVE_FIXED_TOLERANCE = 1.0; // extra constant pad in units
+
     private void handleMove(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
         PlayerSession session = worldManager.getSession(ctx.channel());
         if (session == null) return;
@@ -268,6 +276,33 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         );
         int facing = node.has("facing") ? node.get("facing").asInt() : 1;
 
+        long now = System.currentTimeMillis();
+
+        // Validate against last accepted move (skipped on the very first move and right after a zone change).
+        if (session.lastMoveAt > 0) {
+            double dt = (now - session.lastMoveAt) / 1000.0;
+            double dx = newPos.getX() - session.lastValidPos.getX();
+            double dy = newPos.getY() - session.lastValidPos.getY();
+            double dist = Math.sqrt(dx * dx + dy * dy);
+            double allowed = MAX_MOVE_SPEED * (dt + MOVE_GRACE_SECONDS) + MOVE_FIXED_TOLERANCE;
+            if (dist > allowed)
+            {
+                log.warn("[anti-cheat] {} teleport rejected dist={} dt={}s allowed={} ({},{}) -> ({},{})",
+                    session.getPlayerId(),
+                    String.format("%.2f", dist),
+                    String.format("%.3f", dt),
+                    String.format("%.2f", allowed),
+                    session.lastValidPos.getX(), session.lastValidPos.getY(),
+                    newPos.getX(), newPos.getY());
+                // Drop the move: server keeps the last valid position; nothing is
+                // broadcast. The cheating client will look frozen to other players
+                // until they fall back into the allowed envelope.
+                return;
+            }
+        }
+
+        session.lastMoveAt = now;
+        session.lastValidPos = newPos;
         session.setPosition(newPos);
         redisManager.updatePlayerPosition(session.getPlayerId(), newPos);
 
