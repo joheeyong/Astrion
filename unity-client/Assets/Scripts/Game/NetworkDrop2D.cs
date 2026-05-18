@@ -17,6 +17,10 @@ namespace Astrion.Game
         private bool _claimed;
         private Transform _visual;
 
+        // Throttle the "inventory full" toast across all drops, so a player standing
+        // in a pile of loot doesn't get spammed.
+        private static float _lastFullToastAt = -10f;
+
         public void Init(string dropId, string itemId, int qty)
         {
             DropId = dropId;
@@ -43,6 +47,21 @@ namespace Astrion.Game
         {
             if (_claimed) return;
             if (other.GetComponent<PlayerController2D>() == null) return;
+
+            // Refuse to claim if inventory has no room for this item — server stays
+            // owner, someone else can still pick it up.
+            var inv = InventorySystem.Instance;
+            if (inv != null && !inv.HasFreeSlotFor(ItemId))
+            {
+                if (Time.time - _lastFullToastAt > 1.5f)
+                {
+                    Astrion.UI.ToastUI.Instance?.Show("인벤토리가 가득 찼습니다.",
+                        new Color(0.95f, 0.55f, 0.30f));
+                    _lastFullToastAt = Time.time;
+                }
+                return;
+            }
+
             _claimed = true;
             Astrion.Network.DropNetworkManager.Instance?.SendClaim(DropId);
         }
