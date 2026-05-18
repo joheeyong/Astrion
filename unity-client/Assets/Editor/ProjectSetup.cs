@@ -2532,17 +2532,20 @@ public class ProjectSetup
         leftLeg = llGo.transform;
 
         // === Equipment overlay slots (filled at runtime by PlayerEquipmentVisual) ===
-        AddEquipSlot(container.transform, "ArmorVisual",  new Vector3( 0.00f,  0.05f, 0), 12);
-        AddEquipSlot(container.transform, "HelmetVisual", new Vector3( 0.00f,  0.42f, 0), 14);
-        AddEquipSlot(container.transform, "WeaponVisual", new Vector3( 0.22f,  0.05f, 0), 14);
-        AddEquipSlot(container.transform, "RingVisual",   new Vector3(-0.18f,  0.32f, 0), 14);
+        AddEquipSlot(container.transform, "ArmorVisual",  new Vector3( 0.00f,  0.05f, 0), 12, 0f);
+        AddEquipSlot(container.transform, "HelmetVisual", new Vector3( 0.00f,  0.42f, 0), 14, 0f);
+        // Weapon rides the right arm so it sweeps with the swing animation.
+        // Base rotation -45° tilts the resting blade outward (~hip side).
+        AddEquipSlot(raGo.transform,      "WeaponVisual", new Vector3( 0.00f, -0.20f, 0), 14, -45f);
+        AddEquipSlot(container.transform, "RingVisual",   new Vector3(-0.18f,  0.32f, 0), 14, 0f);
     }
 
-    private static void AddEquipSlot(Transform parent, string name, Vector3 localPos, int sortingOrder)
+    private static void AddEquipSlot(Transform parent, string name, Vector3 localPos, int sortingOrder, float baseRotation)
     {
         var go = new GameObject(name);
         go.transform.SetParent(parent, false);
         go.transform.localPosition = localPos;
+        go.transform.localEulerAngles = new Vector3(0, 0, baseRotation);
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sortingOrder = sortingOrder;
         go.SetActive(false);

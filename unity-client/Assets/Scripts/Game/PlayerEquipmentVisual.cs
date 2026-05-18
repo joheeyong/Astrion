@@ -20,7 +20,8 @@ namespace Astrion.Game
         private void Awake()
         {
             EnsureSpritesBuilt();
-            _weaponSR = transform.Find("SpriteContainer/WeaponVisual")?.GetComponent<SpriteRenderer>();
+            // Weapon now lives under RightArm so it swings with the arm
+            _weaponSR = transform.Find("SpriteContainer/RightArm/WeaponVisual")?.GetComponent<SpriteRenderer>();
             _helmetSR = transform.Find("SpriteContainer/HelmetVisual")?.GetComponent<SpriteRenderer>();
             _armorSR  = transform.Find("SpriteContainer/ArmorVisual")?.GetComponent<SpriteRenderer>();
             _ringSR   = transform.Find("SpriteContainer/RingVisual")?.GetComponent<SpriteRenderer>();
