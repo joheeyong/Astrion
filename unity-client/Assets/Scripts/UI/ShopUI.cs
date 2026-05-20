@@ -292,12 +292,26 @@ namespace Astrion.UI
                 ToastUI.Instance?.Show("교환·판매 불가 아이템입니다.", new Color(0.95f, 0.55f, 0.30f));
                 return;
             }
-            int price = def != null ? def.sellPrice : 1;
-            if (!inv.RemoveOneFromSlot(slotIdx)) return;
-            stats.AddGold(price);
+            int unitPrice = def != null ? def.sellPrice : 1;
             string name = def != null ? def.displayName : s.itemId;
             Color tint = def != null ? ItemDatabase.RarityColor(def.rarity) : Color.white;
-            ToastUI.Instance?.Show($"[판매]  {name}  +{price:N0} G", tint);
+
+            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            if (shift)
+            {
+                // Sell every unit of this item across all slots
+                int totalQty = inv.RemoveAllOfItem(s.itemId);
+                if (totalQty <= 0) return;
+                int totalGold = unitPrice * totalQty;
+                stats.AddGold(totalGold);
+                ToastUI.Instance?.Show($"[판매]  {name} × {totalQty}  +{totalGold:N0} G", tint);
+            }
+            else
+            {
+                if (!inv.RemoveOneFromSlot(slotIdx)) return;
+                stats.AddGold(unitPrice);
+                ToastUI.Instance?.Show($"[판매]  {name}  +{unitPrice:N0} G", tint);
+            }
             RefreshGold();
         }
     }

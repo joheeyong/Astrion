@@ -168,6 +168,27 @@ namespace Astrion.Game
             return false;
         }
 
+        /// <summary>Remove every unit of itemId across all slots. Returns total qty removed.</summary>
+        public int RemoveAllOfItem(string itemId)
+        {
+            if (string.IsNullOrEmpty(itemId)) return 0;
+            int total = 0;
+            for (int i = 0; i < SLOT_COUNT; i++)
+            {
+                if (Slots[i].itemId == itemId && !Slots[i].IsEmpty)
+                {
+                    total += Slots[i].qty;
+                    Slots[i] = new Slot();
+                }
+            }
+            if (total > 0)
+            {
+                SaveToState();
+                OnChanged?.Invoke();
+            }
+            return total;
+        }
+
         /// <summary>Remove one unit from a slot. Returns true if something was removed.</summary>
         public bool RemoveOneFromSlot(int slotIndex)
         {
