@@ -2536,11 +2536,21 @@ public class ProjectSetup
         AddEquipSlot(container.transform, "HelmetVisual", new Vector3( 0.00f,  0.42f, 0), 14, 0f);
         // Weapon rides the right arm so it sweeps with the swing animation.
         // Base rotation -45° tilts the resting blade outward (~hip side).
-        AddEquipSlot(raGo.transform,      "WeaponVisual", new Vector3( 0.00f, -0.20f, 0), 14, -45f);
+        var weaponGo = AddEquipSlot(raGo.transform, "WeaponVisual", new Vector3(0.00f, -0.20f, 0), 14, -45f);
         AddEquipSlot(container.transform, "RingVisual",   new Vector3(-0.18f,  0.32f, 0), 14, 0f);
+
+        // Sword trail child — sits at the blade tip (sprite-relative ~+0.5u),
+        // gets toggled on/off by PlayerEquipmentVisual based on weapon type
+        // and emits only during the attack motion (SwordTrailController).
+        var trailGo = new GameObject("SwordTrail");
+        trailGo.transform.SetParent(weaponGo.transform, false);
+        trailGo.transform.localPosition = new Vector3(0f, 0.50f, 0f);
+        trailGo.AddComponent<TrailRenderer>();
+        trailGo.AddComponent<Astrion.Game.SwordTrailController>();
+        trailGo.SetActive(false);
     }
 
-    private static void AddEquipSlot(Transform parent, string name, Vector3 localPos, int sortingOrder, float baseRotation)
+    private static GameObject AddEquipSlot(Transform parent, string name, Vector3 localPos, int sortingOrder, float baseRotation)
     {
         var go = new GameObject(name);
         go.transform.SetParent(parent, false);
@@ -2549,6 +2559,7 @@ public class ProjectSetup
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sortingOrder = sortingOrder;
         go.SetActive(false);
+        return go;
     }
 
     // ---- Procedural texture helpers ----

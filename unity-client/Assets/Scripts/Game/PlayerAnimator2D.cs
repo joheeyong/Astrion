@@ -31,6 +31,16 @@ namespace Astrion.Game
         {
             _attackStartAt = Time.time;
             _attackBigSwing = bigSwing;
+            // Big swing = sword attack → fire the blade trail if equipped
+            if (bigSwing)
+            {
+                var trail = GetComponentInChildren<SwordTrailController>(includeInactive: false);
+                if (trail != null)
+                {
+                    float dur = BigSwingDuration * 0.85f;
+                    trail.Trigger(dur);
+                }
+            }
         }
 
         private void Awake()

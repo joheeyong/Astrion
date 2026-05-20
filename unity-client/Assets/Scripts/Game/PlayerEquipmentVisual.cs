@@ -8,6 +8,7 @@ namespace Astrion.Game
     public class PlayerEquipmentVisual : MonoBehaviour
     {
         private SpriteRenderer _weaponSR, _helmetSR, _armorSR, _ringSR;
+        private GameObject _swordTrailGo;
 
         // Cached procedural sprites — shared across instances
         private static Sprite _daggerSprite;
@@ -22,7 +23,13 @@ namespace Astrion.Game
         {
             EnsureSpritesBuilt();
             // Weapon now lives under RightArm so it swings with the arm
-            _weaponSR = transform.Find("SpriteContainer/RightArm/WeaponVisual")?.GetComponent<SpriteRenderer>();
+            var weaponT = transform.Find("SpriteContainer/RightArm/WeaponVisual");
+            _weaponSR = weaponT != null ? weaponT.GetComponent<SpriteRenderer>() : null;
+            if (weaponT != null)
+            {
+                var trailT = weaponT.Find("SwordTrail");
+                _swordTrailGo = trailT != null ? trailT.gameObject : null;
+            }
             _helmetSR = transform.Find("SpriteContainer/HelmetVisual")?.GetComponent<SpriteRenderer>();
             _armorSR  = transform.Find("SpriteContainer/ArmorVisual")?.GetComponent<SpriteRenderer>();
             _ringSR   = transform.Find("SpriteContainer/RingVisual")?.GetComponent<SpriteRenderer>();
@@ -63,6 +70,9 @@ namespace Astrion.Game
                                         : _daggerSprite;
             _weaponSR.color = def.iconColor;
             _weaponSR.gameObject.SetActive(true);
+
+            // Sword trail only on actual blades
+            if (_swordTrailGo != null) _swordTrailGo.SetActive(isSword);
         }
 
         private void ApplyHelmet(string id)
