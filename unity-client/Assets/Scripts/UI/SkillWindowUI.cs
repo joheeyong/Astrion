@@ -13,8 +13,23 @@ namespace Astrion.UI
         [SerializeField] private Button closeButton;
         [SerializeField] private KeyCode toggleKey = KeyCode.K;
 
-        // skillId order matches row indices in UI (built by ProjectSetup)
-        private readonly string[] _skillOrder = { "starbolt", "meteor", "stellar_heal" };
+        // Row order is filled per-class on enable so each character sees their own kit.
+        // Row 0 = class primary, Row 1 = class mover, Row 2 = meteor, Row 3 = heal.
+        private string[] _skillOrder = { "starbolt", "warrior_dash", "meteor", "stellar_heal" };
+
+        private void RebuildSkillOrder()
+        {
+            string cls = PlayerPrefs.GetString("characterClass", "");
+            string primary = cls == "Warrior" ? "sword_slash" : "starbolt";
+            string mover = cls switch
+            {
+                "Warrior" => "warrior_dash",
+                "Mage"    => "teleport",
+                "Archer"  => "double_jump",
+                _         => "warrior_dash"
+            };
+            _skillOrder = new[] { primary, mover, "meteor", "stellar_heal" };
+        }
 
         private void Awake()
         {
@@ -24,6 +39,7 @@ namespace Astrion.UI
         private void Start()
         {
             if (closeButton != null) closeButton.onClick.AddListener(Close);
+            RebuildSkillOrder();
             WireRowButtons();
             if (SkillSystem.Instance != null) SkillSystem.Instance.OnChanged += Refresh;
             if (PlayerStats.Instance != null) PlayerStats.Instance.OnChanged += Refresh;
@@ -116,6 +132,16 @@ namespace Astrion.UI
                 var def = SkillDatabase.Get(id);
                 if (def == null) continue;
                 int lv = sys != null ? sys.GetLevel(id) : 0;
+
+                // Refresh name/desc/icon to match the current class's row layout
+                var nameT = row.Find("Name")?.GetComponent<Text>();
+                if (nameT != null) nameT.text = def.displayName;
+                var descT = row.Find("Desc")?.GetComponent<Text>();
+                if (descT != null) descT.text = def.description ?? "";
+                var iconImg = row.Find("Icon")?.GetComponent<Image>();
+                if (iconImg != null) iconImg.color = def.iconColor;
+                var iconLetterT = row.Find("Icon/Letter")?.GetComponent<Text>();
+                if (iconLetterT != null) iconLetterT.text = def.iconLetter;
 
                 var levelT = row.Find("Level")?.GetComponent<Text>();
                 if (levelT != null) levelT.text = $"Lv.{lv}/{def.maxLevel}";

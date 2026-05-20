@@ -60,6 +60,9 @@ namespace Astrion.Game
                 case "meteor":        fired = FireMeteor(lv); break;
                 case "stellar_heal":  fired = FireStellarHeal(lv); break;
                 case "sword_slash":   fired = FireSwordSlash(lv); break;
+                case "warrior_dash":  fired = FireDash(lv); break;
+                case "teleport":      fired = FireTeleport(lv); break;
+                case "double_jump":   fired = FireDoubleJump(); break;
                 default: return false;
             }
             if (!fired) return false;
@@ -203,6 +206,33 @@ namespace Astrion.Game
             BroadcastSkillCast(origin, dir, "stellar_heal");
             // heal visible via HP bar jump
             return true;
+        }
+
+        private bool FireDash(int lv)
+        {
+            var p = FindPlayer();
+            if (p == null) return false;
+            float distance = 4f + (lv - 1) * 1f;
+            float dir = p.FacingRight ? 1f : -1f;
+            p.StartDashOrTeleport(distance, dir, instant: false);
+            return true;
+        }
+
+        private bool FireTeleport(int lv)
+        {
+            var p = FindPlayer();
+            if (p == null) return false;
+            float distance = 5f + (lv - 1) * 1f;
+            float dir = p.FacingRight ? 1f : -1f;
+            p.StartDashOrTeleport(distance, dir, instant: true);
+            return true;
+        }
+
+        private bool FireDoubleJump()
+        {
+            var p = FindPlayer();
+            if (p == null) return false;
+            return p.TryAirJump();
         }
 
         private void BroadcastSkillCast(Vector2 origin, int dir, string type)

@@ -33,6 +33,8 @@ namespace Astrion.Game
         public bool IsClimbing => _climbing;
         public bool FacingRight => _facingRight;
 
+        private int _airJumpsRemaining;
+
         private void Awake()
         {
             _rb = GetComponent<Rigidbody2D>();
@@ -92,6 +94,18 @@ namespace Astrion.Game
                 {
                     _rb.velocity = new Vector2(_rb.velocity.x, jumpForce);
                     SpawnDust(spread: 0.30f, drift: -_rb.velocity.x * 0.15f);
+                    // Refresh air jumps when leaving ground
+                    int doubleJumpLv = SkillSystem.Instance != null
+                        ? SkillSystem.Instance.GetLevel("double_jump") : 0;
+                    _airJumpsRemaining = doubleJumpLv; // Lv1 = 1 extra, Lv2 = 2, Lv3 = 3
+                }
+                else if (jumpPressed && !_isGrounded
+                         && SkillSystem.Instance != null
+                         && SkillSystem.Instance.IsLearned("double_jump")
+                         && _airJumpsRemaining > 0)
+                {
+                    // Route through SkillCaster so MP/cooldown are honored
+                    SkillCaster.Instance?.Cast("double_jump");
                 }
             }
 
@@ -99,6 +113,7 @@ namespace Astrion.Game
             if (_isGrounded && !_wasGrounded)
             {
                 SpawnDust(spread: 0.40f, drift: 0f);
+                _airJumpsRemaining = 0; // reset on landing
             }
             _wasGrounded = _isGrounded;
 
@@ -293,6 +308,58 @@ namespace Astrion.Game
         }
 
         public void SetJoystick(Joystick j) => joystick = j;
+
+        public bool TryAirJump()
+        {
+            if (_isGrounded || _airJumpsRemaining <= 0) return false;
+            _rb.velocity = new Vector2(_rb.velocity.x, jumpForce * 0.85f);
+            _airJumpsRemaining--;
+            SpawnDust(spread: 0.30f, drift: 0f);
+            return true;
+        }
+
+        public void StartDashOrTeleport(float distance, float dir, bool instant)
+        {
+            if (instant)
+            {
+                Vector3 startPos = transform.position;
+                Vector3 endPos = startPos + new Vector3(dir * distance, 0f, 0f);
+                // Puff at both endpoints
+                DustPuff2D.Spawn(startPos + new Vector3(0f, -0.3f, 0f));
+                transform.position = endPos;
+                DustPuff2D.Spawn(endPos + new Vector3(0f, -0.3f, 0f));
+                Camera2D.Shake(0.12f, 0.10f);
+            }
+            else
+            {
+                StartCoroutine(DashCoroutine(distance, dir));
+            }
+        }
+
+        private System.Collections.IEnumerator DashCoroutine(float distance, float dir)
+        {
+            float duration = 0.18f;
+            float traveled = 0f;
+            float speed = distance / duration;
+            float dustTimer = 0f;
+            float origGravity = _rb.gravityScale;
+            _rb.gravityScale = 0f; // keep dash horizontal
+            _rb.velocity = new Vector2(dir * speed, 0f);
+            while (traveled < distance)
+            {
+                float step = speed * Time.deltaTime;
+                traveled += step;
+                dustTimer += Time.deltaTime;
+                if (dustTimer > 0.04f)
+                {
+                    DustPuff2D.Spawn(transform.position + new Vector3(0f, -0.3f, 0f), -dir * 0.8f);
+                    dustTimer = 0f;
+                }
+                yield return null;
+            }
+            _rb.gravityScale = origGravity;
+            _rb.velocity = new Vector2(0f, _rb.velocity.y); // stop horizontal momentum
+        }
 
         private static Sprite _arrowSprite;
         private static Sprite GetArrowSprite()

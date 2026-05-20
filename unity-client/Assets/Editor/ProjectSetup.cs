@@ -3915,7 +3915,7 @@ public class ProjectSetup
         skillPanel.anchorMin = skillPanel.anchorMax = new Vector2(0.5f, 0.5f);
         skillPanel.pivot = new Vector2(0.5f, 0.5f);
         skillPanel.anchoredPosition = Vector2.zero;
-        skillPanel.sizeDelta = new Vector2(480, 430);
+        skillPanel.sizeDelta = new Vector2(480, 540);
         var skillBgImg = skillPanel.gameObject.AddComponent<Image>();
         skillBgImg.sprite = panelSpr; skillBgImg.type = Image.Type.Sliced;
 
@@ -3954,9 +3954,12 @@ public class ProjectSetup
         skillRowsRoot.anchorMin = new Vector2(0, 0); skillRowsRoot.anchorMax = new Vector2(1, 1);
         skillRowsRoot.offsetMin = new Vector2(12, 40); skillRowsRoot.offsetMax = new Vector2(-12, -48);
 
-        // 3 skill rows
+        // 4 skill rows — row 0 = class primary, row 1 = class mover, then shared skills.
+        // Labels are placeholders here; SkillWindowUI.Refresh repopulates them from the
+        // active class so each character sees their own kit.
         (string id, string name, string letter, Color color, string desc)[] skillRows = {
-            ("starbolt",     "별빛 투사체",  "★", new Color(1f,    0.85f, 0.30f), "정면 별빛 발사 / 자동 호밍 / Lv당 데미지 +5"),
+            ("starbolt",     "기본 공격",    "★", new Color(1f,    0.85f, 0.30f), "—"),
+            ("warrior_dash", "이동기",       "→", new Color(0.95f, 0.45f, 0.25f), "—"),
             ("meteor",       "유성 낙하",    "☄", new Color(0.95f, 0.45f, 0.20f), "범위 별 폭발 (구현 예정)"),
             ("stellar_heal", "별빛 회복",    "♥", new Color(0.55f, 1f,    0.55f), "HP 회복 / Lv당 회복량 +10"),
         };

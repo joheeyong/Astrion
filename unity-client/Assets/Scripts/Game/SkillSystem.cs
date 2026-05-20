@@ -84,6 +84,16 @@ namespace Astrion.Game
             if (def == null) return false;
             var stats = PlayerStats.Instance;
             if (stats == null) return false;
+            // Class restriction
+            if (!string.IsNullOrEmpty(def.ownerClass))
+            {
+                string cls = UnityEngine.PlayerPrefs.GetString("characterClass", "");
+                if (def.ownerClass != cls)
+                {
+                    Astrion.UI.ToastUI.Instance?.Show($"{def.ownerClass} 전용 스킬입니다.", new Color(0.95f, 0.55f, 0.30f));
+                    return false;
+                }
+            }
             int current = GetLevel(skillId);
             if (current >= def.maxLevel) return false;
             if (stats.Level < def.unlockLevel) return false;

@@ -19,6 +19,7 @@ namespace Astrion.Game
             public int mpCost;          // for active skills
             public float cooldown;      // seconds
             public bool isStarter;      // auto-granted at Lv 1
+            public string ownerClass;   // "Warrior" / "Mage" / "Archer" / "Thief" / "" (any)
         }
 
         private static Dictionary<string, SkillDef> _skills;
@@ -72,6 +73,43 @@ namespace Astrion.Game
                     maxLevel = 5, unlockLevel = 1,
                     isActive = true, mpCost = 2, cooldown = 0.40f,
                     isStarter = false,
+                    ownerClass = "Warrior",
+                },
+                ["warrior_dash"] = new SkillDef
+                {
+                    id = "warrior_dash",
+                    displayName = "돌진",
+                    description = "전방으로 빠르게 돌진.\n레벨당 거리 +1u\nWarrior 전용",
+                    iconColor = new Color(0.95f, 0.45f, 0.25f),
+                    iconLetter = "→",
+                    maxLevel = 3, unlockLevel = 3,
+                    isActive = true, mpCost = 5, cooldown = 2f,
+                    isStarter = false,
+                    ownerClass = "Warrior",
+                },
+                ["teleport"] = new SkillDef
+                {
+                    id = "teleport",
+                    displayName = "텔레포트",
+                    description = "전방으로 순간이동.\n레벨당 거리 +1u\nMage 전용",
+                    iconColor = new Color(0.55f, 0.40f, 0.95f),
+                    iconLetter = "✦",
+                    maxLevel = 3, unlockLevel = 3,
+                    isActive = true, mpCost = 15, cooldown = 3f,
+                    isStarter = false,
+                    ownerClass = "Mage",
+                },
+                ["double_jump"] = new SkillDef
+                {
+                    id = "double_jump",
+                    displayName = "더블 점프",
+                    description = "공중에서 한 번 더 점프.\n레벨당 추가 점프 +1회\nArcher 전용",
+                    iconColor = new Color(0.40f, 0.85f, 0.60f),
+                    iconLetter = "↑↑",
+                    maxLevel = 3, unlockLevel = 3,
+                    isActive = true, mpCost = 0, cooldown = 0.3f,
+                    isStarter = false,
+                    ownerClass = "Archer",
                 },
             };
             _initialized = true;
