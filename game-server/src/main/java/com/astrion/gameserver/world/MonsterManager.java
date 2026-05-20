@@ -50,6 +50,9 @@ public class MonsterManager {
     private final Random rng = new Random();
     private final ScheduledExecutorService executor;
 
+    public int getMonsterCount() { return monsters.size(); }
+    public int getActiveDropCount() { return activeDrops.size(); }
+
     public MonsterManager(WorldManager worldManager) {
         this.worldManager = worldManager;
         this.executor = Executors.newSingleThreadScheduledExecutor(r -> {
