@@ -158,7 +158,9 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
                 worldManager.broadcastToZone(oldZone,
                     new GamePacket(PacketType.DESPAWN_PLAYER, despawnData));
             }
-            session.setZoneId(newZone);
+            // Route through WorldManager so the zone-keyed broadcast index
+            // stays in sync — calling session.setZoneId directly would skip it.
+            worldManager.setZoneId(session, newZone);
             // Zone change is a legitimate "teleport" — skip the next move validation
             session.lastMoveAt = 0L;
             // Announce this player to the new zone
@@ -518,7 +520,7 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         redisManager.updatePlayerPosition(session.getPlayerId(), newPos);
 
         String moveData = mapper.writeValueAsString(new MoveData(session.getPlayerId(), newPos, facing));
-        worldManager.broadcastNearby(newPos, BROADCAST_RANGE,
+        worldManager.broadcastNearby(session.getZoneId(), newPos, BROADCAST_RANGE,
                 new GamePacket(PacketType.PLAYER_MOVED, moveData), session.getPlayerId());
     }
 

@@ -8,6 +8,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class WorldManager {
@@ -18,11 +20,17 @@ public class WorldManager {
     private final ConcurrentHashMap<String, PlayerSession> sessions = new ConcurrentHashMap<>();
     // playerId -> PlayerSession
     private final ConcurrentHashMap<String, PlayerSession> playerIndex = new ConcurrentHashMap<>();
+    // zoneId -> Set<PlayerSession>. Maintained alongside sessions/playerIndex
+    // by addPlayer / removePlayer / setZoneId. Zone-scoped broadcasts use this
+    // instead of scanning the full sessions map, which collapses MOVE/MONSTER
+    // broadcasts from O(total players) to O(players in this zone).
+    private final ConcurrentHashMap<String, Set<PlayerSession>> sessionsByZone = new ConcurrentHashMap<>();
 
     public PlayerSession addPlayer(String playerId, Channel channel) {
         PlayerSession session = new PlayerSession(playerId, channel);
         sessions.put(channel.id().asShortText(), session);
         playerIndex.put(playerId, session);
+        // Zone index is updated when setZoneId fires (LOGIN → ZONE_ENTER).
         log.info("Player {} joined the world. Online: {}", playerId, sessions.size());
         return session;
     }
@@ -31,9 +39,34 @@ public class WorldManager {
         PlayerSession session = sessions.remove(channel.id().asShortText());
         if (session != null) {
             playerIndex.remove(session.getPlayerId());
+            removeFromZoneIndex(session);
             log.info("Player {} left the world. Online: {}", session.getPlayerId(), sessions.size());
         }
         return session;
+    }
+
+    /** Move a session between zones, keeping the zone index consistent.
+     *  Callers should use this instead of PlayerSession.setZoneId directly. */
+    public void setZoneId(PlayerSession session, String newZone) {
+        if (session == null) return;
+        String old = session.getZoneId();
+        String next = newZone == null ? "" : newZone;
+        if (Objects.equals(old, next)) return;
+        if (old != null && !old.isEmpty()) {
+            Set<PlayerSession> s = sessionsByZone.get(old);
+            if (s != null) s.remove(session);
+        }
+        session.setZoneId(next);
+        if (!next.isEmpty()) {
+            sessionsByZone.computeIfAbsent(next, k -> ConcurrentHashMap.newKeySet()).add(session);
+        }
+    }
+
+    private void removeFromZoneIndex(PlayerSession session) {
+        String z = session.getZoneId();
+        if (z == null || z.isEmpty()) return;
+        Set<PlayerSession> s = sessionsByZone.get(z);
+        if (s != null) s.remove(session);
     }
 
     public PlayerSession getSession(Channel channel) {
@@ -59,12 +92,22 @@ public class WorldManager {
     }
 
     /**
-     * Broadcast a packet to all players within a certain range of the given position.
+     * Broadcast to players in {@code zoneId} within {@code range} of {@code origin}.
+     * Iterates only the zone's bucket and avoids sqrt by comparing squared
+     * distances. Pre-optimisation this scanned every session every move.
      */
-    public void broadcastNearby(Position origin, float range, GamePacket packet, String excludePlayerId) {
-        for (PlayerSession session : sessions.values()) {
-            if (session.getPlayerId().equals(excludePlayerId)) continue;
-            if (session.getPosition().distanceTo(origin) <= range) {
+    public void broadcastNearby(String zoneId, Position origin, float range, GamePacket packet, String excludePlayerId) {
+        if (zoneId == null || zoneId.isEmpty()) return;
+        Set<PlayerSession> bucket = sessionsByZone.get(zoneId);
+        if (bucket == null) return;
+        float r2 = range * range;
+        for (PlayerSession session : bucket) {
+            if (excludePlayerId != null && session.getPlayerId().equals(excludePlayerId)) continue;
+            Position p = session.getPosition();
+            float dx = p.getX() - origin.getX();
+            float dy = p.getY() - origin.getY();
+            float dz = p.getZ() - origin.getZ();
+            if (dx * dx + dy * dy + dz * dz <= r2) {
                 session.getChannel().writeAndFlush(packet);
             }
         }
@@ -81,22 +124,24 @@ public class WorldManager {
     }
 
     /**
-     * Broadcast to all players currently in the given zone.
+     * Broadcast to all players currently in the given zone. O(zone size).
      */
     public void broadcastToZone(String zoneId, GamePacket packet) {
         if (zoneId == null) return;
-        for (PlayerSession session : sessions.values()) {
-            if (zoneId.equals(session.getZoneId()))
-                session.getChannel().writeAndFlush(packet);
+        Set<PlayerSession> bucket = sessionsByZone.get(zoneId);
+        if (bucket == null) return;
+        for (PlayerSession session : bucket) {
+            session.getChannel().writeAndFlush(packet);
         }
     }
 
     public void broadcastToZoneExcept(String zoneId, GamePacket packet, String excludePlayerId) {
         if (zoneId == null) return;
-        for (PlayerSession session : sessions.values()) {
+        Set<PlayerSession> bucket = sessionsByZone.get(zoneId);
+        if (bucket == null) return;
+        for (PlayerSession session : bucket) {
             if (excludePlayerId != null && session.getPlayerId().equals(excludePlayerId)) continue;
-            if (zoneId.equals(session.getZoneId()))
-                session.getChannel().writeAndFlush(packet);
+            session.getChannel().writeAndFlush(packet);
         }
     }
 }
