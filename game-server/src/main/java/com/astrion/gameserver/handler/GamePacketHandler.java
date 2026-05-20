@@ -25,6 +25,8 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
     private static final Logger log = LoggerFactory.getLogger(GamePacketHandler.class);
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final float BROADCAST_RANGE = 100f;
+    // Shared across all handler instances — connection-level state for the whole server.
+    private static final LoginRateLimiter loginRateLimiter = new LoginRateLimiter();
 
     private final WorldManager worldManager;
     private final RedisManager redisManager;
@@ -243,6 +245,18 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         String password = node.get("password").asText();
         boolean isRegister = node.has("isRegister") && node.get("isRegister").asBoolean();
         String clientVersion = node.has("clientVersion") ? node.get("clientVersion").asText() : "";
+        String clientIp = clientIpOf(ctx);
+
+        // Throttle first — version + credential checks would otherwise act as a
+        // 'username/password valid?' oracle for a brute-forcer.
+        LoginRateLimiter.Result rl = loginRateLimiter.check(clientIp);
+        if (!rl.allowed) {
+            String msg = "로그인 시도가 너무 많습니다. " + rl.secondsLeft + "초 후 다시 시도해 주세요.";
+            String result = mapper.writeValueAsString(new LoginResult(false, null, msg));
+            ctx.writeAndFlush(new GamePacket(PacketType.LOGIN_RESULT, result));
+            log.warn("Rate-limited login from {} (user='{}'): {}s left", clientIp, username, rl.secondsLeft);
+            return;
+        }
 
         // Reject before touching credentials when the build is wire-incompatible
         if (!com.astrion.common.Version.CURRENT.equals(clientVersion)) {
@@ -298,7 +312,22 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         String result = mapper.writeValueAsString(new LoginResult(true, username, "OK"));
         ctx.writeAndFlush(new GamePacket(PacketType.LOGIN_RESULT, result));
 
+        // Legitimate user — drop accumulated failure count for this IP.
+        loginRateLimiter.onSuccess(clientIp);
+
         log.info("Player {} logged in", username);
+    }
+
+    private static String clientIpOf(ChannelHandlerContext ctx) {
+        try {
+            java.net.SocketAddress addr = ctx.channel().remoteAddress();
+            if (addr instanceof java.net.InetSocketAddress) {
+                return ((java.net.InetSocketAddress) addr).getAddress().getHostAddress();
+            }
+            return addr == null ? "unknown" : addr.toString();
+        } catch (Exception e) {
+            return "unknown";
+        }
     }
 
     private String hashPassword(String password) {
