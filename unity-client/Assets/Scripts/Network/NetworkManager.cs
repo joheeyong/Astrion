@@ -52,13 +52,17 @@ namespace Astrion.Network
 
         public void Connect()
         {
-            new Thread(() => ConnectWithRetry()).Start();
-        }
-
-        private void ConnectWithRetry()
-        {
+            // PlayerPrefs is main-thread-only in Unity, so resolve host/port
+            // HERE on the caller's main thread, then hand the captured values
+            // to the worker. The Connect() entry points are all called from
+            // UI / scene lifecycle code, which runs on the main thread.
             string host = NetworkConfig.Host;
             int port = NetworkConfig.Port;
+            new Thread(() => ConnectWithRetry(host, port)).Start();
+        }
+
+        private void ConnectWithRetry(string host, int port)
+        {
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
                 try
