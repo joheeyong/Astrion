@@ -1,6 +1,7 @@
 package com.astrion.gameserver.network;
 
 import com.astrion.gameserver.world.MonsterManager;
+import com.astrion.gameserver.world.PlayerSession;
 import com.astrion.gameserver.world.WorldManager;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
@@ -17,6 +18,8 @@ import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Minimal HTTP introspection endpoint for operations / uptime probes.
@@ -73,7 +76,16 @@ public class HealthHttpHandler extends SimpleChannelInboundHandler<FullHttpReque
         long heapUsedMb = (rt.totalMemory() - rt.freeMemory()) / (1024L * 1024L);
         long heapMaxMb = rt.maxMemory() / (1024L * 1024L);
 
-        StringBuilder sb = new StringBuilder(256);
+        // Single pass over the session collection. TreeMap so the JSON has a
+        // stable, alphabetised key order — easier to diff between polls.
+        TreeMap<String, Integer> byZone = new TreeMap<>();
+        for (PlayerSession s : worldManager.getAllSessions()) {
+            String z = s.getZoneId();
+            if (z == null || z.isEmpty()) z = "(none)"; // logged in, not yet ZONE_ENTER
+            byZone.merge(z, 1, Integer::sum);
+        }
+
+        StringBuilder sb = new StringBuilder(384);
         sb.append('{')
           .append("\"version\":\"").append(com.astrion.common.Version.CURRENT).append("\",")
           .append("\"uptime_seconds\":").append(uptimeSec).append(',')
@@ -81,9 +93,23 @@ public class HealthHttpHandler extends SimpleChannelInboundHandler<FullHttpReque
           .append("\"monsters\":").append(monsters).append(',')
           .append("\"active_drops\":").append(drops).append(',')
           .append("\"heap_used_mb\":").append(heapUsedMb).append(',')
-          .append("\"heap_max_mb\":").append(heapMaxMb)
-          .append('}');
+          .append("\"heap_max_mb\":").append(heapMaxMb).append(',')
+          .append("\"players_by_zone\":{");
+        boolean first = true;
+        for (Map.Entry<String, Integer> e : byZone.entrySet()) {
+            if (!first) sb.append(',');
+            first = false;
+            sb.append('"').append(escapeJson(e.getKey())).append("\":").append(e.getValue());
+        }
+        sb.append("}}");
         return sb.toString();
+    }
+
+    /** Minimal JSON-string escape — zone IDs are internal constants, but a
+     *  defensive escape keeps the response well-formed if one ever changes. */
+    private static String escapeJson(String s) {
+        if (s.indexOf('"') < 0 && s.indexOf('\\') < 0) return s;
+        return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     private static void send(ChannelHandlerContext ctx, FullHttpRequest req, HttpResponseStatus status, String body) {
