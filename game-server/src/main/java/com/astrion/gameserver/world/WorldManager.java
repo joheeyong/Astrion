@@ -48,6 +48,16 @@ public class WorldManager {
         return sessions.values();
     }
 
+    /** Close every active client channel. channelInactive will fire on each
+     *  one synchronously inside the Netty loop, so by the time the worker
+     *  group shuts down each player is already marked offline in Redis and
+     *  a DESPAWN_PLAYER has been broadcast. Used during server shutdown. */
+    public void disconnectAll() {
+        for (PlayerSession s : sessions.values()) {
+            try { s.getChannel().close(); } catch (Exception ignored) { /* best-effort */ }
+        }
+    }
+
     /**
      * Broadcast a packet to all players within a certain range of the given position.
      */

@@ -21,6 +21,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class GameServerMain {
 
@@ -82,6 +84,33 @@ public class GameServerMain {
             log.info("Game server started on port {}", PORT);
             log.info("Redis connected at {}:{}", REDIS_HOST, REDIS_PORT);
 
+            // SIGTERM handler. systemd sends SIGTERM and waits TimeoutStopSec
+            // (30s, set in the unit file) before escalating to SIGKILL. Inside
+            // that window we want every active player to land in Redis as
+            // 'offline' and every pending write to flush.
+            AtomicBoolean shutdownStarted = new AtomicBoolean(false);
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                if (!shutdownStarted.compareAndSet(false, true)) return;
+                log.info("Graceful shutdown initiated");
+                try {
+                    // 1. Close the listening socket so no new connections sneak in.
+                    future.channel().close().sync();
+                    // 2. Close all active client channels. channelInactive runs
+                    //    for each, doing setPlayerOffline + DESPAWN_PLAYER on
+                    //    the Netty thread before we drain.
+                    worldManager.disconnectAll();
+                    // 3. Drain in-flight writes. quietPeriod=1s, timeout=10s —
+                    //    gives Netty time to flush the despawn broadcasts.
+                    workerGroup.shutdownGracefully(1, 10, TimeUnit.SECONDS).sync();
+                    bossGroup.shutdownGracefully(1, 5, TimeUnit.SECONDS).sync();
+                    monsterManager.shutdown();
+                    redisManager.shutdown();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                log.info("Graceful shutdown complete");
+            }, "astrion-shutdown"));
+
             // Two HTTP listeners share the same worker loop — probe traffic
             // is tiny so a dedicated EventLoopGroup would just be wasted threads.
             //
@@ -99,12 +128,19 @@ public class GameServerMain {
             log.info("HTTP liveness endpoint on port {} (GET /health)", LIVENESS_PORT);
 
             future.channel().closeFuture().sync();
-        } finally {
+            // Reaching here means the listening channel closed cleanly — the
+            // shutdown hook already drained everything else. No explicit
+            // cleanup here on purpose; the hook owns the lifecycle now.
+        } catch (Throwable t) {
+            // If something explodes BEFORE the shutdown hook would normally
+            // run (e.g. bind fails), make sure we still release the loops so
+            // the JVM doesn't hang at exit.
+            log.error("Fatal startup error, tearing down event loops", t);
             workerGroup.shutdownGracefully();
             bossGroup.shutdownGracefully();
             monsterManager.shutdown();
             redisManager.shutdown();
-            log.info("Game server shut down");
+            throw t;
         }
     }
 

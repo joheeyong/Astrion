@@ -26,6 +26,15 @@ ExecStart=/home/ubuntu/game-server-0.1.0/bin/game-server
 Restart=always
 RestartSec=5
 
+# Give the shutdown hook a real budget. Default would already let it run,
+# but pinning the value documents what 'graceful' means here. systemd sends
+# SIGTERM, JVM runs the shutdown hook (close listening socket, disconnect
+# every player so channelInactive fires, drain Netty, shutdown Redis), then
+# the process exits cleanly. SIGKILL only fires if all of that takes >30s,
+# which it shouldn't unless the worker group is genuinely stuck.
+TimeoutStopSec=30
+KillSignal=SIGTERM
+
 # JVM heap. Current load sits well under 100MB used; 512MB max leaves
 # generous headroom for /metrics heap_used_mb to grow before we revisit.
 #
