@@ -142,7 +142,8 @@ namespace Astrion.Network
                 string payload = JsonUtility.ToJson(new LoginReq {
                     username = SessionCredentials.Username,
                     password = SessionCredentials.Password,
-                    isRegister = false
+                    isRegister = false,
+                    clientVersion = Version.Current,
                 });
                 NetworkManager.Instance.SendPacket(PacketType.Login, payload);
 
@@ -232,7 +233,7 @@ namespace Astrion.Network
             _group.blocksRaycasts = false;
         }
 
-        [System.Serializable] private class LoginReq { public string username; public string password; public bool isRegister; }
+        [System.Serializable] private class LoginReq { public string username; public string password; public bool isRegister; public string clientVersion; }
         [System.Serializable] private class LoginRes { public bool success; public string playerId; public string message; }
     }
 }

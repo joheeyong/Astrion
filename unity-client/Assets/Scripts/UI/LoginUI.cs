@@ -95,7 +95,8 @@ namespace Astrion.UI
             {
                 username = username,
                 password = password,
-                isRegister = isRegister
+                isRegister = isRegister,
+                clientVersion = Astrion.Network.Version.Current,
             });
             NetworkManager.Instance.SendPacket(PacketType.Login, payload);
         }
@@ -149,6 +150,7 @@ namespace Astrion.UI
             public string username;
             public string password;
             public bool isRegister;
+            public string clientVersion;
         }
 
         [System.Serializable]

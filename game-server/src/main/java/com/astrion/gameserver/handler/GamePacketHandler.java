@@ -242,6 +242,19 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         String username = node.get("username").asText();
         String password = node.get("password").asText();
         boolean isRegister = node.has("isRegister") && node.get("isRegister").asBoolean();
+        String clientVersion = node.has("clientVersion") ? node.get("clientVersion").asText() : "";
+
+        // Reject before touching credentials when the build is wire-incompatible
+        if (!com.astrion.common.Version.CURRENT.equals(clientVersion)) {
+            String msg = "버전 불일치 — 클라이언트를 업데이트해 주세요. ("
+                + "client " + (clientVersion.isEmpty() ? "?" : clientVersion)
+                + " ≠ server " + com.astrion.common.Version.CURRENT + ")";
+            String result = mapper.writeValueAsString(new LoginResult(false, null, msg));
+            ctx.writeAndFlush(new GamePacket(PacketType.LOGIN_RESULT, result));
+            log.warn("Rejected login from {}: version mismatch (client={} server={})",
+                username, clientVersion, com.astrion.common.Version.CURRENT);
+            return;
+        }
 
         String hashedPassword = hashPassword(password);
         String accountKey = "account:" + username;
