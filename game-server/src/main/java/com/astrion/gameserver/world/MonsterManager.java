@@ -87,6 +87,7 @@ public class MonsterManager {
     }
 
     private void spawnInitial() {
+        // ───── forgotten_woods (existing — kept) ─────────────────────────
         // 3 slimes in forgotten_woods (HP 50)
         spawnFresh("slime", "forgotten_woods", -4f, -2.8f, 50, 3.5f, 1.6f);
         spawnFresh("slime", "forgotten_woods", 8f, -2.8f, 50, 3.5f, 1.6f);
@@ -97,6 +98,50 @@ public class MonsterManager {
         spawnBat("forgotten_woods", 14f,  2.6f);
         // Act I boss: Shadow Hulk
         spawnShadowHulk();
+
+        // ───── New v1 worldmap (see docs/WORLDMAP.md) ───────────────────
+        // Each spawnLine populates one hunting zone. Counts are intentionally
+        // small (2–4 mobs/zone) so monsters_by_zone in /metrics stays readable
+        // until the real density work happens in a later pass. HP/EXP follow
+        // the Lv table in the design doc (HP ≈ Lv*8, EXP ≈ Lv*2).
+
+        // Solaria tree
+        spawnLine("snail",    "solaria_outskirts",  -5f, 3f, -2.8f,  30,  8, 2.5f, 0.8f);
+        spawnLine("slime",    "sunlit_plains",      -4f, 5f, -2.8f,  60, 14, 3.5f, 1.6f);
+        spawnLine("mushroom", "wheat_fields",       -3f, 4f, -2.8f, 100, 22, 3.0f, 1.4f);
+        spawnLine("wolf",     "pinewood_trail",     -3f, 5f, -2.8f, 140, 32, 4.0f, 2.2f);
+
+        // Pyresummit tree
+        spawnLine("fire_imp",     "cinder_ridge",   -4f, 4f, -2.8f, 180, 42, 3.8f, 2.0f);
+        spawnLine("gargoyle",     "ashfall_cliffs", -3f, 5f, -2.8f, 280, 60, 3.5f, 1.8f);
+        spawnLine("lava_slime",   "magma_hollow",   -3f, 6f, -2.8f, 420, 95, 3.0f, 1.5f);
+
+        // Verdaglen tree (forgotten_woods is the last node, already populated above)
+        spawnLine("sprite", "mossglade",          -4f, 4f, -2.8f,  80, 20, 4.0f, 1.8f);
+        spawnLine("faerie", "whispering_boughs",  -3f, 5f, -2.8f, 160, 38, 4.2f, 2.0f);
+        spawnLine("ent",    "old_roots",          -3f, 5f, -2.8f, 260, 58, 2.8f, 1.2f);
+
+        // Nightport tree
+        spawnLine("alley_cat", "backalleys",          -4f, 4f, -2.8f, 220, 50, 4.5f, 2.2f);
+        spawnLine("rat_king",  "sewer_tunnels",       -3f, 5f, -2.8f, 320, 72, 4.0f, 2.0f);
+        spawnLine("golem",     "underground_vault",   -3f, 6f, -2.8f, 480,110, 2.5f, 1.0f);
+
+        // Tidehaven tree
+        spawnLine("jellyfish",    "tide_docks",       -4f, 4f, -2.8f, 280, 65, 3.5f, 1.6f);
+        spawnLine("crab",         "driftwood_beach",  -3f, 5f, -2.8f, 360, 80, 3.8f, 1.8f);
+        spawnLine("kraken_spawn", "sunken_reef",      -3f, 5f, -2.8f, 520,120, 4.2f, 2.0f);
+    }
+
+    /** Spawn a horizontal row of monsters between (x1, y) and (x2, y). Used to
+     *  populate the v1 hunting zones uniformly without a 50-line wall of
+     *  spawnFresh calls. step = (x2 - x1) split into 3 evenly-spaced positions. */
+    private void spawnLine(String type, String zoneId, float x1, float x2, float y,
+                           int hp, int exp, float range, float speed) {
+        float[] xs = { x1, (x1 + x2) * 0.5f, x2 };
+        for (float x : xs) {
+            Monster m = spawnFresh(type, zoneId, x, y, hp, range, speed);
+            m.expReward = exp;
+        }
     }
 
     private Monster spawnBat(String zoneId, float x, float y) {
