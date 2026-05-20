@@ -1,0 +1,46 @@
+[Unit]
+Description=Astrion Game Server
+# Don't try to start before networking is fully up — the Netty bind on 9000
+# would fail otherwise during EC2 boot. redis-server is a hard prerequisite;
+# the server's RedisManager throws on startup if Redis isn't reachable.
+After=network-online.target redis-server.service
+Wants=network-online.target
+Requires=redis-server.service
+
+# Crash loop guard belongs in [Unit] — systemd ignores these keys silently
+# when placed under [Service]. 5 failures inside 60s -> 'failed' state.
+# Recovery: sudo systemctl reset-failed astrion-game-server && sudo systemctl start astrion-game-server
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/game-server-0.1.0
+ExecStart=/home/ubuntu/game-server-0.1.0/bin/game-server
+
+# Crash recovery: come back up automatically. RestartSec=5 leaves the port
+# free long enough for TIME_WAIT to clear if the previous JVM had open
+# client sockets.
+Restart=always
+RestartSec=5
+
+# JVM heap. Current load sits well under 100MB used; 512MB max leaves
+# generous headroom for /metrics heap_used_mb to grow before we revisit.
+Environment="JAVA_OPTS=-Xms256m -Xmx512m"
+
+# TLS material. Paths match the defaults inside GameServerMain, but we
+# pin them here so the unit file alone tells you where the cert lives.
+Environment="ASTRION_TLS_CERT=/home/ubuntu/game-server-cert/server.crt"
+Environment="ASTRION_TLS_KEY=/home/ubuntu/game-server-cert/server.key"
+
+# Routing: rolling INFO log goes to ~/logs/server.log via logback, so the
+# journal only needs to catch what falls outside that — startup banner,
+# JVM-level crashes, anything written to stdout before logback initialises.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=astrion
+
+[Install]
+WantedBy=multi-user.target
