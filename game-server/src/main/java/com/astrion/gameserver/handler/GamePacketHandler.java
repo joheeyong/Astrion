@@ -223,22 +223,49 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         if (session == null) return;
         String json = packet.getPayload();
         String saveId = null;
-
-        // If the client tagged this save with a saveId, ACK it. Strip the field
-        // before persisting so Redis stores clean state (saveId is per-attempt).
+        JsonNode node;
         try {
-            JsonNode node = mapper.readTree(json);
-            if (node != null && node.has("saveId")) {
-                String s = node.get("saveId").asText();
-                if (s != null && !s.isEmpty()) {
-                    saveId = s;
-                    if (node instanceof ObjectNode) {
-                        ((ObjectNode) node).remove("saveId");
-                        json = mapper.writeValueAsString(node);
-                    }
+            node = mapper.readTree(json);
+        } catch (Exception e) {
+            log.warn("[anti-cheat] {} STATE_SAVE unparseable, dropping", session.getPlayerId());
+            return;
+        }
+
+        // Pull saveId off the node so the client gets ACK'd by id, and so the
+        // value we persist to Redis doesn't carry per-attempt metadata.
+        if (node != null && node.has("saveId")) {
+            String s = node.get("saveId").asText();
+            if (s != null && !s.isEmpty()) {
+                saveId = s;
+                if (node instanceof ObjectNode) {
+                    ((ObjectNode) node).remove("saveId");
+                    try { json = mapper.writeValueAsString(node); }
+                    catch (Exception ignored) { /* keep original raw json */ }
                 }
             }
-        } catch (Exception e) { /* fall through; persist raw payload */ }
+        }
+
+        // Sanity-validate before persisting. A modified client can otherwise
+        // mail us gold=999_999_999 and we'd dutifully store it. Caps below
+        // are generous enough that legitimate late-game play stays well
+        // inside, tight enough that overflow- or zero-knowledge-spray cheats
+        // get refused. Missing fields are OK — clients sometimes send
+        // partial state during certain transitions.
+        if (!isStateSavePlausible(node, session.getPlayerId())) {
+            // Track suspicion so an operator can see who keeps tripping the
+            // gate. 24h horizon so noise from one bad save doesn't haunt
+            // a player forever.
+            try {
+                String suspKey = "account:cheats:" + session.getPlayerId();
+                redisManager.incr(suspKey);
+                redisManager.expire(suspKey, 24 * 3600L);
+            } catch (Exception ignored) { /* never break save flow on logging */ }
+            // No ACK — the client's retry loop will try again with the same
+            // payload, which will also fail. A modded client gets stuck
+            // 'saving' forever, an honest one gets repaired by the next
+            // server-authoritative event that refreshes state.
+            return;
+        }
 
         redisManager.savePlayerState(session.getPlayerId(), json);
 
@@ -248,6 +275,59 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
                 ctx.writeAndFlush(new GamePacket(PacketType.STATE_ACK, ack));
             } catch (Exception e) { /* ignore */ }
         }
+    }
+
+    /** Caps tracked against PlayerState.cs. Update both files together when
+     *  legit content pushes the ceiling — currently sized for level 200,
+     *  ~1B gold, and 100 inventory slots. */
+    private boolean isStateSavePlausible(JsonNode node, String playerId) {
+        if (node == null || !node.isObject()) return false;
+        if (!checkRange(node, "level",       1,  200,            playerId)) return false;
+        if (!checkRange(node, "exp",         0,  1_000_000_000L, playerId)) return false;
+        if (!checkRange(node, "gold",        0,  1_000_000_000L, playerId)) return false;
+        if (!checkRange(node, "statStr",     0,  10_000,         playerId)) return false;
+        if (!checkRange(node, "statDex",     0,  10_000,         playerId)) return false;
+        if (!checkRange(node, "statInt",     0,  10_000,         playerId)) return false;
+        if (!checkRange(node, "statLuk",     0,  10_000,         playerId)) return false;
+        if (!checkRange(node, "statPoints",  0,  10_000,         playerId)) return false;
+        if (!checkRange(node, "skillPoints", 0,  10_000,         playerId)) return false;
+        if (!checkRange(node, "hp",          0,  1_000_000,      playerId)) return false;
+        if (!checkRange(node, "maxHp",       0,  1_000_000,      playerId)) return false;
+        if (!checkRange(node, "mp",          0,  1_000_000,      playerId)) return false;
+        if (!checkRange(node, "maxMp",       0,  1_000_000,      playerId)) return false;
+
+        // Inventory: array length cap + per-slot quantity sanity + paired arrays.
+        JsonNode ids = node.get("inventoryItemIds");
+        JsonNode qts = node.get("inventoryQuantities");
+        if (ids != null && ids.isArray()) {
+            if (ids.size() > 100) {
+                log.warn("[anti-cheat] {} inventory size {} > 100", playerId, ids.size());
+                return false;
+            }
+            if (qts == null || !qts.isArray() || qts.size() != ids.size()) {
+                log.warn("[anti-cheat] {} inventory ids/qty mismatch", playerId);
+                return false;
+            }
+            for (int i = 0; i < qts.size(); i++) {
+                int q = qts.get(i).asInt();
+                if (q < 0 || q > 99_999) {
+                    log.warn("[anti-cheat] {} inventory[{}] qty={} out of [0,99999]", playerId, i, q);
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /** Returns true if {@code field} is absent (partial save tolerated) or in [min, max]. */
+    private boolean checkRange(JsonNode node, String field, long min, long max, String playerId) {
+        if (!node.has(field)) return true;
+        long v = node.get(field).asLong();
+        if (v < min || v > max) {
+            log.warn("[anti-cheat] {} {}={} outside [{}, {}]", playerId, field, v, min, max);
+            return false;
+        }
+        return true;
     }
 
     private void handleLogin(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
