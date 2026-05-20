@@ -17,6 +17,7 @@ public class Monster {
     public int expReward = 30; // EXP given to last hitter on death
     public int goldReward = 8; // gold given to last hitter on death
     public String lastHitterId = "";
+    public boolean lastHitCritical = false;
 
     // Aggro / combat
     public String targetPlayerId = "";

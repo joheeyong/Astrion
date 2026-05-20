@@ -162,14 +162,17 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         JsonNode node = mapper.readTree(packet.getPayload());
         String monsterId = node.get("id").asText();
         int claimed = node.has("damage") ? node.get("damage").asInt() : 1;
-        int cap = maxAllowedDamage(session);
+        boolean crit = node.has("crit") && node.get("crit").asBoolean();
+        // Cap allows up to 1.7x for crits on top of the normal anti-cheat ceiling
+        int baseCap = maxAllowedDamage(session);
+        int cap = crit ? Math.round(baseCap * 1.7f) : baseCap;
         int applied = Math.max(1, Math.min(claimed, cap));
         if (claimed > cap) {
-            log.warn("[anti-cheat] {} claimed dmg {} -> capped to {} (LV{} INT{} WPN{} BoltLv{})",
-                session.getPlayerId(), claimed, cap,
+            log.warn("[anti-cheat] {} claimed dmg {} crit={} -> capped to {} (LV{} INT{} WPN{} BoltLv{})",
+                session.getPlayerId(), claimed, crit, cap,
                 session.level, session.intStat, session.weaponDmg, session.starboltLv);
         }
-        monsterManager.onMonsterHit(session, monsterId, applied);
+        monsterManager.onMonsterHit(session, monsterId, applied, crit);
     }
 
     private void handleStateRequest(ChannelHandlerContext ctx, GamePacket packet) {

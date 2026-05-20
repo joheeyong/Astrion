@@ -342,11 +342,17 @@ public class MonsterManager {
     }
 
     public void onMonsterHit(PlayerSession attacker, String monsterId, int damage) {
+        onMonsterHit(attacker, monsterId, damage, false);
+    }
+
+    public void onMonsterHit(PlayerSession attacker, String monsterId, int damage, boolean isCritical) {
         Monster m = monsters.get(monsterId);
         if (m == null || m.dead) return;
         int applied = Math.min(m.hp, Math.max(1, damage));
         m.hp = Math.max(0, m.hp - applied);
         m.lastHitterId = attacker.getPlayerId();
+        // Remember crit so broadcast can include it
+        m.lastHitCritical = isCritical;
         // Aggro on first / each hit — hostile until aggroDuration after last hit
         m.targetPlayerId = attacker.getPlayerId();
         m.aggroUntil = System.currentTimeMillis() + m.aggroDurationMs;
@@ -398,6 +404,7 @@ public class MonsterManager {
             ObjectNode n = mapper.createObjectNode();
             n.put("id", m.id);
             n.put("damage", damage);
+            n.put("crit", m.lastHitCritical);
             worldManager.broadcastToZone(m.zoneId, new GamePacket(PacketType.MONSTER_DIE, mapper.writeValueAsString(n)));
         } catch (Exception e) { /* ignore */ }
     }
@@ -408,6 +415,7 @@ public class MonsterManager {
             n.put("id", m.id);
             n.put("hp", m.hp);
             n.put("damage", damage);
+            n.put("crit", m.lastHitCritical);
             worldManager.broadcastToZone(m.zoneId, new GamePacket(PacketType.MONSTER_HP, mapper.writeValueAsString(n)));
         } catch (Exception e) { /* ignore */ }
     }

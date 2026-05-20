@@ -211,7 +211,9 @@ namespace Astrion.Game
             OnChanged?.Invoke();
         }
 
-        public int ComputeBoltDamage()
+        public int ComputeBoltDamage() { return ComputeBoltDamage(out _); }
+
+        public int ComputeBoltDamage(out bool isCritical)
         {
             int weaponDmg = 0;
             if (!string.IsNullOrEmpty(EquippedWeaponId))
@@ -224,7 +226,17 @@ namespace Astrion.Game
             float skillBonus = (skillLv - 1) * 5f;
             float baseD = 5f + Intel * 2f + Level * 3f + weaponDmg + skillBonus;
             float variance = baseD * 0.2f;
-            return Mathf.Max(1, Mathf.RoundToInt(baseD + UnityEngine.Random.Range(-variance, variance)));
+            int dmg = Mathf.Max(1, Mathf.RoundToInt(baseD + UnityEngine.Random.Range(-variance, variance)));
+            isCritical = RollCritical();
+            if (isCritical) dmg = Mathf.RoundToInt(dmg * 1.7f);
+            return dmg;
+        }
+
+        /// LUK-based critical: 2.5%% at LUK 5, 5%% at LUK 10, 10%% at LUK 20.
+        public bool RollCritical()
+        {
+            float chance = Luk * 0.005f;
+            return UnityEngine.Random.value < chance;
         }
 
         private void SaveAttributes()

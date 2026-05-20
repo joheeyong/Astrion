@@ -13,7 +13,7 @@ namespace Astrion.Game
         private float _spawnedAt;
         private Vector3 _baseScale;
 
-        public static void Spawn(Vector3 worldPos, int damage, Color color, bool large = false)
+        public static void Spawn(Vector3 worldPos, int damage, Color color, bool large = false, bool isCritical = false)
         {
             if (damage <= 0) return;
             var go = new GameObject("DamagePopup");
@@ -21,17 +21,30 @@ namespace Astrion.Game
             // Slight random horizontal offset so overlapping hits don't stack exactly
             go.transform.position += new Vector3(Random.Range(-0.15f, 0.15f), 0, 0);
             var tm = go.AddComponent<TextMesh>();
-            tm.text = damage.ToString();
-            tm.fontSize = large ? 48 : 36;
+            // Critical hits get a "CRIT" prefix and red color; normal hits keep the caller's color
+            if (isCritical)
+            {
+                tm.text = damage.ToString();
+                color = new Color(1f, 0.30f, 0.18f); // crimson red
+            }
+            else
+            {
+                tm.text = damage.ToString();
+            }
+            tm.fontSize = isCritical ? 60 : (large ? 48 : 36);
             tm.fontStyle = FontStyle.Bold;
             tm.anchor = TextAnchor.MiddleCenter;
             tm.alignment = TextAlignment.Center;
             tm.color = color;
             var mr = go.GetComponent<MeshRenderer>();
-            mr.sortingOrder = 25;
-            go.transform.localScale = Vector3.one * (large ? 0.055f : 0.045f);
-            go.AddComponent<DamagePopup2D>();
+            mr.sortingOrder = isCritical ? 27 : 25;
+            float scale = isCritical ? 0.065f : (large ? 0.055f : 0.045f);
+            go.transform.localScale = Vector3.one * scale;
+            var popup = go.AddComponent<DamagePopup2D>();
+            popup._isCritical = isCritical;
         }
+
+        private bool _isCritical;
 
         private void Awake()
         {
@@ -50,10 +63,19 @@ namespace Astrion.Game
             // Float up
             transform.position += Vector3.up * floatSpeed * (1f - t) * Time.deltaTime;
 
-            // Pop-in scale
+            // Pop-in scale — crits punch larger and shake on the way up
             float popT = Mathf.Min(age / popInDuration, 1f);
-            float scaleMul = popT < 1f ? Mathf.SmoothStep(0.5f, 1.2f, popT) : Mathf.Lerp(1.2f, 1.0f, (popT - 1f));
+            float peakScale = _isCritical ? 1.5f : 1.2f;
+            float scaleMul = popT < 1f
+                ? Mathf.SmoothStep(0.5f, peakScale, popT)
+                : Mathf.Lerp(peakScale, 1.0f, (popT - 1f));
             transform.localScale = _baseScale * scaleMul;
+            // Small wobble for crits at the start
+            if (_isCritical && age < 0.25f)
+            {
+                float wobble = Mathf.Sin(age * 40f) * 0.04f * (1f - age / 0.25f);
+                transform.position += new Vector3(wobble, 0f, 0f);
+            }
 
             // Fade
             if (_tm != null)

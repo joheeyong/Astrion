@@ -82,10 +82,13 @@ namespace Astrion.Game
             var serverMon = other.GetComponent<ServerMonster2D>();
             if (serverMon != null)
             {
-                int damage = PlayerStats.Instance != null
-                    ? PlayerStats.Instance.ComputeBoltDamage()
-                    : Random.Range(15, 21);
-                Astrion.Network.MonsterNetworkManager.Instance?.SendHit(serverMon.Id, damage);
+                bool crit = false;
+                int damage;
+                if (PlayerStats.Instance != null)
+                    damage = PlayerStats.Instance.ComputeBoltDamage(out crit);
+                else
+                    damage = Random.Range(15, 21);
+                Astrion.Network.MonsterNetworkManager.Instance?.SendHit(serverMon.Id, damage, crit);
                 Destroy(gameObject);
                 return;
             }

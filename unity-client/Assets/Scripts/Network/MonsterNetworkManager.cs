@@ -176,7 +176,7 @@ namespace Astrion.Network
             {
                 var d = JsonUtility.FromJson<HpData>(payload);
                 if (d != null && _monsters.TryGetValue(d.id, out var m) && m != null)
-                    m.OnHpChanged(d.hp, d.damage);
+                    m.OnHpChanged(d.hp, d.damage, d.crit);
             }
             catch { /* ignore */ }
         }
@@ -187,16 +187,18 @@ namespace Astrion.Network
             {
                 var d = JsonUtility.FromJson<DieData>(payload);
                 if (d == null) return;
-                if (_monsters.TryGetValue(d.id, out var m) && m != null) m.OnDeath(d.damage);
+                if (_monsters.TryGetValue(d.id, out var m) && m != null) m.OnDeath(d.damage, d.crit);
                 _monsters.Remove(d.id);
             }
             catch { /* ignore */ }
         }
 
-        public void SendHit(string monsterId, int damage)
+        public void SendHit(string monsterId, int damage) => SendHit(monsterId, damage, false);
+
+        public void SendHit(string monsterId, int damage, bool isCritical)
         {
             if (NetworkManager.Instance == null || !NetworkManager.Instance.IsConnected) return;
-            string json = "{\"id\":\"" + monsterId + "\",\"damage\":" + damage + "}";
+            string json = "{\"id\":\"" + monsterId + "\",\"damage\":" + damage + ",\"crit\":" + (isCritical ? "true" : "false") + "}";
             NetworkManager.Instance.SendPacket(PacketType.MonsterHit, json);
         }
 
@@ -371,8 +373,8 @@ namespace Astrion.Network
 
         [System.Serializable] private class SpawnData { public string id; public string type; public float x, y; public int hp, maxHp, direction; }
         [System.Serializable] private class MoveData  { public string id; public float x, y; public int direction; }
-        [System.Serializable] private class HpData    { public string id; public int hp; public int damage; }
-        [System.Serializable] private class DieData   { public string id; public int damage; }
+        [System.Serializable] private class HpData    { public string id; public int hp; public int damage; public bool crit; }
+        [System.Serializable] private class DieData   { public string id; public int damage; public bool crit; }
         [System.Serializable] private class AttackData { public string id; public string targetPlayerId; public int damage; }
     }
 }

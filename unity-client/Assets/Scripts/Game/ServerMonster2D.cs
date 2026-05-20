@@ -26,24 +26,25 @@ namespace Astrion.Game
             if (_sr != null) _sr.flipX = direction < 0;
         }
 
-        public void OnHpChanged(int hp, int damage)
+        public void OnHpChanged(int hp, int damage, bool isCritical = false)
         {
             if (damage > 0)
                 DamagePopup2D.Spawn(transform.position + Vector3.up * 0.6f, damage,
-                                    new Color(1f, 0.95f, 0.30f));
+                                    new Color(1f, 0.95f, 0.30f), large: false, isCritical: isCritical);
             if (gameObject.activeInHierarchy)
             {
                 StartCoroutine(FlashRed());
                 ApplyKnockback();
             }
-            ShakeCameraIfOnScreen(0.10f, 0.10f);
+            // Crits punch harder
+            ShakeCameraIfOnScreen(isCritical ? 0.18f : 0.10f, isCritical ? 0.14f : 0.10f);
         }
 
-        public void OnDeath(int damage)
+        public void OnDeath(int damage, bool isCritical = false)
         {
             if (damage > 0)
                 DamagePopup2D.Spawn(transform.position + Vector3.up * 0.6f, damage,
-                                    new Color(1f, 0.35f, 0.30f), large: true);
+                                    new Color(1f, 0.35f, 0.30f), large: true, isCritical: isCritical);
             ShakeCameraIfOnScreen(0.22f, 0.18f);
             Destroy(gameObject);
         }

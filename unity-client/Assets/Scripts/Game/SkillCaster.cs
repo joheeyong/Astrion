@@ -153,6 +153,8 @@ namespace Astrion.Game
             int baseDmg = 5 + (stats != null ? stats.Str * 2 + stats.Level * 3 : 0) + weaponDmg + (lv - 1) * 5;
             float variance = baseDmg * 0.2f;
             int dmg = Mathf.Max(1, Mathf.RoundToInt(baseDmg + Random.Range(-variance, variance)));
+            bool crit = stats != null && stats.RollCritical();
+            if (crit) dmg = Mathf.RoundToInt(dmg * 1.7f);
 
             // Hit everything in a narrow front cone
             Vector2 origin = p.transform.position;
@@ -170,7 +172,7 @@ namespace Astrion.Game
                 if (to.x * facing < -0.1f) continue;        // behind
                 if (Mathf.Abs(to.x) > reach) continue;
                 if (Mathf.Abs(to.y) > halfHeight) continue;
-                if (nm != null) nm.SendHit(m.Id, dmg);
+                if (nm != null) nm.SendHit(m.Id, dmg, crit);
                 hits++;
             }
 
