@@ -53,6 +53,27 @@ public class MonsterManager {
     public int getMonsterCount() { return monsters.size(); }
     public int getActiveDropCount() { return activeDrops.size(); }
 
+    /** Snapshot of monster count per zoneId. Iterates once over the live map;
+     *  safe to call from any thread because ConcurrentHashMap.values() returns
+     *  a weakly consistent iterator. */
+    public java.util.Map<String, Integer> getMonsterCountByZone() {
+        java.util.TreeMap<String, Integer> out = new java.util.TreeMap<>();
+        for (Monster m : monsters.values()) {
+            String z = m.zoneId == null || m.zoneId.isEmpty() ? "(none)" : m.zoneId;
+            out.merge(z, 1, Integer::sum);
+        }
+        return out;
+    }
+
+    public java.util.Map<String, Integer> getActiveDropCountByZone() {
+        java.util.TreeMap<String, Integer> out = new java.util.TreeMap<>();
+        for (ItemDrop d : activeDrops.values()) {
+            String z = d.zoneId == null || d.zoneId.isEmpty() ? "(none)" : d.zoneId;
+            out.merge(z, 1, Integer::sum);
+        }
+        return out;
+    }
+
     public MonsterManager(WorldManager worldManager) {
         this.worldManager = worldManager;
         this.executor = Executors.newSingleThreadScheduledExecutor(r -> {

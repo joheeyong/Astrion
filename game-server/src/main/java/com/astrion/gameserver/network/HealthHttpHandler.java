@@ -85,7 +85,10 @@ public class HealthHttpHandler extends SimpleChannelInboundHandler<FullHttpReque
             byZone.merge(z, 1, Integer::sum);
         }
 
-        StringBuilder sb = new StringBuilder(384);
+        Map<String, Integer> monstersByZone = monsterManager.getMonsterCountByZone();
+        Map<String, Integer> dropsByZone = monsterManager.getActiveDropCountByZone();
+
+        StringBuilder sb = new StringBuilder(512);
         sb.append('{')
           .append("\"version\":\"").append(com.astrion.common.Version.CURRENT).append("\",")
           .append("\"uptime_seconds\":").append(uptimeSec).append(',')
@@ -93,16 +96,25 @@ public class HealthHttpHandler extends SimpleChannelInboundHandler<FullHttpReque
           .append("\"monsters\":").append(monsters).append(',')
           .append("\"active_drops\":").append(drops).append(',')
           .append("\"heap_used_mb\":").append(heapUsedMb).append(',')
-          .append("\"heap_max_mb\":").append(heapMaxMb).append(',')
-          .append("\"players_by_zone\":{");
+          .append("\"heap_max_mb\":").append(heapMaxMb).append(',');
+        appendIntMap(sb, "players_by_zone", byZone);
+        sb.append(',');
+        appendIntMap(sb, "monsters_by_zone", monstersByZone);
+        sb.append(',');
+        appendIntMap(sb, "drops_by_zone", dropsByZone);
+        sb.append('}');
+        return sb.toString();
+    }
+
+    private static void appendIntMap(StringBuilder sb, String key, Map<String, Integer> m) {
+        sb.append('"').append(key).append("\":{");
         boolean first = true;
-        for (Map.Entry<String, Integer> e : byZone.entrySet()) {
+        for (Map.Entry<String, Integer> e : m.entrySet()) {
             if (!first) sb.append(',');
             first = false;
             sb.append('"').append(escapeJson(e.getKey())).append("\":").append(e.getValue());
         }
-        sb.append("}}");
-        return sb.toString();
+        sb.append('}');
     }
 
     /** Minimal JSON-string escape — zone IDs are internal constants, but a
