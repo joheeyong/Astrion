@@ -27,7 +27,8 @@ public class GameServerMain {
     private static final Logger log = LoggerFactory.getLogger(GameServerMain.class);
 
     private static final int PORT = 9000;
-    private static final int HTTP_PORT = 9001;
+    private static final int HTTP_PORT = 9001;       // ops port: /health + /metrics. Lock down in SG.
+    private static final int LIVENESS_PORT = 9002;   // public liveness: /health only. Safe to open to the world.
     private static final String REDIS_HOST = "localhost";
     private static final int REDIS_PORT = 6379;
 
@@ -81,23 +82,21 @@ public class GameServerMain {
             log.info("Game server started on port {}", PORT);
             log.info("Redis connected at {}:{}", REDIS_HOST, REDIS_PORT);
 
-            // Sibling HTTP server for /health and /metrics, shares the same worker
-            // loop — probe traffic is tiny so this stays cheap.
-            ServerBootstrap httpBootstrap = new ServerBootstrap();
-            httpBootstrap.group(bossGroup, workerGroup)
-                    .channel(NioServerSocketChannel.class)
-                    .childHandler(new ChannelInitializer<SocketChannel>() {
-                        @Override
-                        protected void initChannel(SocketChannel ch) {
-                            ch.pipeline()
-                                    .addLast(new HttpServerCodec())
-                                    .addLast(new HttpObjectAggregator(8 * 1024))
-                                    .addLast(new HealthHttpHandler(worldManager, monsterManager, startTimeMs));
-                        }
-                    })
-                    .childOption(ChannelOption.SO_KEEPALIVE, false);
-            httpBootstrap.bind(HTTP_PORT).sync();
-            log.info("HTTP metrics endpoint on port {} (GET /health, /metrics)", HTTP_PORT);
+            // Two HTTP listeners share the same worker loop — probe traffic
+            // is tiny so a dedicated EventLoopGroup would just be wasted threads.
+            //
+            // HTTP_PORT (9001): full /metrics — operator-only. Restrict in
+            //                   the AWS security group to monitoring IPs.
+            // LIVENESS_PORT (9002): /health only — safe to open to the world.
+            //                       External uptime probes / Route 53 health
+            //                       checks should hit this.
+            bindHttp(bossGroup, workerGroup, HTTP_PORT,
+                () -> new HealthHttpHandler(worldManager, monsterManager, startTimeMs, true));
+            log.info("HTTP ops endpoint on port {} (GET /health, /metrics)", HTTP_PORT);
+
+            bindHttp(bossGroup, workerGroup, LIVENESS_PORT,
+                () -> new HealthHttpHandler(worldManager, monsterManager, startTimeMs, false));
+            log.info("HTTP liveness endpoint on port {} (GET /health)", LIVENESS_PORT);
 
             future.channel().closeFuture().sync();
         } finally {
@@ -107,5 +106,23 @@ public class GameServerMain {
             redisManager.shutdown();
             log.info("Game server shut down");
         }
+    }
+
+    private static void bindHttp(EventLoopGroup boss, EventLoopGroup worker, int port,
+                                 java.util.function.Supplier<io.netty.channel.ChannelHandler> handlerFactory)
+                                 throws InterruptedException {
+        ServerBootstrap b = new ServerBootstrap();
+        b.group(boss, worker)
+                .channel(NioServerSocketChannel.class)
+                .childHandler(new ChannelInitializer<SocketChannel>() {
+                    @Override protected void initChannel(SocketChannel ch) {
+                        ch.pipeline()
+                                .addLast(new HttpServerCodec())
+                                .addLast(new HttpObjectAggregator(8 * 1024))
+                                .addLast(handlerFactory.get());
+                    }
+                })
+                .childOption(ChannelOption.SO_KEEPALIVE, false);
+        b.bind(port).sync();
     }
 }

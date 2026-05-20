@@ -36,11 +36,16 @@ public class HealthHttpHandler extends SimpleChannelInboundHandler<FullHttpReque
     private final WorldManager worldManager;
     private final MonsterManager monsterManager;
     private final long startTimeMs;
+    /** When false, /metrics is reported as 404. Used on the public liveness
+     *  port so external probes can't enumerate operational data. */
+    private final boolean exposeMetrics;
 
-    public HealthHttpHandler(WorldManager worldManager, MonsterManager monsterManager, long startTimeMs) {
+    public HealthHttpHandler(WorldManager worldManager, MonsterManager monsterManager,
+                             long startTimeMs, boolean exposeMetrics) {
         this.worldManager = worldManager;
         this.monsterManager = monsterManager;
         this.startTimeMs = startTimeMs;
+        this.exposeMetrics = exposeMetrics;
     }
 
     @Override
@@ -60,6 +65,12 @@ public class HealthHttpHandler extends SimpleChannelInboundHandler<FullHttpReque
                 send(ctx, req, HttpResponseStatus.OK, "{\"status\":\"ok\"}");
                 return;
             case "/metrics":
+                if (!exposeMetrics) {
+                    // Pretend it doesn't exist — don't even hint at the
+                    // restriction so we don't broadcast 'there's something here'.
+                    send(ctx, req, HttpResponseStatus.NOT_FOUND, "{\"error\":\"not found\"}");
+                    return;
+                }
                 send(ctx, req, HttpResponseStatus.OK, buildMetricsJson());
                 return;
             default:
