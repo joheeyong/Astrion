@@ -19,11 +19,11 @@ namespace Astrion.UI
         private int _selectedClass = -1;
         private bool _waitingForResponse;
 
-        private static readonly string[] ClassNames = { "Warrior", "Mage", "Ranger" };
+        private static readonly string[] ClassNames = { "Warrior", "Mage", "Archer" };
         private static readonly string[] ClassDescs = {
-            "A battle-hardened front-line fighter.\nSTR 18   DEX 12   INT 8",
-            "A scholar of the arcane arts.\nSTR 8    DEX 10   INT 20",
-            "A swift hunter of the wild.\nSTR 12   DEX 18   INT 10"
+            "전사 — 검을 휘둘러 적을 베는 근접 전투원.\n시작: 수련의 검 · STR 10",
+            "마법사 — 별빛을 다루는 학자.\n시작: 수련의 지팡이 · INT 10 · MP 70",
+            "궁수 — 활을 다루는 사냥꾼.\n시작: 옛 별의 활 · DEX 10"
         };
 
         private void Start()
