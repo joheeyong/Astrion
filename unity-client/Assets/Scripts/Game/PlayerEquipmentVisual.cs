@@ -7,6 +7,10 @@ namespace Astrion.Game
     /// inventory updates the body visual immediately.
     public class PlayerEquipmentVisual : MonoBehaviour
     {
+        // When false, doesn't auto-subscribe to PlayerStats — callers drive ApplyEquipment().
+        // Used for remote players whose equipment comes from server packets.
+        [SerializeField] private bool autoRefresh = true;
+
         private SpriteRenderer _weaponSR, _helmetSR, _armorSR, _ringSR;
         private GameObject _swordTrailGo;
 
@@ -37,13 +41,29 @@ namespace Astrion.Game
 
         private void Start()
         {
-            if (PlayerStats.Instance != null) PlayerStats.Instance.OnChanged += Refresh;
-            Refresh();
+            if (autoRefresh)
+            {
+                if (PlayerStats.Instance != null) PlayerStats.Instance.OnChanged += Refresh;
+                Refresh();
+            }
         }
 
         private void OnDestroy()
         {
-            if (PlayerStats.Instance != null) PlayerStats.Instance.OnChanged -= Refresh;
+            if (autoRefresh && PlayerStats.Instance != null) PlayerStats.Instance.OnChanged -= Refresh;
+        }
+
+        /// Set externally (since the SerializeField isn't accessible at runtime).
+        public void SetAutoRefreshExternal(bool value) { autoRefresh = value; }
+
+        /// External-driven equipment apply for remote players.
+        /// Call from network packets when SPAWN_PLAYER / PLAYER_STATUS arrives.
+        public void ApplyEquipment(string weaponId, string helmetId, string armorId, string ringId)
+        {
+            ApplyWeapon(weaponId);
+            ApplyHelmet(helmetId);
+            ApplyArmor(armorId);
+            ApplyRing(ringId);
         }
 
         private void Refresh()

@@ -126,6 +126,13 @@ namespace Astrion.Game
             if (data == null || string.IsNullOrEmpty(data.playerId)) return;
             if (_remoteTags.TryGetValue(data.playerId, out var tag) && tag != null)
                 tag.SetHp(data.hp, data.maxHp);
+            if (_remotePlayers.TryGetValue(data.playerId, out var go) && go != null)
+            {
+                var eq = go.GetComponent<PlayerEquipmentVisual>();
+                if (eq != null)
+                    eq.ApplyEquipment(data.equippedWeaponId, data.equippedHelmetId,
+                                      data.equippedArmorId, data.equippedRingId);
+            }
         }
 
         private void OnDespawnPlayer(string payload)
@@ -205,12 +212,21 @@ namespace Astrion.Game
 
         // JSON DTOs
         [System.Serializable] public class MoveRequest { public float x, y, z; public int facing; }
-        [System.Serializable] public class SpawnData { public string playerId; public string nickname; public PositionData position; }
+        [System.Serializable] public class SpawnData {
+            public string playerId; public string nickname; public string className;
+            public string equippedWeaponId; public string equippedHelmetId;
+            public string equippedArmorId; public string equippedRingId;
+            public PositionData position;
+        }
         [System.Serializable] public class DespawnData { public string playerId; }
         [System.Serializable] public class MoveData { public string playerId; public PositionData position; public int facing; }
         [System.Serializable] public class ChatData { public string playerId; public string message; }
         [System.Serializable] public class PositionData { public float x, y, z; }
         [System.Serializable] public class SkillCastData { public string playerId; public float x, y; public int dir; public string type; }
-        [System.Serializable] public class PlayerStatusData { public string playerId; public int hp; public int maxHp; }
+        [System.Serializable] public class PlayerStatusData {
+            public string playerId; public int hp; public int maxHp; public string className;
+            public string equippedWeaponId; public string equippedHelmetId;
+            public string equippedArmorId; public string equippedRingId;
+        }
     }
 }

@@ -73,8 +73,20 @@ namespace Astrion.Network
                 if (NetworkManager.Instance != null && NetworkManager.Instance.IsConnected)
                 {
                     string nickname = UnityEngine.PlayerPrefs.GetString("characterName", "");
+                    string cls      = UnityEngine.PlayerPrefs.GetString("characterClass", "");
                     string nickPart = string.IsNullOrEmpty(nickname) ? "" : ",\"nickname\":\"" + EscapeJson(nickname) + "\"";
-                    string json = "{\"zoneId\":\"" + zoneId + "\"" + nickPart + "}";
+                    string clsPart  = string.IsNullOrEmpty(cls)      ? "" : ",\"className\":\"" + EscapeJson(cls) + "\"";
+                    // Equipped IDs piggy-back so other players see our gear from the very first SPAWN_PLAYER
+                    string eqPart = "";
+                    var ps = Astrion.Game.PlayerStats.Instance;
+                    if (ps != null)
+                    {
+                        eqPart  = ",\"equippedWeaponId\":\"" + EscapeJson(ps.EquippedWeaponId) + "\""
+                                + ",\"equippedHelmetId\":\"" + EscapeJson(ps.EquippedHelmetId) + "\""
+                                + ",\"equippedArmorId\":\""  + EscapeJson(ps.EquippedArmorId)  + "\""
+                                + ",\"equippedRingId\":\""   + EscapeJson(ps.EquippedRingId)   + "\"";
+                    }
+                    string json = "{\"zoneId\":\"" + zoneId + "\"" + nickPart + clsPart + eqPart + "}";
                     NetworkManager.Instance.SendPacket(PacketType.ZoneEnter, json);
                     // zone transitions visible via HUD map name
                     yield break;

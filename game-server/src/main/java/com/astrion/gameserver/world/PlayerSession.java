@@ -32,6 +32,13 @@ public class PlayerSession {
     public int weaponDmg = 0;
     public int starboltLv = 1;
 
+    // Visual sync — reported via STATUS_UPDATE / ZONE_ENTER, broadcast to other players
+    public String className = "";
+    public String equippedWeaponId = "";
+    public String equippedHelmetId = "";
+    public String equippedArmorId = "";
+    public String equippedRingId = "";
+
     // Movement validation state
     public long lastMoveAt = 0L; // 0 = skip next validation (fresh session or zone change)
     public Position lastValidPos = new Position(0, 0, 0);

@@ -293,6 +293,7 @@ namespace Astrion.Game
                     int starLv = SkillSystem.Instance != null
                         ? Mathf.Max(1, SkillSystem.Instance.GetLevel("starbolt"))
                         : 1;
+                    string cls = UnityEngine.PlayerPrefs.GetString("characterClass", "");
                     string json =
                         "{\"hp\":" + Hp +
                         ",\"maxHp\":" + MaxHp +
@@ -300,6 +301,11 @@ namespace Astrion.Game
                         ",\"intStat\":" + Intel +
                         ",\"weaponDmg\":" + wpn +
                         ",\"starboltLv\":" + starLv +
+                        ",\"className\":\"" + EscapeJson(cls) + "\"" +
+                        ",\"equippedWeaponId\":\"" + EscapeJson(EquippedWeaponId) + "\"" +
+                        ",\"equippedHelmetId\":\"" + EscapeJson(EquippedHelmetId) + "\"" +
+                        ",\"equippedArmorId\":\""  + EscapeJson(EquippedArmorId)  + "\"" +
+                        ",\"equippedRingId\":\""   + EscapeJson(EquippedRingId)   + "\"" +
                         "}";
                     nm.SendPacket(PacketType.StatusUpdate, json);
                     _lastSentHp = Hp;
@@ -361,6 +367,12 @@ namespace Astrion.Game
             _dirty = true;
             OnChanged?.Invoke();
             FlushSave();
+        }
+
+        private static string EscapeJson(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            return s.Replace("\\", "\\\\").Replace("\"", "\\\"");
         }
 
         public bool ConsumeMp(int amount)

@@ -70,13 +70,24 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         if (node.has("intStat"))    session.intStat    = Math.min(999, Math.max(1, node.get("intStat").asInt()));
         if (node.has("weaponDmg"))  session.weaponDmg  = Math.min(500, Math.max(0, node.get("weaponDmg").asInt()));
         if (node.has("starboltLv")) session.starboltLv = Math.min(10,  Math.max(1, node.get("starboltLv").asInt()));
+        if (node.has("className"))        session.className        = nullToEmpty(node.get("className").asText());
+        if (node.has("equippedWeaponId")) session.equippedWeaponId = nullToEmpty(node.get("equippedWeaponId").asText());
+        if (node.has("equippedHelmetId")) session.equippedHelmetId = nullToEmpty(node.get("equippedHelmetId").asText());
+        if (node.has("equippedArmorId"))  session.equippedArmorId  = nullToEmpty(node.get("equippedArmorId").asText());
+        if (node.has("equippedRingId"))   session.equippedRingId   = nullToEmpty(node.get("equippedRingId").asText());
 
         String zoneId = session.getZoneId();
         if (zoneId == null || zoneId.isEmpty()) return;
-        String payload = mapper.writeValueAsString(new PlayerStatus(session.getPlayerId(), hp, maxHp));
+        String payload = mapper.writeValueAsString(new PlayerStatus(
+            session.getPlayerId(), hp, maxHp,
+            session.className,
+            session.equippedWeaponId, session.equippedHelmetId,
+            session.equippedArmorId, session.equippedRingId));
         worldManager.broadcastToZoneExcept(zoneId,
             new GamePacket(PacketType.PLAYER_STATUS, payload), session.getPlayerId());
     }
+
+    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     // Authoritative max damage the client is allowed to claim. Formula mirrors
     // PlayerStats.ComputeBoltDamage with a 1.3× safety margin to absorb variance + skill bonus.
@@ -120,6 +131,11 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             String nick = node.get("nickname").asText();
             if (nick != null && !nick.isEmpty()) session.setNickname(nick);
         }
+        if (node.has("className"))        session.className        = nullToEmpty(node.get("className").asText());
+        if (node.has("equippedWeaponId")) session.equippedWeaponId = nullToEmpty(node.get("equippedWeaponId").asText());
+        if (node.has("equippedHelmetId")) session.equippedHelmetId = nullToEmpty(node.get("equippedHelmetId").asText());
+        if (node.has("equippedArmorId"))  session.equippedArmorId  = nullToEmpty(node.get("equippedArmorId").asText());
+        if (node.has("equippedRingId"))   session.equippedRingId   = nullToEmpty(node.get("equippedRingId").asText());
         String oldZone = session.getZoneId();
 
         if (!java.util.Objects.equals(oldZone, newZone)) {
@@ -133,7 +149,10 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             // Zone change is a legitimate "teleport" — skip the next move validation
             session.lastMoveAt = 0L;
             // Announce this player to the new zone
-            String spawnData = mapper.writeValueAsString(new SpawnData(session.getPlayerId(), session.getNickname(), session.getPosition()));
+            String spawnData = mapper.writeValueAsString(new SpawnData(session.getPlayerId(), session.getNickname(), session.className,
+                              session.equippedWeaponId, session.equippedHelmetId,
+                              session.equippedArmorId, session.equippedRingId,
+                              session.getPosition()));
             worldManager.broadcastToZone(newZone,
                 new GamePacket(PacketType.SPAWN_PLAYER, spawnData));
             // Send back a snapshot of existing players in this zone (so the new arrival sees them)
@@ -151,7 +170,10 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         for (PlayerSession other : worldManager.getAllSessions()) {
             if (other.getPlayerId().equals(selfId)) continue;
             if (!zoneId.equals(other.getZoneId())) continue;
-            String spawnData = mapper.writeValueAsString(new SpawnData(other.getPlayerId(), other.getNickname(), other.getPosition()));
+            String spawnData = mapper.writeValueAsString(new SpawnData(other.getPlayerId(), other.getNickname(), other.className,
+                          other.equippedWeaponId, other.equippedHelmetId,
+                          other.equippedArmorId, other.equippedRingId,
+                          other.getPosition()));
             self.getChannel().writeAndFlush(new GamePacket(PacketType.SPAWN_PLAYER, spawnData));
         }
     }
@@ -523,9 +545,14 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
 
     // DTO records
     record LoginResult(boolean success, String playerId, String message) {}
-    record SpawnData(String playerId, String nickname, Position position) {}
+    record SpawnData(String playerId, String nickname, String className,
+                     String equippedWeaponId, String equippedHelmetId,
+                     String equippedArmorId, String equippedRingId,
+                     Position position) {}
     record MoveData(String playerId, Position position, int facing) {}
     record ChatData(String playerId, String message) {}
     record CharacterCreateResult(boolean success, String message) {}
-    record PlayerStatus(String playerId, int hp, int maxHp) {}
+    record PlayerStatus(String playerId, int hp, int maxHp, String className,
+                        String equippedWeaponId, String equippedHelmetId,
+                        String equippedArmorId, String equippedRingId) {}
 }
