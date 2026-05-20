@@ -23,6 +23,15 @@ import java.security.MessageDigest;
 public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
 
     private static final Logger log = LoggerFactory.getLogger(GamePacketHandler.class);
+    /** Dedicated stream for client-forwarded Exceptions (writes to
+     *  ~/logs/client-errors.log via logback config). additivity=false in
+     *  logback.xml keeps these out of server.log / errors.log. */
+    private static final Logger clientLog = LoggerFactory.getLogger("CLIENT_ERR");
+    /** Per-player rate limit on client logs — a NRE in Update fires every
+     *  frame; without throttling the client would spam the wire. Same
+     *  policy class as login limiters: 10 reports / 60s, 60s block on excess. */
+    private static final LoginRateLimiter clientLogLimiter =
+        new LoginRateLimiter(10, 60_000L, 60_000L);
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final float BROADCAST_RANGE = 100f;
     // Shared across all handler instances — connection-level state for the whole server.
@@ -66,7 +75,31 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             case SKILL_CAST -> handleSkillCast(ctx, packet);
             case DROP_CLAIM -> handleDropClaim(ctx, packet);
             case STATUS_UPDATE -> handleStatusUpdate(ctx, packet);
+            case CLIENT_LOG -> handleClientLog(ctx, packet);
             default -> log.warn("Unhandled packet type: {}", packet.getType());
+        }
+    }
+
+    private void handleClientLog(ChannelHandlerContext ctx, GamePacket packet) {
+        PlayerSession session = worldManager.getSession(ctx.channel());
+        // Pre-login crashes still useful; tag them with the IP instead of player.
+        String who = session != null ? session.getPlayerId() : "anon@" + clientIpOf(ctx);
+
+        // Throttle so one runaway Update loop doesn't fill the disk before the
+        // 10/min ceiling at the client trims its own end. Defence in depth.
+        if (!clientLogLimiter.check(who).allowed) return;
+
+        try {
+            JsonNode node = mapper.readTree(packet.getPayload());
+            String level   = node.has("level")      ? node.get("level").asText()      : "?";
+            String message = node.has("message")    ? node.get("message").asText()    : "";
+            String stack   = node.has("stackTrace") ? node.get("stackTrace").asText() : "";
+            // Server-side trim as well — never trust the client's truncation.
+            if (message.length() > 800)  message = message.substring(0, 800) + "...(truncated)";
+            if (stack.length()   > 3000) stack   = stack.substring(0, 3000) + "...(truncated)";
+            clientLog.info("[{}] [{}] {}\n{}", who, level, message, stack);
+        } catch (Exception e) {
+            log.warn("malformed CLIENT_LOG from {}: {}", who, e.getMessage());
         }
     }
 

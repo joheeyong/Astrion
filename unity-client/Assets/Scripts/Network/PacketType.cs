@@ -17,6 +17,7 @@ namespace Astrion.Network
         SkillCast = 0x0D,
         DropClaim = 0x0E,
         StatusUpdate = 0x0F,
+        ClientLog = 0x10,  // forward a client-side Exception / Error to the server
 
         // Server -> Client
         LoginResult = 0x81,

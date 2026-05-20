@@ -123,9 +123,14 @@ public class ProjectSetup
         var loginBgGo = new GameObject("LoginBackground");
         loginBgGo.AddComponent<Astrion.UI.LoginBackground>();
 
-        // NetworkManager
+        // NetworkManager — the TLS socket itself
         var networkGo = new GameObject("NetworkManager");
         networkGo.AddComponent<Astrion.Network.NetworkManager>();
+        // ClientLogReporter rides on the same GameObject so it shares
+        // the same lifecycle (DontDestroyOnLoad). Forwards every client
+        // Exception / Error up to the server so operator can see crashes
+        // happening on other people's machines.
+        networkGo.AddComponent<Astrion.Network.ClientLogReporter>();
 
         // PlayerStateManager (persists across scenes via DontDestroyOnLoad)
         var stateGo = new GameObject("PlayerStateManager");

@@ -16,6 +16,7 @@ public enum PacketType {
     SKILL_CAST(0x0D),
     DROP_CLAIM(0x0E),
     STATUS_UPDATE(0x0F),
+    CLIENT_LOG(0x10),  // client-side Exception / Error forwarded to server
 
     // Server -> Client
     LOGIN_RESULT(0x81),

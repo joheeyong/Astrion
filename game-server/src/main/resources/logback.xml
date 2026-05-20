@@ -46,6 +46,29 @@
         </encoder>
     </appender>
 
+    <!-- Client-forwarded Exceptions land here, not in the main server log.
+         Lets the operator answer 'is this a server bug or someone's machine'
+         without grepping a 1.1 MB INFO stream. Loose rotation — 50 MB / 30
+         days / 500 MB cap — because client NREs can be chatty under bugs. -->
+    <appender name="CLIENT" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>/home/ubuntu/logs/client-errors.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>/home/ubuntu/logs/client-errors-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Dedicated logger; additivity=false keeps these messages out of the
+         normal server.log / errors.log streams. -->
+    <logger name="CLIENT_ERR" level="INFO" additivity="false">
+        <appender-ref ref="CLIENT"/>
+    </logger>
+
     <logger name="com.astrion" level="DEBUG"/>
     <logger name="io.netty" level="INFO"/>
 
