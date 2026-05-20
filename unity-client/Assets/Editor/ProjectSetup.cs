@@ -172,6 +172,9 @@ public partial class ProjectSetup
         // Exception / Error up to the server so operator can see crashes
         // happening on other people's machines.
         networkGo.AddComponent<Astrion.Network.ClientLogReporter>();
+        // WorldMapUI — DDOL overlay toggled with M. Built once on the
+        // login scene; survives every portal transition.
+        networkGo.AddComponent<Astrion.UI.WorldMapUI>();
 
         // PlayerStateManager (persists across scenes via DontDestroyOnLoad)
         var stateGo = new GameObject("PlayerStateManager");
