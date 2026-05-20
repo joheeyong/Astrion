@@ -47,6 +47,8 @@ namespace Astrion.Game
         {
             if (_claimed) return;
             if (other.GetComponent<PlayerController2D>() == null) return;
+            // Z toggles auto-pickup; if off, drops are left on the ground
+            if (!AutoPickup.Enabled) return;
 
             // Refuse to claim if inventory has no room for this item — server stays
             // owner, someone else can still pick it up.

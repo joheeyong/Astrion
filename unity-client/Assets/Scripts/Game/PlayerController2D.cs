@@ -143,6 +143,16 @@ namespace Astrion.Game
                 else if (Input.GetKeyDown(KeyCode.Alpha4)) HotbarSystem.Instance?.TryTrigger(3);
                 else if (Input.GetKeyDown(KeyCode.Alpha5)) HotbarSystem.Instance?.TryTrigger(4);
 
+                // Z = toggle auto-pickup
+                if (Input.GetKeyDown(KeyCode.Z))
+                {
+                    bool now = !AutoPickup.Enabled;
+                    AutoPickup.Enabled = now;
+                    Astrion.UI.ToastUI.Instance?.Show(
+                        $"자동 줍기 {(now ? "ON" : "OFF")}",
+                        now ? new Color(0.40f, 0.85f, 0.40f) : new Color(0.78f, 0.72f, 0.55f));
+                }
+
                 // Quick consumables: R = HP potion, F = MP potion
                 if (Input.GetKeyDown(KeyCode.R))
                 {
