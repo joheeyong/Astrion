@@ -27,12 +27,17 @@ public class ConnectionRateLimitHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
         String ip = clientIpOf(ctx);
-        if (!limiter.allow(ip)) {
-            // Don't even propagate channelActive; downstream handlers
-            // (SslHandler, codec, GamePacketHandler) never see this socket.
-            log.warn("Rejecting connection from {}: connection rate limit", ip);
-            ctx.close();
-            return;
+        // Same loopback bypass logic as LoginRateLimiter — load tests run
+        // from inside the box and need to skip the gate that protects
+        // the public interface.
+        if (!"127.0.0.1".equals(ip) && !"0:0:0:0:0:0:0:1".equals(ip)) {
+            if (!limiter.allow(ip)) {
+                // Don't even propagate channelActive; downstream handlers
+                // (SslHandler, codec, GamePacketHandler) never see this socket.
+                log.warn("Rejecting connection from {}: connection rate limit", ip);
+                ctx.close();
+                return;
+            }
         }
         ctx.fireChannelActive();
     }

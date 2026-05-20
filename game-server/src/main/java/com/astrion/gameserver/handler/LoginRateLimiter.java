@@ -36,6 +36,15 @@ final class LoginRateLimiter {
     /** Returns {@code true} and 0 if the attempt is allowed, otherwise
      *  {@code false} and the remaining cooldown seconds. */
     Result check(String key) {
+        // Loopback bypass — load tests and operator scripts run from inside
+        // the EC2 instance and would otherwise be capped by the same gate
+        // that protects against real attackers. The wider firewall (AWS SG)
+        // is what keeps untrusted traffic away from 127.0.0.1 in the first
+        // place; if someone is already on the box, this isn't the layer
+        // standing between them and trouble.
+        if ("127.0.0.1".equals(key) || "0:0:0:0:0:0:0:1".equals(key)) {
+            return new Result(true, 0);
+        }
         long now = System.currentTimeMillis();
         maybeCleanup(now);
 
