@@ -37,11 +37,16 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
     private final WorldManager worldManager;
     private final RedisManager redisManager;
     private final MonsterManager monsterManager;
+    private final AccountLockout accountLockout;
 
     public GamePacketHandler(WorldManager worldManager, RedisManager redisManager, MonsterManager monsterManager) {
         this.worldManager = worldManager;
         this.redisManager = redisManager;
         this.monsterManager = monsterManager;
+        // AccountLockout is stateless apart from the redis handle, so one
+        // per handler instance is fine — Lettuce's RedisCommands inside
+        // RedisManager is what carries the actual state.
+        this.accountLockout = new AccountLockout(redisManager);
     }
 
     @Override
@@ -306,11 +311,30 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             // Login
             String storedPassword = redisManager.get(accountKey);
             if (storedPassword == null) {
+                // Account not found is reported the same way as a wrong
+                // password would be to avoid leaking which usernames exist
+                // — but we deliberately do NOT call accountLockout.record-
+                // Failure here. Locking on missing accounts would let a
+                // spray attack DoS arbitrary nicknames out of existence.
                 String result = mapper.writeValueAsString(new LoginResult(false, null, "Account not found."));
                 ctx.writeAndFlush(new GamePacket(PacketType.LOGIN_RESULT, result));
                 return;
             }
+            // Account exists — consult persistent lockout BEFORE comparing
+            // the password. If we got past the in-memory username rate gate
+            // it might still be that this account is locked from earlier
+            // attempts that crossed a server restart.
+            long lockLeft = accountLockout.lockSecondsLeft(username);
+            if (lockLeft > 0) {
+                long mins = (lockLeft + 59) / 60;
+                String msg = "계정이 잠겼습니다. 약 " + mins + "분 후 다시 시도해 주세요.";
+                String result = mapper.writeValueAsString(new LoginResult(false, null, msg));
+                ctx.writeAndFlush(new GamePacket(PacketType.LOGIN_RESULT, result));
+                log.warn("Account-locked login user='{}' from {}: {}s left", username, clientIp, lockLeft);
+                return;
+            }
             if (!storedPassword.equals(hashedPassword)) {
+                accountLockout.recordFailure(username);
                 String result = mapper.writeValueAsString(new LoginResult(false, null, "Wrong password."));
                 ctx.writeAndFlush(new GamePacket(PacketType.LOGIN_RESULT, result));
                 return;
@@ -331,9 +355,10 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         String result = mapper.writeValueAsString(new LoginResult(true, username, "OK"));
         ctx.writeAndFlush(new GamePacket(PacketType.LOGIN_RESULT, result));
 
-        // Legitimate user — drop accumulated failure counts on both keys.
+        // Legitimate user — drop accumulated failure counts on all three layers.
         ipLimiter.onSuccess(clientIp);
         usernameLimiter.onSuccess(username);
+        accountLockout.clear(username);
 
         log.info("Player {} logged in", username);
     }

@@ -108,6 +108,15 @@ public class RedisManager {
         return commands.get(key);
     }
 
+    // Low-level passthroughs. Used by AccountLockout (and any future feature
+    // that needs counters / TTL keys outside the dedicated DTO accessors above).
+    public long incr(String key)                       { return commands.incr(key); }
+    public void expire(String key, long seconds)       { commands.expire(key, seconds); }
+    public long ttl(String key)                        { return commands.ttl(key); }
+    public boolean exists(String key)                  { return commands.exists(key) > 0; }
+    public void setex(String key, long sec, String v)  { commands.setex(key, sec, v); }
+    public void del(String key)                        { commands.del(key); }
+
     public void shutdown() {
         connection.close();
         client.shutdown();
