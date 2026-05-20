@@ -77,8 +77,51 @@ namespace Astrion.UI
                 int idx = i;
                 btn.onClick.RemoveAllListeners();
                 btn.onClick.AddListener(() => OnSlotClicked(idx));
+                // Right-click routes to drop handler
+                var rc = slot.gameObject.GetComponent<RightClickRouter>();
+                if (rc == null) rc = slot.gameObject.AddComponent<RightClickRouter>();
+                rc.slotIdx = idx;
+                rc.owner = this;
             }
             _cached = true;
+        }
+
+        public void OnSlotRightClicked(int idx)
+        {
+            if (idx < 0 || idx >= InventorySystem.SLOT_COUNT) return;
+            var inv = InventorySystem.Instance;
+            if (inv == null) return;
+            var s = inv.Slots[idx];
+            if (s.IsEmpty) return;
+            var def = ItemDatabase.Get(s.itemId);
+            if (def == null) return;
+            if (TabOf(def.itemType) != _currentTab) return;
+
+            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            string name = def.displayName;
+            Color tint = new Color(0.78f, 0.72f, 0.55f);
+            if (shift)
+            {
+                int total = s.qty;
+                inv.Clear(idx);
+                ToastUI.Instance?.Show($"[버림]  {name} × {total}", tint);
+            }
+            else
+            {
+                inv.RemoveOneFromSlot(idx);
+                ToastUI.Instance?.Show($"[버림]  {name}", tint);
+            }
+        }
+
+        private class RightClickRouter : MonoBehaviour, IPointerClickHandler
+        {
+            public int slotIdx;
+            public InventoryUI owner;
+            public void OnPointerClick(PointerEventData e)
+            {
+                if (owner != null && e.button == PointerEventData.InputButton.Right)
+                    owner.OnSlotRightClicked(slotIdx);
+            }
         }
 
         private void CacheTabs()
