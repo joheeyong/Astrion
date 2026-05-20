@@ -1404,15 +1404,15 @@ public class ProjectSetup
         var arrowGo = new GameObject("TutorialArrow");
         arrowGo.transform.SetParent(polaris.transform, false);
         arrowGo.transform.localPosition = new Vector3(0f, 1.5f, 0f);
-        var tm = arrowGo.AddComponent<TextMesh>();
-        tm.text = "▼\n폴라리스 [E]";
-        tm.fontSize = 32;
-        tm.fontStyle = FontStyle.Bold;
-        tm.anchor = TextAnchor.MiddleCenter;
-        tm.alignment = TextAlignment.Center;
-        tm.color = new Color(1f, 0.85f, 0.30f);
-        var arrowMr = arrowGo.GetComponent<MeshRenderer>();
-        arrowMr.sortingOrder = 20;
+        var tutTm = arrowGo.AddComponent<TextMesh>();
+        tutTm.text = "▼\n폴라리스 [E]";
+        tutTm.fontSize = 32;
+        tutTm.fontStyle = FontStyle.Bold;
+        tutTm.anchor = TextAnchor.MiddleCenter;
+        tutTm.alignment = TextAlignment.Center;
+        tutTm.color = new Color(1f, 0.85f, 0.30f);
+        var tutMr = arrowGo.GetComponent<MeshRenderer>();
+        tutMr.sortingOrder = 20;
         arrowGo.transform.localScale = Vector3.one * 0.05f;
         arrowGo.AddComponent<Astrion.Game.TutorialArrow>();
 
