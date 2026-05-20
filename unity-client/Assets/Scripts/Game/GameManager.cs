@@ -116,6 +116,11 @@ namespace Astrion.Game
                 tag.SetHp(100, 100); // until first PLAYER_STATUS arrives
                 _remoteTags[data.playerId] = tag;
 
+                // Equipment visual for remote players (autoRefresh=false → fed by packets)
+                var eq = go.AddComponent<PlayerEquipmentVisual>();
+                eq.SetAutoRefreshExternal(false);
+                eq.ApplyEquipment(data.equippedWeaponId, data.equippedHelmetId,
+                                  data.equippedArmorId, data.equippedRingId);
                 // remote spawn visible via on-screen player
             }
         }
