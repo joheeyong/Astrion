@@ -428,11 +428,38 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
                 qtys.add(starterQtys[i]);
             }
 
-            // Warrior gets a starter sword and auto-equips it
+            // Class-specific starter: weapon + main stat bonus
+            String starterWeapon = null;
+            int str = 5, dex = 5, intStat = 5, luk = 5;
+            int maxMp = 50;
             if ("Warrior".equals(charClass)) {
-                ids.add("warrior_sword_bound");
+                starterWeapon = "warrior_sword_bound";
+                str = 10;
+            } else if ("Mage".equals(charClass)) {
+                starterWeapon = "mage_staff_bound";
+                intStat = 10;
+                maxMp = 70;
+            } else if ("Archer".equals(charClass)) {
+                starterWeapon = "star_bow_bound";
+                dex = 10;
+            } else if ("Thief".equals(charClass)) {
+                starterWeapon = "bronze_dagger_bound";
+                luk = 10;
+            }
+            if (starterWeapon != null) {
+                ids.add(starterWeapon);
                 qtys.add(1);
-                obj.put("equippedWeaponId", "warrior_sword_bound");
+                obj.put("equippedWeaponId", starterWeapon);
+            }
+            // Stats / MP only set on the brand-new account so older accounts
+            // don't get reset when they roll a new character.
+            if (firstEver) {
+                obj.put("statStr", str);
+                obj.put("statDex", dex);
+                obj.put("statInt", intStat);
+                obj.put("statLuk", luk);
+                obj.put("maxMp", maxMp);
+                obj.put("mp", maxMp);
             }
 
             obj.set("inventoryItemIds", ids);

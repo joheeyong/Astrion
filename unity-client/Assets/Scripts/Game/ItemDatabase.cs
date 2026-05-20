@@ -255,6 +255,16 @@ namespace Astrion.Game
                     baseDamage = 7, sellPrice = 0, equipSlot = "weapon",
                     untradable = true,
                 },
+                ["mage_staff_bound"] = new ItemDef
+                {
+                    id = "mage_staff_bound", displayName = "[귀속] 수련의 지팡이",
+                    description = "마법사가 처음 받는 지팡이. 공격력 +5.\n별빛 위력이 강해진다.\n교환·판매 불가.",
+                    iconColor = new Color(0.40f, 0.55f, 0.92f),
+                    iconLetter = "장", maxStack = 1,
+                    rarity = Rarity.Common, itemType = "장비",
+                    baseDamage = 5, sellPrice = 0, equipSlot = "weapon",
+                    untradable = true,
+                },
             };
             _initialized = true;
         }

@@ -13,6 +13,7 @@ namespace Astrion.Game
         private static Sprite _daggerSprite;
         private static Sprite _swordSprite;
         private static Sprite _bowSprite;
+        private static Sprite _staffSprite;
         private static Sprite _helmetSprite;
         private static Sprite _armorSprite;
         private static Sprite _ringSprite;
@@ -55,7 +56,11 @@ namespace Astrion.Game
             if (def == null) { _weaponSR.gameObject.SetActive(false); return; }
             bool isBow   = id == "star_bow" || id == "star_bow_bound";
             bool isSword = id.Contains("sword");
-            _weaponSR.sprite = isBow ? _bowSprite : (isSword ? _swordSprite : _daggerSprite);
+            bool isStaff = id.Contains("staff");
+            _weaponSR.sprite = isStaff ? _staffSprite
+                              : isBow   ? _bowSprite
+                              : isSword ? _swordSprite
+                                        : _daggerSprite;
             _weaponSR.color = def.iconColor;
             _weaponSR.gameObject.SetActive(true);
         }
@@ -99,9 +104,56 @@ namespace Astrion.Game
             if (_daggerSprite == null) _daggerSprite = MakeRectSprite(5, 18);
             if (_swordSprite  == null) _swordSprite  = MakeSwordSprite(8, 56);
             if (_bowSprite    == null) _bowSprite    = MakeBowSprite(18, 24);
+            if (_staffSprite  == null) _staffSprite  = MakeStaffSprite(10, 60);
             if (_helmetSprite == null) _helmetSprite = MakeHelmetSprite(20, 10);
             if (_armorSprite  == null) _armorSprite  = MakeArmorSprite(26, 30);
             if (_ringSprite   == null) _ringSprite   = MakeRingSprite(8);
+        }
+
+        private static Sprite MakeStaffSprite(int w, int h)
+        {
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                    tex.SetPixel(x, y, new Color(0, 0, 0, 0));
+
+            int orbRadius = w / 2;
+            int orbCy = h - orbRadius - 1;
+            int shaftTop = orbCy - orbRadius;
+
+            // Shaft (thin brown rod)
+            int shaftX = w / 2;
+            for (int y = 0; y < shaftTop; y++)
+            {
+                tex.SetPixel(shaftX - 1, y, new Color(0.42f, 0.28f, 0.14f));
+                tex.SetPixel(shaftX,     y, Color.white);
+                tex.SetPixel(shaftX + 1, y, new Color(0.42f, 0.28f, 0.14f));
+            }
+            // Pommel grip wrapping (a couple of darker bands)
+            for (int y = 3; y < 10; y++)
+                for (int x = shaftX - 1; x <= shaftX + 1; x++)
+                    if (((y - 3) / 2) % 2 == 0)
+                        tex.SetPixel(x, y, new Color(0.20f, 0.14f, 0.08f));
+
+            // Orb at the top (filled circle, outlined)
+            float cx = shaftX;
+            float cy = orbCy;
+            for (int y = orbCy - orbRadius; y < orbCy + orbRadius + 1; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    float d = Vector2.Distance(new Vector2(x, y), new Vector2(cx, cy));
+                    if (d <= orbRadius - 1)
+                        tex.SetPixel(x, y, Color.white);
+                    else if (d <= orbRadius)
+                        tex.SetPixel(x, y, new Color(0.10f, 0.08f, 0.20f));
+                }
+            // Small inner glint
+            tex.SetPixel((int)cx - 1, (int)cy + 1, new Color(1f, 1f, 1f));
+            tex.SetPixel((int)cx,     (int)cy + 1, new Color(1f, 1f, 1f));
+
+            tex.Apply();
+            // Pivot near the grip so the staff rises out of the hand
+            return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.10f), 100);
         }
 
         private static Sprite MakeSwordSprite(int w, int h)
