@@ -1400,6 +1400,22 @@ public class ProjectSetup
         });
         npcSo.ApplyModifiedPropertiesWithoutUndo();
 
+        // Tutorial hovering arrow above Polaris — auto-hides once any quest is taken
+        var arrowGo = new GameObject("TutorialArrow");
+        arrowGo.transform.SetParent(polaris.transform, false);
+        arrowGo.transform.localPosition = new Vector3(0f, 1.5f, 0f);
+        var tm = arrowGo.AddComponent<TextMesh>();
+        tm.text = "▼\n폴라리스 [E]";
+        tm.fontSize = 32;
+        tm.fontStyle = FontStyle.Bold;
+        tm.anchor = TextAnchor.MiddleCenter;
+        tm.alignment = TextAlignment.Center;
+        tm.color = new Color(1f, 0.85f, 0.30f);
+        var arrowMr = arrowGo.GetComponent<MeshRenderer>();
+        arrowMr.sortingOrder = 20;
+        arrowGo.transform.localScale = Vector3.one * 0.05f;
+        arrowGo.AddComponent<Astrion.Game.TutorialArrow>();
+
         // === Shop NPC: 미라 (떠돌이 상인 — 등대섬에 종종 들름) ===
         var miraParts = MakePlayerParts(
             shirt: new Color(0.42f, 0.18f, 0.32f),  // wine cloak
