@@ -67,8 +67,37 @@ public class MonsterManager {
         spawnFresh("slime", "forgotten_woods", -4f, -2.8f, 50, 3.5f, 1.6f);
         spawnFresh("slime", "forgotten_woods", 8f, -2.8f, 50, 3.5f, 1.6f);
         spawnFresh("slime", "forgotten_woods", -2f, 5.7f, 50, 3.5f, 1.6f);
+        // 3 bats — airborne, faster, lower HP
+        spawnBat("forgotten_woods", -10f, 1.8f);
+        spawnBat("forgotten_woods",  3f,  3.5f);
+        spawnBat("forgotten_woods", 14f,  2.6f);
         // Act I boss: Shadow Hulk
         spawnShadowHulk();
+    }
+
+    private Monster spawnBat(String zoneId, float x, float y) {
+        String id = UUID.randomUUID().toString();
+        Monster m = new Monster(id, "bat", zoneId, x, y, 25, 4.0f, 2.4f);
+        m.expReward = 15;
+        m.goldReward = 4;
+        m.dropChance = 0.35f;
+        m.dropTable = makeBatDropTable();
+        m.contactDamage = 4;
+        m.aggroSpeedMul = 1.8f;
+        m.attackRange = 0.7f;
+        m.attackCooldownMs = 700L;
+        m.aggroDurationMs = 8_000L;
+        monsters.put(id, m);
+        return m;
+    }
+
+    private List<DropEntry> makeBatDropTable() {
+        List<DropEntry> t = new ArrayList<>();
+        t.add(new DropEntry("bread",          1, 1, 35f));
+        t.add(new DropEntry("stardust",       1, 2, 50f));
+        t.add(new DropEntry("elixir",         1, 1, 12f));
+        t.add(new DropEntry("bronze_dagger",  1, 1,  3f));
+        return t;
     }
 
     private Monster spawnShadowHulk() {

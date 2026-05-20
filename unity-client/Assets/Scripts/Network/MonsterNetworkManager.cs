@@ -13,6 +13,7 @@ namespace Astrion.Network
         private readonly Dictionary<string, ServerMonster2D> _monsters = new Dictionary<string, ServerMonster2D>();
         private Sprite _slimeSpr;
         private Sprite _hulkSpr;
+        private Sprite _batSpr;
 
         private void Awake()
         {
@@ -25,6 +26,7 @@ namespace Astrion.Network
             DontDestroyOnLoad(gameObject);
             _slimeSpr = BuildSlimeSprite();
             _hulkSpr = BuildShadowHulkSprite();
+            _batSpr  = BuildBatSprite();
             SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
@@ -138,14 +140,17 @@ namespace Astrion.Network
                 if (d == null || string.IsNullOrEmpty(d.id)) return;
                 if (_monsters.ContainsKey(d.id)) return;
                 bool isHulk = d.type == "shadow_hulk";
+                bool isBat  = d.type == "bat";
                 var go = new GameObject($"Monster_{d.id.Substring(0, System.Math.Min(8, d.id.Length))}");
                 var visual = new GameObject("Visual");
                 visual.transform.SetParent(go.transform, false);
                 var sr = visual.AddComponent<SpriteRenderer>();
-                sr.sprite = isHulk ? _hulkSpr : _slimeSpr;
+                sr.sprite = isHulk ? _hulkSpr : (isBat ? _batSpr : _slimeSpr);
                 sr.sortingOrder = isHulk ? 10 : 9;
                 var col = go.AddComponent<BoxCollider2D>();
-                col.size = isHulk ? new Vector2(1.6f, 1.1f) : new Vector2(0.46f, 0.34f);
+                col.size = isHulk
+                    ? new Vector2(1.6f, 1.1f)
+                    : (isBat ? new Vector2(0.40f, 0.26f) : new Vector2(0.46f, 0.34f));
                 col.isTrigger = true;
                 var m = go.AddComponent<ServerMonster2D>();
                 m.Init(d.id, d.x, d.y, d.direction);
@@ -228,6 +233,79 @@ namespace Astrion.Network
                         c = eyeBlack;
                     tex.SetPixel(x, y, c);
                 }
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    if (tex.GetPixel(x, y).a > 0)
+                    {
+                        bool edge = false;
+                        if (x > 0 && tex.GetPixel(x - 1, y).a == 0) edge = true;
+                        if (y > 0 && tex.GetPixel(x, y - 1).a == 0) edge = true;
+                        if (edge) tex.SetPixel(x, y, outline);
+                    }
+                }
+            tex.Apply();
+            return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100);
+        }
+
+        // Bat: small dark winged silhouette with red eyes
+        private Sprite BuildBatSprite()
+        {
+            int w = 40, h = 26;
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            Color clear = new Color(0, 0, 0, 0);
+            Color body  = new Color(0.12f, 0.10f, 0.14f);
+            Color wing  = new Color(0.22f, 0.18f, 0.26f);
+            Color outline = new Color(0.03f, 0.02f, 0.04f);
+            Color eyeRed = new Color(0.95f, 0.18f, 0.18f);
+
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                    tex.SetPixel(x, y, clear);
+
+            float cx = w * 0.5f;
+            float bodyCy = h * 0.40f;
+            float bodyRx = w * 0.12f;
+            float bodyRy = h * 0.35f;
+
+            // Body (oval)
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    float dx = (x - cx) / bodyRx;
+                    float dy = (y - bodyCy) / bodyRy;
+                    if (dx * dx + dy * dy <= 1f)
+                        tex.SetPixel(x, y, body);
+                }
+
+            // Wings — two triangles spreading from body
+            int wingTop = (int)(h * 0.55f);
+            int wingBot = (int)(h * 0.15f);
+            for (int x = 0; x < w; x++)
+            {
+                if (x < cx - bodyRx || x > cx + bodyRx)
+                {
+                    float dist = Mathf.Abs(x - cx) - bodyRx;
+                    float maxDist = (w * 0.5f) - bodyRx;
+                    float tNorm = Mathf.Clamp01(dist / maxDist);
+                    int topY = (int)Mathf.Lerp(wingTop, wingTop - 8, tNorm);
+                    int botY = (int)Mathf.Lerp(wingBot, wingBot + 4, tNorm);
+                    for (int y = Mathf.Max(0, botY); y <= Mathf.Min(h - 1, topY); y++)
+                        tex.SetPixel(x, y, wing);
+                    // small scallop bumps on bottom edge
+                    if ((int)(tNorm * 3) % 2 == 0 && botY - 2 >= 0)
+                        tex.SetPixel(x, botY - 1, wing);
+                }
+            }
+
+            // Eyes
+            int eyeY = (int)(h * 0.50f);
+            int eyeL = (int)(cx - 1.5f);
+            int eyeR = (int)(cx + 1.5f);
+            tex.SetPixel(eyeL, eyeY, eyeRed);
+            tex.SetPixel(eyeR, eyeY, eyeRed);
+
+            // Outline pass
             for (int y = 0; y < h; y++)
                 for (int x = 0; x < w; x++)
                 {
