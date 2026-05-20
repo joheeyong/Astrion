@@ -68,6 +68,7 @@ public partial class ProjectSetup
         CreateForgottenWoodsScene();
         CreateCitadelOfDawnScene();
         CreateWorldMapScenes();  // 22 new v1 worldmap scenes (cities + huntings)
+        InjectThemeIntoAllScenes();  // unify all scene UIs under the parchment/brass theme
         Debug.Log("[Astrion] Project setup complete!");
     }
 
