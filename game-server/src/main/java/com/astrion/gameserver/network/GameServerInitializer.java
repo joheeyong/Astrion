@@ -22,20 +22,29 @@ public class GameServerInitializer extends ChannelInitializer<SocketChannel> {
     private final RedisManager redisManager;
     private final MonsterManager monsterManager;
     private final SslContext sslCtx; // null when TLS is disabled
+    private final ConnectionRateLimitHandler connectionRateLimit;
 
     public GameServerInitializer(WorldManager worldManager, RedisManager redisManager,
-                                 MonsterManager monsterManager, SslContext sslCtx) {
+                                 MonsterManager monsterManager, SslContext sslCtx,
+                                 ConnectionRateLimitHandler connectionRateLimit) {
         this.worldManager = worldManager;
         this.redisManager = redisManager;
         this.monsterManager = monsterManager;
         this.sslCtx = sslCtx;
+        this.connectionRateLimit = connectionRateLimit;
     }
 
     @Override
     protected void initChannel(SocketChannel ch) {
         ChannelPipeline pipeline = ch.pipeline();
 
-        // TLS first — every other handler downstream sees decrypted bytes.
+        // Connection-rate gate FIRST — before TLS even gets the chance to
+        // burn cycles on a handshake from a flooding IP. @Sharable means the
+        // same handler instance lives on every channel and consults shared
+        // per-IP state.
+        pipeline.addLast(connectionRateLimit);
+
+        // TLS next — every other handler downstream sees decrypted bytes.
         // newHandler creates a fresh SslHandler per connection (required).
         if (sslCtx != null) {
             pipeline.addLast(sslCtx.newHandler(ch.alloc()));

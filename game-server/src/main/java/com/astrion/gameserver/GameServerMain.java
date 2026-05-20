@@ -1,5 +1,7 @@
 package com.astrion.gameserver;
 
+import com.astrion.gameserver.network.ConnectionRateLimitHandler;
+import com.astrion.gameserver.network.ConnectionRateLimiter;
 import com.astrion.gameserver.network.GameServerInitializer;
 import com.astrion.gameserver.network.HealthHttpHandler;
 import com.astrion.gameserver.redis.RedisManager;
@@ -67,6 +69,12 @@ public class GameServerMain {
             log.warn("TLS DISABLED — cert/key not found at {} / {}. Wire is plaintext.", certPath, keyPath);
         }
 
+        // One limiter shared across all listener pipelines — the same IP
+        // shouldn't be able to dodge the cap by switching between 9000 and
+        // 9002. The @Sharable handler wraps the limiter for each pipeline.
+        ConnectionRateLimitHandler connRateGate =
+            new ConnectionRateLimitHandler(new ConnectionRateLimiter());
+
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
 
@@ -75,7 +83,7 @@ public class GameServerMain {
             ServerBootstrap bootstrap = new ServerBootstrap();
             bootstrap.group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
-                    .childHandler(new GameServerInitializer(worldManager, redisManager, monsterManager, gameSslCtx))
+                    .childHandler(new GameServerInitializer(worldManager, redisManager, monsterManager, gameSslCtx, connRateGate))
                     .option(ChannelOption.SO_BACKLOG, 128)
                     .childOption(ChannelOption.SO_KEEPALIVE, true)
                     .childOption(ChannelOption.TCP_NODELAY, true);
@@ -119,11 +127,11 @@ public class GameServerMain {
             // LIVENESS_PORT (9002): /health only — safe to open to the world.
             //                       External uptime probes / Route 53 health
             //                       checks should hit this.
-            bindHttp(bossGroup, workerGroup, HTTP_PORT,
+            bindHttp(bossGroup, workerGroup, HTTP_PORT, connRateGate,
                 () -> new HealthHttpHandler(worldManager, monsterManager, startTimeMs, true));
             log.info("HTTP ops endpoint on port {} (GET /health, /metrics)", HTTP_PORT);
 
-            bindHttp(bossGroup, workerGroup, LIVENESS_PORT,
+            bindHttp(bossGroup, workerGroup, LIVENESS_PORT, connRateGate,
                 () -> new HealthHttpHandler(worldManager, monsterManager, startTimeMs, false));
             log.info("HTTP liveness endpoint on port {} (GET /health)", LIVENESS_PORT);
 
@@ -145,6 +153,7 @@ public class GameServerMain {
     }
 
     private static void bindHttp(EventLoopGroup boss, EventLoopGroup worker, int port,
+                                 ConnectionRateLimitHandler rateGate,
                                  java.util.function.Supplier<io.netty.channel.ChannelHandler> handlerFactory)
                                  throws InterruptedException {
         ServerBootstrap b = new ServerBootstrap();
@@ -153,6 +162,8 @@ public class GameServerMain {
                 .childHandler(new ChannelInitializer<SocketChannel>() {
                     @Override protected void initChannel(SocketChannel ch) {
                         ch.pipeline()
+                                // Same connect-rate gate as 9000 — first in line.
+                                .addLast(rateGate)
                                 .addLast(new HttpServerCodec())
                                 .addLast(new HttpObjectAggregator(8 * 1024))
                                 .addLast(handlerFactory.get());
