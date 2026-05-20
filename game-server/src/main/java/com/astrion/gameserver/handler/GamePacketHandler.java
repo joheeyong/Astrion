@@ -581,8 +581,40 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        log.error("Error in channel {}: {}", ctx.channel().id().asShortText(), cause.getMessage());
+        String chId = ctx.channel().id().asShortText();
+        if (isExpectedClientFault(cause)) {
+            // Port scanners, half-broken clients, plaintext probes against TLS:
+            // we close the channel as expected. Don't pollute errors.log — these
+            // are normal background hum, not bugs to triage.
+            log.warn("Closing channel {} ({}): {}",
+                chId, cause.getClass().getSimpleName(), cause.getMessage());
+        } else {
+            // Anything we don't recognise is real. Log with full stack trace
+            // (third arg to log.error) so it lands in errors.log with %ex
+            // expansion, and we can debug from a single tail.
+            log.error("Error in channel {}: {}", chId, cause.getMessage(), cause);
+        }
         ctx.close();
+    }
+
+    /** Classifies remote-induced channel faults so they don't get treated as
+     *  server bugs. Anything matching here is a client-side mistake we already
+     *  defend against (TLS misuse, decoder mismatch, peer disconnect). */
+    private static boolean isExpectedClientFault(Throwable cause) {
+        if (cause instanceof io.netty.handler.ssl.NotSslRecordException) return true;
+        if (cause instanceof javax.net.ssl.SSLException) return true;
+        if (cause instanceof io.netty.handler.codec.DecoderException) {
+            Throwable inner = cause.getCause();
+            if (inner instanceof javax.net.ssl.SSLException) return true;
+            if (inner instanceof io.netty.handler.ssl.NotSslRecordException) return true;
+        }
+        if (cause instanceof java.io.IOException) {
+            String m = cause.getMessage();
+            if (m != null && (m.contains("Connection reset")
+                           || m.contains("Broken pipe")
+                           || m.contains("forcibly closed"))) return true;
+        }
+        return false;
     }
 
     // DTO records
