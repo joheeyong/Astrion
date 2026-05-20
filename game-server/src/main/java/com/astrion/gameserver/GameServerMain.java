@@ -32,6 +32,14 @@ public class GameServerMain {
     private static final int REDIS_PORT = 6379;
 
     public static void main(String[] args) throws Exception {
+        // Catch anything thrown out of a thread that didn't install its own
+        // handler (background timers, monster-tick, Netty boss thread under
+        // some failure modes). Without this the JVM prints to stderr and
+        // logback's rolling sinks never see it. Routing through log.error
+        // means it lands in BOTH server.log and the dedicated errors.log.
+        Thread.setDefaultUncaughtExceptionHandler((t, ex) ->
+            log.error("Uncaught exception on thread {}: {}", t.getName(), ex.getMessage(), ex));
+
         log.info("=== Astrion Game Server ===");
         long startTimeMs = System.currentTimeMillis();
 

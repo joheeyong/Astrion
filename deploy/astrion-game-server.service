@@ -28,7 +28,17 @@ RestartSec=5
 
 # JVM heap. Current load sits well under 100MB used; 512MB max leaves
 # generous headroom for /metrics heap_used_mb to grow before we revisit.
-Environment="JAVA_OPTS=-Xms256m -Xmx512m"
+#
+# Crash dumps:
+#   -XX:ErrorFile  — hotspot fatal-error log (segfault, internal JVM bug).
+#   -XX:HeapDumpOnOutOfMemoryError + HeapDumpPath — drop a .hprof on OOM
+#                                                   so we can post-mortem
+#                                                   what blew up the heap.
+# Both files land in ~/logs so they sit next to the logback rolling files.
+## %% escapes the percent so systemd hands JVM a literal '%p', which the
+## JVM then substitutes with the process PID. Without escaping, systemd
+## expands %p to the unit name and every crash overwrites the same file.
+Environment="JAVA_OPTS=-Xms256m -Xmx512m -XX:ErrorFile=/home/ubuntu/logs/jvm-crash-%%p.log -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/home/ubuntu/logs"
 
 # TLS material. Paths match the defaults inside GameServerMain, but we
 # pin them here so the unit file alone tells you where the cert lives.
