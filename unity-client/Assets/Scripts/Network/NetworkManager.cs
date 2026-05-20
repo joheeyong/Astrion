@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using UnityEngine;
@@ -12,12 +15,19 @@ namespace Astrion.Network
     {
         public static NetworkManager Instance { get; private set; }
 
+        // SHA-256 fingerprint of the server's TLS certificate (DER bytes).
+        // Pinned here — even if a CA-signed cert claims to be our server,
+        // we reject it unless this exact hash matches. Update on cert rotation.
+        // Server cmd to print: openssl x509 -in server.crt -noout -fingerprint -sha256
+        private const string ServerCertSha256 =
+            "1EEA59A85846E2450BA226E03141113B72B16F2171D8C986734B3F94CA569DDE";
+
         [Header("Server Settings (overridden by NetworkConfig at runtime)")]
         [SerializeField] private int maxRetries = 5;
         [SerializeField] private float retryDelaySeconds = 2f;
 
         private TcpClient _client;
-        private NetworkStream _stream;
+        private Stream _stream;  // SslStream over the raw NetworkStream
         private Thread _receiveThread;
         private bool _isConnected;
 
@@ -57,7 +67,16 @@ namespace Astrion.Network
                     _client = new TcpClient();
                     _client.NoDelay = true;
                     _client.Connect(host, port);
-                    _stream = _client.GetStream();
+
+                    // Wrap the raw socket in TLS. The targetHost arg is only
+                    // used for SNI / hostname matching, which we override via
+                    // ValidateServerCert (we pin on fingerprint, not CN/SAN),
+                    // so any non-empty string here is fine.
+                    var rawStream = _client.GetStream();
+                    var ssl = new SslStream(rawStream, leaveInnerStreamOpen: false,
+                        userCertificateValidationCallback: ValidateServerCert);
+                    ssl.AuthenticateAsClient(host);
+                    _stream = ssl;
                     _isConnected = true;
 
                     _receiveThread = new Thread(ReceiveLoop) { IsBackground = true };
@@ -131,6 +150,26 @@ namespace Astrion.Network
             }
             // Receive loop exited — make sure the rest of the app knows
             if (_isConnected) Disconnect();
+        }
+
+        // Reject any cert whose DER-encoded SHA-256 doesn't match the pin,
+        // regardless of CN/SAN, expiry, or chain trust. A MITM presenting a
+        // 'valid' cert from a real CA still loses here.
+        private static bool ValidateServerCert(object sender, X509Certificate cert,
+            X509Chain chain, SslPolicyErrors errors)
+        {
+            if (cert == null) return false;
+            byte[] der = cert.GetRawCertData();
+            using var sha = SHA256.Create();
+            byte[] hash = sha.ComputeHash(der);
+            var sb = new StringBuilder(hash.Length * 2);
+            foreach (byte b in hash) sb.Append(b.ToString("X2"));
+            string actual = sb.ToString();
+            string expected = ServerCertSha256.Replace(":", "").ToUpperInvariant();
+            bool ok = actual.Equals(expected, StringComparison.Ordinal);
+            if (!ok)
+                Debug.LogError($"[Network] TLS cert pin MISMATCH. expected={expected} actual={actual}");
+            return ok;
         }
 
         private bool ReadExact(byte[] buffer, int count)
