@@ -112,7 +112,7 @@ namespace Astrion.Game
 
                 var tag = go.AddComponent<Astrion.UI.PlayerNameTag>();
                 tag.SetName(string.IsNullOrEmpty(data.nickname) ? data.playerId : data.nickname);
-                tag.SetNameColor(new Color(0.85f, 0.86f, 0.95f)); // remote = cooler tint
+                tag.SetNameColor(ColorForClass(data.className));
                 tag.SetHp(100, 100); // until first PLAYER_STATUS arrives
                 _remoteTags[data.playerId] = tag;
 
@@ -130,13 +130,30 @@ namespace Astrion.Game
             var data = JsonUtility.FromJson<PlayerStatusData>(payload);
             if (data == null || string.IsNullOrEmpty(data.playerId)) return;
             if (_remoteTags.TryGetValue(data.playerId, out var tag) && tag != null)
+            {
                 tag.SetHp(data.hp, data.maxHp);
+                if (!string.IsNullOrEmpty(data.className))
+                    tag.SetNameColor(ColorForClass(data.className));
+            }
             if (_remotePlayers.TryGetValue(data.playerId, out var go) && go != null)
             {
                 var eq = go.GetComponent<PlayerEquipmentVisual>();
                 if (eq != null)
                     eq.ApplyEquipment(data.equippedWeaponId, data.equippedHelmetId,
                                       data.equippedArmorId, data.equippedRingId);
+            }
+        }
+
+        // Shared color table: NameTag tint by class
+        private static Color ColorForClass(string className)
+        {
+            switch (className)
+            {
+                case "Warrior": return new Color(1.00f, 0.55f, 0.55f); // crimson
+                case "Mage":    return new Color(0.55f, 0.70f, 1.00f); // sky
+                case "Archer":  return new Color(0.55f, 0.95f, 0.65f); // forest
+                case "Thief":   return new Color(0.85f, 0.60f, 0.95f); // violet
+                default:        return new Color(0.85f, 0.86f, 0.95f); // pale (unknown)
             }
         }
 
