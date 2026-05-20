@@ -10,10 +10,27 @@ using UnityEngine;
 /// after every Create*Scene method has run.
 public partial class ProjectSetup
 {
+    /// Pre-game lobby scenes that the player explicitly asked us to leave
+    /// alone. Their visual identity is intentional and predates the in-game
+    /// fantasy theme push.
+    private static readonly System.Collections.Generic.HashSet<string> ThemeExcludedScenes =
+        new System.Collections.Generic.HashSet<string> {
+            "LoginScene",
+            "CharacterSelectScene",
+            "CharacterCreateScene",
+        };
+
     public static void InjectThemeIntoAllScenes()
     {
         foreach (var path in AllScenes)
         {
+            string name = System.IO.Path.GetFileNameWithoutExtension(path);
+            if (ThemeExcludedScenes.Contains(name))
+            {
+                Debug.Log($"[Astrion/Theme] skipping {name} (excluded)");
+                continue;
+            }
+
             var scene = EditorSceneManager.OpenScene(path, OpenSceneMode.Single);
 
             // Skip if a previous run already injected the applier.
@@ -26,14 +43,10 @@ public partial class ProjectSetup
 
             var go = new GameObject("UIThemeApplier");
             var applier = go.AddComponent<Astrion.UI.UIThemeApplier>();
-
-            // Login / character menu / world map scenes look better with a
-            // parchment backdrop behind the canvas. In-game scenes already
-            // have a sky / world background, so we don't blanket those.
-            string name = System.IO.Path.GetFileNameWithoutExtension(path);
-            applier.addBackdrop = name == "LoginScene"
-                              || name == "CharacterSelectScene"
-                              || name == "CharacterCreateScene";
+            // In-game scenes already have a world/sky background, so don't
+            // pile on another fullscreen layer. The applier just retints
+            // the existing HUD widgets.
+            applier.addBackdrop = false;
 
             EditorSceneManager.SaveScene(scene);
             Debug.Log($"[Astrion/Theme] injected applier into {name}");
