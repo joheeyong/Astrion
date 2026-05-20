@@ -201,16 +201,9 @@ namespace Astrion.Network
             _loginAcked = true;
         }
 
-        private static string SceneToZone(string sceneName)
-        {
-            switch (sceneName)
-            {
-                case "MainScene": return "beacon_of_winds";
-                case "ForgottenWoodsScene": return "forgotten_woods";
-                case "CitadelOfDawnScene": return "citadel_of_dawn";
-                default: return "";
-            }
-        }
+        // Delegates to SceneZoneMap so the worldmap mapping lives in exactly
+        // one file (see SceneZoneMap.cs).
+        private static string SceneToZone(string sceneName) => SceneZoneMap.SceneToZone(sceneName);
 
         private static string Escape(string s)
         {

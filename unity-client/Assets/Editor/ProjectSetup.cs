@@ -3,8 +3,48 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class ProjectSetup
+public partial class ProjectSetup
 {
+    /// All scenes that ship with the build. Single source so the
+    /// build target arrays stay in sync. See ProjectSetupWorldMap.cs
+    /// for the procedural scene generators that populate this list.
+    private static readonly string[] AllScenes = new[] {
+        "Assets/Scenes/LoginScene.unity",
+        "Assets/Scenes/CharacterSelectScene.unity",
+        "Assets/Scenes/CharacterCreateScene.unity",
+        "Assets/Scenes/MainScene.unity",
+        // v1 worldmap — cities (safe zones)
+        "Assets/Scenes/SolariaScene.unity",
+        "Assets/Scenes/PyresummitScene.unity",
+        "Assets/Scenes/VerdaglenScene.unity",
+        "Assets/Scenes/NightportScene.unity",
+        "Assets/Scenes/TidehavenScene.unity",
+        // Solaria tree
+        "Assets/Scenes/SolariaOutskirtsScene.unity",
+        "Assets/Scenes/SunlitPlainsScene.unity",
+        "Assets/Scenes/WheatFieldsScene.unity",
+        "Assets/Scenes/PinewoodTrailScene.unity",
+        // Pyresummit tree
+        "Assets/Scenes/CinderRidgeScene.unity",
+        "Assets/Scenes/AshfallCliffsScene.unity",
+        "Assets/Scenes/MagmaHollowScene.unity",
+        // Verdaglen tree (forgotten_woods is the terminal node)
+        "Assets/Scenes/MossgladeScene.unity",
+        "Assets/Scenes/WhisperingBoughsScene.unity",
+        "Assets/Scenes/OldRootsScene.unity",
+        "Assets/Scenes/ForgottenWoodsScene.unity",
+        // Nightport tree
+        "Assets/Scenes/BackalleysScene.unity",
+        "Assets/Scenes/SewerTunnelsScene.unity",
+        "Assets/Scenes/UndergroundVaultScene.unity",
+        // Tidehaven tree (citadel_of_dawn is the terminal node)
+        "Assets/Scenes/TideDocksScene.unity",
+        "Assets/Scenes/DriftwoodBeachScene.unity",
+        "Assets/Scenes/SunkenReefScene.unity",
+        "Assets/Scenes/CitadelOfDawnScene.unity",
+    };
+
+
     // Medieval European color palette (heraldic + parchment + iron)
     private static readonly Color AccentGold = new Color(0.85f, 0.65f, 0.22f, 1f);       // gold leaf
     private static readonly Color AccentGoldDim = new Color(0.85f, 0.65f, 0.22f, 0.30f);
@@ -27,13 +67,14 @@ public class ProjectSetup
         CreateMainScene();
         CreateForgottenWoodsScene();
         CreateCitadelOfDawnScene();
+        CreateWorldMapScenes();  // 22 new v1 worldmap scenes (cities + huntings)
         Debug.Log("[Astrion] Project setup complete!");
     }
 
     [MenuItem("Astrion/Build Android (Debug)")]
     public static void BuildAndroid()
     {
-        var scenes = new[] { "Assets/Scenes/LoginScene.unity", "Assets/Scenes/CharacterSelectScene.unity", "Assets/Scenes/CharacterCreateScene.unity", "Assets/Scenes/MainScene.unity", "Assets/Scenes/ForgottenWoodsScene.unity", "Assets/Scenes/CitadelOfDawnScene.unity" };
+        var scenes = AllScenes;
         PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, "com.astrion.game");
         PlayerSettings.productName = "Astrion";
         PlayerSettings.companyName = "Astrion";
@@ -48,7 +89,7 @@ public class ProjectSetup
     [MenuItem("Astrion/Build macOS (Debug)")]
     public static void BuildMacOS()
     {
-        var scenes = new[] { "Assets/Scenes/LoginScene.unity", "Assets/Scenes/CharacterSelectScene.unity", "Assets/Scenes/CharacterCreateScene.unity", "Assets/Scenes/MainScene.unity", "Assets/Scenes/ForgottenWoodsScene.unity", "Assets/Scenes/CitadelOfDawnScene.unity" };
+        var scenes = AllScenes;
         PlayerSettings.productName = "Astrion";
         PlayerSettings.companyName = "Astrion";
         PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Standalone, "com.astrion.game");
@@ -65,7 +106,7 @@ public class ProjectSetup
     [MenuItem("Astrion/Build Windows (Debug)")]
     public static void BuildWindows()
     {
-        var scenes = new[] { "Assets/Scenes/LoginScene.unity", "Assets/Scenes/CharacterSelectScene.unity", "Assets/Scenes/CharacterCreateScene.unity", "Assets/Scenes/MainScene.unity", "Assets/Scenes/ForgottenWoodsScene.unity", "Assets/Scenes/CitadelOfDawnScene.unity" };
+        var scenes = AllScenes;
         PlayerSettings.productName = "Astrion";
         PlayerSettings.companyName = "Astrion";
         PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Standalone, "com.astrion.game");
@@ -82,7 +123,7 @@ public class ProjectSetup
     [MenuItem("Astrion/Build iOS (Debug)")]
     public static void BuildIOS()
     {
-        var scenes = new[] { "Assets/Scenes/LoginScene.unity", "Assets/Scenes/CharacterSelectScene.unity", "Assets/Scenes/CharacterCreateScene.unity", "Assets/Scenes/MainScene.unity", "Assets/Scenes/ForgottenWoodsScene.unity", "Assets/Scenes/CitadelOfDawnScene.unity" };
+        var scenes = AllScenes;
         PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.iOS, "com.astrion.game");
         PlayerSettings.productName = "Astrion";
         PlayerSettings.companyName = "Astrion";

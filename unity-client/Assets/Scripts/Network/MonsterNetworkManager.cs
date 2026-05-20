@@ -101,16 +101,9 @@ namespace Astrion.Network
             return s.Replace("\\", "\\\\").Replace("\"", "\\\"");
         }
 
-        private string SceneToZone(string sceneName)
-        {
-            switch (sceneName)
-            {
-                case "MainScene": return "beacon_of_winds";
-                case "ForgottenWoodsScene": return "forgotten_woods";
-                case "CitadelOfDawnScene": return "citadel_of_dawn";
-                default: return "";
-            }
-        }
+        // Delegates to SceneZoneMap so the worldmap mapping lives in exactly
+        // one file. Was previously a duplicated copy here and in ReconnectSystem.
+        private string SceneToZone(string sceneName) => SceneZoneMap.SceneToZone(sceneName);
 
         private void HandlePacket(GamePacket packet)
         {
