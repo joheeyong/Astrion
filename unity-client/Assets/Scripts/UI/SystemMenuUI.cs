@@ -68,6 +68,9 @@ namespace Astrion.UI
             var shop = ShopUI.Instance;
             if (shop != null && shop.IsOpen) return true;
 
+            var ql = QuestLogUI.Instance;
+            if (ql != null && ql.IsOpen) return true;
+
             return false;
         }
 

@@ -3910,6 +3910,141 @@ public class ProjectSetup
         invUiSo.ApplyModifiedPropertiesWithoutUndo();
         invPanel.gameObject.SetActive(false);
 
+        // ========== QUEST LOG (J key) ==========
+        var qlPanel = HUD_CreateRT("QuestLogPanel", root);
+        qlPanel.anchorMin = qlPanel.anchorMax = new Vector2(0.5f, 0.5f);
+        qlPanel.pivot = new Vector2(0.5f, 0.5f);
+        qlPanel.anchoredPosition = Vector2.zero;
+        qlPanel.sizeDelta = new Vector2(440, 520);
+        var qlBg = qlPanel.gameObject.AddComponent<Image>();
+        qlBg.sprite = panelSpr; qlBg.type = Image.Type.Sliced;
+
+        // Header
+        var qlHdrRT = HUD_CreateRT("Header", qlPanel);
+        qlHdrRT.anchorMin = new Vector2(0, 1); qlHdrRT.anchorMax = new Vector2(1, 1);
+        qlHdrRT.pivot = new Vector2(0.5f, 1);
+        qlHdrRT.anchoredPosition = new Vector2(0, -10);
+        qlHdrRT.sizeDelta = new Vector2(-20, 32);
+        var qlHdrT = qlHdrRT.gameObject.AddComponent<Text>();
+        qlHdrT.font = font; qlHdrT.fontSize = 18; qlHdrT.fontStyle = FontStyle.Bold;
+        qlHdrT.color = new Color(1f, 0.85f, 0.40f);
+        qlHdrT.alignment = TextAnchor.MiddleLeft;
+        qlHdrT.text = "퀘스트 일지";
+
+        // Close X
+        var qlCloseRT = HUD_CreateRT("Close", qlPanel);
+        qlCloseRT.anchorMin = qlCloseRT.anchorMax = new Vector2(1, 1);
+        qlCloseRT.pivot = new Vector2(1, 1);
+        qlCloseRT.anchoredPosition = new Vector2(-8, -8);
+        qlCloseRT.sizeDelta = new Vector2(28, 28);
+        qlCloseRT.gameObject.AddComponent<Image>().sprite =
+            TexToSprite(MakeRoundRectTex(64, 64, 6, new Color(0.20f, 0.05f, 0.05f, 0.95f)));
+        var qlCloseB = qlCloseRT.gameObject.AddComponent<Button>();
+        var qlXRT = HUD_CreateRT("X", qlCloseRT);
+        qlXRT.anchorMin = Vector2.zero; qlXRT.anchorMax = Vector2.one;
+        qlXRT.offsetMin = qlXRT.offsetMax = Vector2.zero;
+        var qlXT = qlXRT.gameObject.AddComponent<Text>();
+        qlXT.font = font; qlXT.fontSize = 16; qlXT.fontStyle = FontStyle.Bold;
+        qlXT.color = new Color(1f, 0.85f, 0.75f);
+        qlXT.alignment = TextAnchor.MiddleCenter;
+        qlXT.text = "×";
+
+        // Sections
+        var qlActiveLabelRT = HUD_CreateRT("ActiveLabel", qlPanel);
+        qlActiveLabelRT.anchorMin = new Vector2(0, 1); qlActiveLabelRT.anchorMax = new Vector2(1, 1);
+        qlActiveLabelRT.pivot = new Vector2(0.5f, 1);
+        qlActiveLabelRT.anchoredPosition = new Vector2(0, -48);
+        qlActiveLabelRT.sizeDelta = new Vector2(-24, 22);
+        var qlActiveLT = qlActiveLabelRT.gameObject.AddComponent<Text>();
+        qlActiveLT.font = font; qlActiveLT.fontSize = 13; qlActiveLT.fontStyle = FontStyle.Bold;
+        qlActiveLT.color = new Color(0.92f, 0.82f, 0.50f);
+        qlActiveLT.alignment = TextAnchor.MiddleLeft;
+        qlActiveLT.text = "▶ 진행 중";
+
+        var qlActiveRoot = HUD_CreateRT("ActiveRoot", qlPanel);
+        qlActiveRoot.anchorMin = new Vector2(0, 1); qlActiveRoot.anchorMax = new Vector2(1, 1);
+        qlActiveRoot.pivot = new Vector2(0.5f, 1);
+        qlActiveRoot.anchoredPosition = new Vector2(0, -78);
+        qlActiveRoot.sizeDelta = new Vector2(-24, 130);
+
+        var qlDoneLabelRT = HUD_CreateRT("DoneLabel", qlPanel);
+        qlDoneLabelRT.anchorMin = new Vector2(0, 1); qlDoneLabelRT.anchorMax = new Vector2(1, 1);
+        qlDoneLabelRT.pivot = new Vector2(0.5f, 1);
+        qlDoneLabelRT.anchoredPosition = new Vector2(0, -222);
+        qlDoneLabelRT.sizeDelta = new Vector2(-24, 22);
+        var qlDoneLT = qlDoneLabelRT.gameObject.AddComponent<Text>();
+        qlDoneLT.font = font; qlDoneLT.fontSize = 13; qlDoneLT.fontStyle = FontStyle.Bold;
+        qlDoneLT.color = new Color(0.62f, 0.58f, 0.50f);
+        qlDoneLT.alignment = TextAnchor.MiddleLeft;
+        qlDoneLT.text = "✓ 완료";
+
+        var qlDoneRoot = HUD_CreateRT("CompletedRoot", qlPanel);
+        qlDoneRoot.anchorMin = new Vector2(0, 0); qlDoneRoot.anchorMax = new Vector2(1, 1);
+        qlDoneRoot.pivot = new Vector2(0.5f, 1);
+        qlDoneRoot.anchoredPosition = new Vector2(0, -252);
+        qlDoneRoot.offsetMin = new Vector2(12, 16);
+        qlDoneRoot.offsetMax = new Vector2(-12, -252);
+
+        // Empty hint
+        var qlEmptyRT = HUD_CreateRT("EmptyText", qlPanel);
+        qlEmptyRT.anchorMin = new Vector2(0, 0); qlEmptyRT.anchorMax = new Vector2(1, 1);
+        qlEmptyRT.offsetMin = new Vector2(20, 60); qlEmptyRT.offsetMax = new Vector2(-20, -80);
+        var qlEmptyT = qlEmptyRT.gameObject.AddComponent<Text>();
+        qlEmptyT.font = font; qlEmptyT.fontSize = 13;
+        qlEmptyT.color = new Color(0.55f, 0.48f, 0.34f);
+        qlEmptyT.alignment = TextAnchor.MiddleCenter;
+        qlEmptyT.text = "받은 퀘스트가 없습니다.\n폴라리스에게 가서 [E]로 대화해 보세요.";
+
+        // Quest entry template (hidden, cloned at runtime)
+        var qlEntryTpl = HUD_CreateRT("QuestEntryTemplate", qlPanel);
+        qlEntryTpl.anchorMin = new Vector2(0, 1); qlEntryTpl.anchorMax = new Vector2(1, 1);
+        qlEntryTpl.pivot = new Vector2(0, 1);
+        qlEntryTpl.sizeDelta = new Vector2(-24, 56);
+        qlEntryTpl.gameObject.SetActive(false);
+        var qlEntryBg = qlEntryTpl.gameObject.AddComponent<Image>();
+        qlEntryBg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 6, new Color(0.07f, 0.05f, 0.04f, 0.85f)));
+        qlEntryBg.type = Image.Type.Sliced;
+        // Use VerticalLayoutGroup so entries stack automatically
+        var titleRT = HUD_CreateRT("Title", qlEntryTpl);
+        titleRT.anchorMin = new Vector2(0, 1); titleRT.anchorMax = new Vector2(1, 1);
+        titleRT.offsetMin = new Vector2(10, -22); titleRT.offsetMax = new Vector2(-10, -4);
+        var titleT = titleRT.gameObject.AddComponent<Text>();
+        titleT.font = font; titleT.fontSize = 14; titleT.fontStyle = FontStyle.Bold;
+        titleT.color = new Color(1f, 0.92f, 0.45f);
+        titleT.alignment = TextAnchor.MiddleLeft;
+        titleT.text = "퀘 이름";
+
+        var statusRT = HUD_CreateRT("Status", qlEntryTpl);
+        statusRT.anchorMin = new Vector2(0, 0); statusRT.anchorMax = new Vector2(1, 0);
+        statusRT.pivot = new Vector2(0, 0);
+        statusRT.offsetMin = new Vector2(10, 4); statusRT.offsetMax = new Vector2(-10, 22);
+        var statusT = statusRT.gameObject.AddComponent<Text>();
+        statusT.font = font; statusT.fontSize = 11;
+        statusT.color = new Color(0.78f, 0.72f, 0.55f);
+        statusT.alignment = TextAnchor.MiddleLeft;
+        statusT.text = "진행 중";
+
+        // Add a layout group on each list root so entries stack
+        var activeVlg = qlActiveRoot.gameObject.AddComponent<VerticalLayoutGroup>();
+        activeVlg.spacing = 4; activeVlg.padding = new RectOffset(12, 12, 0, 0);
+        activeVlg.childForceExpandHeight = false; activeVlg.childForceExpandWidth = true;
+        activeVlg.childControlHeight = false; activeVlg.childControlWidth = true;
+        var doneVlg = qlDoneRoot.gameObject.AddComponent<VerticalLayoutGroup>();
+        doneVlg.spacing = 4; doneVlg.padding = new RectOffset(0, 0, 0, 0);
+        doneVlg.childForceExpandHeight = false; doneVlg.childForceExpandWidth = true;
+        doneVlg.childControlHeight = false; doneVlg.childControlWidth = true;
+
+        var qlUI = canvasGo.AddComponent<Astrion.UI.QuestLogUI>();
+        var qlSo = new UnityEditor.SerializedObject(qlUI);
+        qlSo.FindProperty("panel").objectReferenceValue = qlPanel.gameObject;
+        qlSo.FindProperty("activeRoot").objectReferenceValue = qlActiveRoot;
+        qlSo.FindProperty("completedRoot").objectReferenceValue = qlDoneRoot;
+        qlSo.FindProperty("emptyText").objectReferenceValue = qlEmptyT;
+        qlSo.FindProperty("closeButton").objectReferenceValue = qlCloseB;
+        qlSo.FindProperty("entryTemplate").objectReferenceValue = qlEntryTpl.gameObject;
+        qlSo.ApplyModifiedPropertiesWithoutUndo();
+        qlPanel.gameObject.SetActive(false);
+
         // ========== SKILL WINDOW (K key) ==========
         var skillPanel = HUD_CreateRT("SkillWindow", root);
         skillPanel.anchorMin = skillPanel.anchorMax = new Vector2(0.5f, 0.5f);
