@@ -26,7 +26,13 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final float BROADCAST_RANGE = 100f;
     // Shared across all handler instances — connection-level state for the whole server.
-    private static final LoginRateLimiter loginRateLimiter = new LoginRateLimiter();
+    // Two layers of brute-force defence with deliberately different policies:
+    //   ipLimiter        — punishes one source IP hammering LOGIN
+    //   usernameLimiter  — punishes a single account being attacked from anywhere
+    // The username layer catches the distributed case the IP layer misses
+    // (botnet spraying one victim from 1000 IPs, each well under the IP cap).
+    private static final LoginRateLimiter ipLimiter = new LoginRateLimiter(5, 60_000L, 5L * 60_000L);
+    private static final LoginRateLimiter usernameLimiter = new LoginRateLimiter(10, 60_000L, 15L * 60_000L);
 
     private final WorldManager worldManager;
     private final RedisManager redisManager;
@@ -247,14 +253,27 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         String clientVersion = node.has("clientVersion") ? node.get("clientVersion").asText() : "";
         String clientIp = clientIpOf(ctx);
 
-        // Throttle first — version + credential checks would otherwise act as a
-        // 'username/password valid?' oracle for a brute-forcer.
-        LoginRateLimiter.Result rl = loginRateLimiter.check(clientIp);
-        if (!rl.allowed) {
-            String msg = "로그인 시도가 너무 많습니다. " + rl.secondsLeft + "초 후 다시 시도해 주세요.";
+        // IP gate first. Version + credential checks would otherwise act as
+        // a 'username/password valid?' oracle for a brute-forcer.
+        LoginRateLimiter.Result ipRes = ipLimiter.check(clientIp);
+        if (!ipRes.allowed) {
+            String msg = "로그인 시도가 너무 많습니다. " + ipRes.secondsLeft + "초 후 다시 시도해 주세요.";
             String result = mapper.writeValueAsString(new LoginResult(false, null, msg));
             ctx.writeAndFlush(new GamePacket(PacketType.LOGIN_RESULT, result));
-            log.warn("Rate-limited login from {} (user='{}'): {}s left", clientIp, username, rl.secondsLeft);
+            log.warn("Rate-limited login from {} (user='{}'): IP-locked {}s", clientIp, username, ipRes.secondsLeft);
+            return;
+        }
+
+        // Username gate — catches one account being sprayed from many IPs.
+        // Counts both wrong-password and account-not-found because an attacker
+        // can't distinguish them either, so accidentally counting non-existent
+        // accounts doesn't help username-enumeration attacks.
+        LoginRateLimiter.Result userRes = usernameLimiter.check(username);
+        if (!userRes.allowed) {
+            String msg = "이 계정의 로그인 시도가 너무 많습니다. " + userRes.secondsLeft + "초 후 다시 시도해 주세요.";
+            String result = mapper.writeValueAsString(new LoginResult(false, null, msg));
+            ctx.writeAndFlush(new GamePacket(PacketType.LOGIN_RESULT, result));
+            log.warn("Rate-limited login for user='{}' from {}: user-locked {}s", username, clientIp, userRes.secondsLeft);
             return;
         }
 
@@ -312,8 +331,9 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         String result = mapper.writeValueAsString(new LoginResult(true, username, "OK"));
         ctx.writeAndFlush(new GamePacket(PacketType.LOGIN_RESULT, result));
 
-        // Legitimate user — drop accumulated failure count for this IP.
-        loginRateLimiter.onSuccess(clientIp);
+        // Legitimate user — drop accumulated failure counts on both keys.
+        ipLimiter.onSuccess(clientIp);
+        usernameLimiter.onSuccess(username);
 
         log.info("Player {} logged in", username);
     }
