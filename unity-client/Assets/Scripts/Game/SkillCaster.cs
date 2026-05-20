@@ -175,6 +175,9 @@ namespace Astrion.Game
                 if (nm != null) nm.SendHit(m.Id, dmg, crit);
                 hits++;
             }
+            // Hit-stop fires once per swing (not per monster) — only if anything was hit
+            if (hits > 0)
+                Camera2D.HitStop(crit ? 0.08f : 0.05f, 0.20f, crit ? 0.55f : 0.40f);
 
             // Visual: large arm swing (no star projectile)
             var anim = p.GetComponent<PlayerAnimator2D>();

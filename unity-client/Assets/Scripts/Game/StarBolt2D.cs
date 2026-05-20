@@ -89,6 +89,8 @@ namespace Astrion.Game
                 else
                     damage = Random.Range(15, 21);
                 Astrion.Network.MonsterNetworkManager.Instance?.SendHit(serverMon.Id, damage, crit);
+                // Hit-stop on landing — crits punch slightly harder
+                Camera2D.HitStop(crit ? 0.07f : 0.04f, 0.18f, crit ? 0.5f : 0.35f);
                 Destroy(gameObject);
                 return;
             }
