@@ -77,5 +77,45 @@ namespace Astrion.Game
         }
 
         public void SetTarget(Transform t) => _target = t;
+
+        // === Hit-stop ===
+        // Brief Time.timeScale freeze + zoom in, then ease zoom out.
+        // Trigger from the attacker side (own attacks only), once per swing.
+        private bool _hitStopRunning;
+
+        public static void HitStop(float pauseDuration = 0.05f, float zoomDuration = 0.18f, float zoomAmount = 0.4f)
+        {
+            var cam = Camera.main;
+            if (cam == null) return;
+            var c2d = cam.GetComponent<Camera2D>();
+            if (c2d == null) return;
+            c2d.StartHitStop(pauseDuration, zoomDuration, zoomAmount);
+        }
+
+        public void StartHitStop(float pauseDuration, float zoomDuration, float zoomAmount)
+        {
+            if (_hitStopRunning) return;
+            StartCoroutine(HitStopCoroutine(pauseDuration, zoomDuration, zoomAmount));
+        }
+
+        private System.Collections.IEnumerator HitStopCoroutine(float pause, float zoomDuration, float zoomAmount)
+        {
+            _hitStopRunning = true;
+            float origSize = _cam.orthographicSize;
+            Time.timeScale = 0f;
+            _cam.orthographicSize = Mathf.Max(0.5f, origSize - zoomAmount);
+            yield return new WaitForSecondsRealtime(pause);
+            Time.timeScale = 1f;
+            float t = 0f;
+            while (t < zoomDuration)
+            {
+                t += Time.unscaledDeltaTime;
+                float u = Mathf.Clamp01(t / zoomDuration);
+                _cam.orthographicSize = Mathf.Lerp(origSize - zoomAmount, origSize, u);
+                yield return null;
+            }
+            _cam.orthographicSize = origSize;
+            _hitStopRunning = false;
+        }
     }
 }
