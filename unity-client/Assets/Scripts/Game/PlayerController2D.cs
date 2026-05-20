@@ -160,6 +160,14 @@ namespace Astrion.Game
             var bolt = go.GetComponent<StarBolt2D>();
             if (bolt != null) bolt.Init(dir, FindHomingTarget(origin));
 
+            // Archer: swap the star projectile sprite for an arrow visual
+            string cls = PlayerPrefs.GetString("characterClass", "");
+            if (cls == "Archer")
+            {
+                var sr = go.GetComponentInChildren<SpriteRenderer>();
+                if (sr != null) sr.sprite = GetArrowSprite();
+            }
+
             var nm = Astrion.Network.NetworkManager.Instance;
             if (nm != null && nm.IsConnected)
             {
@@ -285,6 +293,63 @@ namespace Astrion.Game
         }
 
         public void SetJoystick(Joystick j) => joystick = j;
+
+        private static Sprite _arrowSprite;
+        private static Sprite GetArrowSprite()
+        {
+            if (_arrowSprite != null) return _arrowSprite;
+            int w = 36, h = 10;
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            Color clear = new Color(0, 0, 0, 0);
+            Color shaft = new Color(0.62f, 0.45f, 0.25f);
+            Color shaftDark = new Color(0.40f, 0.28f, 0.14f);
+            Color tip = new Color(0.85f, 0.85f, 0.92f);
+            Color tipDark = new Color(0.30f, 0.30f, 0.35f);
+            Color fletch = new Color(0.95f, 0.55f, 0.40f);
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                    tex.SetPixel(x, y, clear);
+
+            int midY = h / 2;
+            // Shaft (2 px thick brown line)
+            for (int x = 6; x < w - 8; x++)
+            {
+                tex.SetPixel(x, midY,     shaft);
+                tex.SetPixel(x, midY - 1, shaftDark);
+            }
+            // Arrowhead — pointed triangle on the right
+            for (int dy = 0; dy < 4; dy++)
+            {
+                int xStart = w - 8 + dy;
+                int xEnd = Mathf.Min(w - 1, w - 4 + dy);
+                for (int x = xStart; x <= xEnd; x++)
+                {
+                    int yUp = midY + dy;
+                    int yDn = midY - 1 - dy;
+                    if (yUp >= 0 && yUp < h) tex.SetPixel(x, yUp, tip);
+                    if (yDn >= 0 && yDn < h) tex.SetPixel(x, yDn, tip);
+                }
+            }
+            // Tip outline
+            for (int dy = 0; dy < 5; dy++)
+            {
+                int x = w - 1 - dy;
+                if (x >= 0 && midY + dy < h) tex.SetPixel(x, midY + dy, tipDark);
+                if (x >= 0 && midY - 1 - dy >= 0) tex.SetPixel(x, midY - 1 - dy, tipDark);
+            }
+            // Fletchings — three slanted stripes on the left tail
+            for (int i = 0; i < 5; i++)
+            {
+                int x = i;
+                int yUp = midY + i;
+                int yDn = midY - 1 - i;
+                if (yUp < h) tex.SetPixel(x, yUp, fletch);
+                if (yDn >= 0) tex.SetPixel(x, yDn, fletch);
+            }
+            tex.Apply();
+            _arrowSprite = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100);
+            return _arrowSprite;
+        }
 
         private void SpawnDust(float spread, float drift)
         {

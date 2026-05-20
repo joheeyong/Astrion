@@ -113,7 +113,7 @@ namespace Astrion.Game
         {
             if (_daggerSprite == null) _daggerSprite = MakeRectSprite(5, 18);
             if (_swordSprite  == null) _swordSprite  = MakeSwordSprite(8, 56);
-            if (_bowSprite    == null) _bowSprite    = MakeBowSprite(18, 24);
+            if (_bowSprite    == null) _bowSprite    = MakeBowSprite(28, 56);
             if (_staffSprite  == null) _staffSprite  = MakeStaffSprite(10, 60);
             if (_helmetSprite == null) _helmetSprite = MakeHelmetSprite(20, 10);
             if (_armorSprite  == null) _armorSprite  = MakeArmorSprite(26, 30);
@@ -227,22 +227,51 @@ namespace Astrion.Game
         private static Sprite MakeBowSprite(int w, int h)
         {
             var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            Color clear = new Color(0, 0, 0, 0);
+            Color wood = Color.white;                           // tinted at runtime
+            Color woodDark = new Color(0.30f, 0.18f, 0.06f);    // outline
+            Color bowstring = new Color(0.96f, 0.92f, 0.78f);   // pale string
+            Color grip = new Color(0.20f, 0.12f, 0.05f);
+
             for (int y = 0; y < h; y++)
                 for (int x = 0; x < w; x++)
-                    tex.SetPixel(x, y, new Color(0, 0, 0, 0));
-            // Bow curve: leftmost column
+                    tex.SetPixel(x, y, clear);
+
+            float cy = h * 0.5f;
+            float bend = w * 0.55f; // how far the curve reaches into +x
+            int stringX = (int)(w - bend * 0.45f); // where the string runs vertically
+
+            // Bow body — sweeping C curve from top tip to bottom tip
             for (int y = 1; y < h - 1; y++)
             {
-                float t = (float)y / (h - 1);
-                int curve = (int)((1f - Mathf.Abs(t * 2f - 1f)) * (w * 0.6f));
-                int xLeft = Mathf.Clamp(curve, 0, w - 1);
-                tex.SetPixel(xLeft, y, Color.white);
-                if (xLeft + 1 < w) tex.SetPixel(xLeft + 1, y, new Color(0.05f, 0.04f, 0.06f));
+                float t = (y - 1) / (float)(h - 2);          // 0..1
+                float angle = (t - 0.5f) * Mathf.PI * 0.95f; // -π/2..π/2 with a tiny squeeze
+                int xOuter = Mathf.RoundToInt((w - 1) - Mathf.Cos(angle) * bend);
+                if (xOuter < 0 || xOuter >= w) continue;
+                // 3-pixel thick wooden limb (highlight + body + outline)
+                if (xOuter - 1 >= 0) tex.SetPixel(xOuter - 1, y, wood);
+                tex.SetPixel(xOuter,     y, wood);
+                if (xOuter + 1 < w)  tex.SetPixel(xOuter + 1, y, woodDark);
             }
-            // String down the right side
-            for (int y = 1; y < h - 1; y++) tex.SetPixel(w - 1, y, new Color(0.9f, 0.85f, 0.7f));
+
+            // Bowstring — vertical line between the two tips
+            for (int y = 2; y < h - 2; y++)
+                tex.SetPixel(Mathf.Clamp(stringX, 0, w - 1), y, bowstring);
+
+            // Grip wrap — small dark band where the hand holds it
+            int gripCy = h / 2;
+            int gripWoodX = Mathf.RoundToInt(w - 1 - bend);
+            for (int dy = -2; dy <= 2; dy++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    int gx = Mathf.Clamp(gripWoodX + dx, 0, w - 1);
+                    int gy = Mathf.Clamp(gripCy + dy, 0, h - 1);
+                    tex.SetPixel(gx, gy, grip);
+                }
+
             tex.Apply();
-            return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100);
+            // Pivot at the grip (left side, middle) so the bow sits in the hand
+            return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.05f, 0.5f), 100);
         }
 
         private static Sprite MakeHelmetSprite(int w, int h)
