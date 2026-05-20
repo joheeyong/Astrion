@@ -12,9 +12,7 @@ namespace Astrion.Network
     {
         public static NetworkManager Instance { get; private set; }
 
-        [Header("Server Settings")]
-        [SerializeField] private string serverHost = "3.38.109.138";
-        [SerializeField] private int serverPort = 9000;
+        [Header("Server Settings (overridden by NetworkConfig at runtime)")]
         [SerializeField] private int maxRetries = 5;
         [SerializeField] private float retryDelaySeconds = 2f;
 
@@ -49,21 +47,23 @@ namespace Astrion.Network
 
         private void ConnectWithRetry()
         {
+            string host = NetworkConfig.Host;
+            int port = NetworkConfig.Port;
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
                 try
                 {
-                    Debug.Log($"[Network] Connecting to {serverHost}:{serverPort} (attempt {attempt}/{maxRetries})...");
+                    Debug.Log($"[Network] Connecting to {host}:{port} (attempt {attempt}/{maxRetries})...");
                     _client = new TcpClient();
                     _client.NoDelay = true;
-                    _client.Connect(serverHost, serverPort);
+                    _client.Connect(host, port);
                     _stream = _client.GetStream();
                     _isConnected = true;
 
                     _receiveThread = new Thread(ReceiveLoop) { IsBackground = true };
                     _receiveThread.Start();
 
-                    Debug.Log($"[Network] Connected to {serverHost}:{serverPort}");
+                    Debug.Log($"[Network] Connected to {host}:{port}");
                     _mainThreadActions.Enqueue(() => OnConnected?.Invoke());
                     return;
                 }

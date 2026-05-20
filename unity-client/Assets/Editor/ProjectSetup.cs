@@ -446,6 +446,21 @@ public class ProjectSetup
         eventSystem.AddComponent<UnityEngine.EventSystems.EventSystem>();
         eventSystem.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
 
+        // Bottom-right: server address indicator (driven by NetworkConfig at runtime)
+        var serverGo = CreateUIElement("ServerStatus", canvasGo.transform);
+        var serverText = serverGo.AddComponent<Text>();
+        serverText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        serverText.fontSize = 11;
+        serverText.color = new Color(0.55f, 0.48f, 0.38f);
+        serverText.alignment = TextAnchor.LowerRight;
+        serverText.text = "Server: —"; // ServerStatusLabel fills this at runtime
+        var sRect = serverGo.GetComponent<RectTransform>();
+        sRect.anchorMin = new Vector2(0, 0); sRect.anchorMax = new Vector2(1, 0);
+        sRect.pivot = new Vector2(1, 0);
+        sRect.anchoredPosition = new Vector2(-12, 8);
+        sRect.sizeDelta = new Vector2(-24, 18);
+        serverGo.AddComponent<Astrion.Network.ServerStatusLabel>();
+
         EditorSceneManager.SaveScene(scene, "Assets/Scenes/LoginScene.unity");
         Debug.Log("[Astrion] LoginScene created and saved.");
     }
