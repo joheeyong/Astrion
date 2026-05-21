@@ -11,6 +11,7 @@ namespace Astrion.UI
 
         [SerializeField] private GameObject panel;
         [SerializeField] private Button charSelectButton;
+        [SerializeField] private Button logoutButton;
         [SerializeField] private Button quitButton;
         [SerializeField] private Button closeButton;
 
@@ -30,8 +31,9 @@ namespace Astrion.UI
         private void Start()
         {
             if (charSelectButton != null) charSelectButton.onClick.AddListener(OnCharSelect);
-            if (quitButton != null) quitButton.onClick.AddListener(OnQuit);
-            if (closeButton != null) closeButton.onClick.AddListener(Close);
+            if (logoutButton    != null) logoutButton.onClick.AddListener(OnLogout);
+            if (quitButton      != null) quitButton.onClick.AddListener(OnQuit);
+            if (closeButton     != null) closeButton.onClick.AddListener(Close);
         }
 
         private void Update()
@@ -83,6 +85,30 @@ namespace Astrion.UI
             Close();
             // PlayerStateManager keeps the player's data; selecting another character will overwrite it.
             SceneManager.LoadScene("CharacterSelectScene");
+        }
+
+        /// Full logout: drop cached credentials so ReconnectSystem doesn't
+        /// silently re-LOGIN, tear down the TCP connection, and return to the
+        /// login screen. Different from 'Character Select' which keeps the
+        /// session alive and just swaps the active character.
+        private void OnLogout()
+        {
+            Close();
+            // Block the auto-reconnect path before we tear the socket — the
+            // ReconnectSystem otherwise sees the disconnect and immediately
+            // tries to log back in as the same user.
+            Astrion.Network.SessionCredentials.Username = "";
+            Astrion.Network.SessionCredentials.Password = "";
+
+            if (Astrion.Network.NetworkManager.Instance != null)
+                Astrion.Network.NetworkManager.Instance.Disconnect();
+
+            // playerId is per-session; username stays in PlayerPrefs so the
+            // login field repopulates next launch (no need to retype).
+            PlayerPrefs.DeleteKey("playerId");
+            PlayerPrefs.Save();
+
+            SceneManager.LoadScene("LoginScene");
         }
 
         private void OnQuit()

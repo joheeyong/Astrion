@@ -4747,7 +4747,8 @@ public partial class ProjectSetup
         sysPanel.anchorMin = sysPanel.anchorMax = new Vector2(0.5f, 0.5f);
         sysPanel.pivot = new Vector2(0.5f, 0.5f);
         sysPanel.anchoredPosition = Vector2.zero;
-        sysPanel.sizeDelta = new Vector2(360, 280);
+        // 360 × 340 — 4 buttons (Character Select / Logout / Continue / Quit)
+        sysPanel.sizeDelta = new Vector2(360, 340);
         var sysBg = sysPanel.gameObject.AddComponent<Image>();
         sysBg.sprite = panelSpr; sysBg.type = Image.Type.Sliced;
 
@@ -4783,14 +4784,20 @@ public partial class ProjectSetup
             lblT.text = label;
             return btn;
         }
-        var sysCharBtn = MakeMenuBtn("CharSelectBtn", "캐릭터 선택으로", -56, new Color(0.42f, 0.28f, 0.15f, 1f));
-        var sysCloseBtn = MakeMenuBtn("CloseBtn", "계속하기  (ESC)", -112, new Color(0.30f, 0.24f, 0.16f, 1f));
-        var sysQuitBtn = MakeMenuBtn("QuitBtn", "게임 종료", -176, new Color(0.55f, 0.18f, 0.18f, 1f));
+        // Four buttons stacked top→bottom, 56 px pitch. Logout sits between
+        // 'character select' (light brown, keeps session) and 'quit' (red,
+        // destructive) — visually marks it as 'returns to login' without
+        // being as final as closing the game.
+        var sysCharBtn   = MakeMenuBtn("CharSelectBtn", "캐릭터 선택으로", -56,  new Color(0.42f, 0.28f, 0.15f, 1f));
+        var sysLogoutBtn = MakeMenuBtn("LogoutBtn",     "로그아웃",         -112, new Color(0.36f, 0.22f, 0.12f, 1f));
+        var sysCloseBtn  = MakeMenuBtn("CloseBtn",      "계속하기  (ESC)",  -168, new Color(0.30f, 0.24f, 0.16f, 1f));
+        var sysQuitBtn   = MakeMenuBtn("QuitBtn",       "게임 종료",         -232, new Color(0.55f, 0.18f, 0.18f, 1f));
 
         var sysUI = canvasGo.AddComponent<Astrion.UI.SystemMenuUI>();
         var sysSo = new UnityEditor.SerializedObject(sysUI);
         sysSo.FindProperty("panel").objectReferenceValue = sysPanel.gameObject;
         sysSo.FindProperty("charSelectButton").objectReferenceValue = sysCharBtn;
+        sysSo.FindProperty("logoutButton").objectReferenceValue = sysLogoutBtn;
         sysSo.FindProperty("quitButton").objectReferenceValue = sysQuitBtn;
         sysSo.FindProperty("closeButton").objectReferenceValue = sysCloseBtn;
         sysSo.ApplyModifiedPropertiesWithoutUndo();
