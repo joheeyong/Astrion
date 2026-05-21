@@ -156,7 +156,7 @@
 | 데미지 팝업 | ✅ | 외곽선 + 포물선 + tier 색 + crit ! |
 | 점프 중 facing 변경 | ✅ | 메이플 스타일 (air-strafe 잠긴 채) |
 | 사다리 sticky (좌우 무반응) | ✅ | 메이플 스타일 |
-| EXP / 레벨업 | ❌ | 몬스터 처치 시 EXP 미지급 |
+| EXP / 레벨업 | ✅ | 서버 EXP_GAINED → AddExp → 임계 `50×Lv` 시 LevelUp (+5 STAT/+1 SKILL/+10 MaxHP/+5 MaxMP). HUD EXP 바 + Toast + LevelUpEffect 골드 flash |
 | 2차 / 3차 전직 | ❌ | |
 | 기본 공격 (스킬 외) | ❌ | Q만 있음 |
 | 클래스별 스킬 | ❌ | 유성술사 1번 스킬만 |
