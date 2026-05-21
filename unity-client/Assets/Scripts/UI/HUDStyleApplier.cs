@@ -37,7 +37,6 @@ namespace Astrion.UI
             foreach (var img in images)
             {
                 if (img == null) continue;
-                if (!IsPanelColor(img.color)) continue;
                 var rt = img.rectTransform;
                 if (rt == null) continue;
                 if (HasMarker(rt)) continue;
@@ -45,8 +44,27 @@ namespace Astrion.UI
                 Vector2 size = AbsSize(rt);
                 if (size.x < MinW || size.y < MinH) continue;
 
+                // Match either by panel-tint color OR by GameObject name suffix.
+                // HUD panels often render PanelBg through a sprite while
+                // Image.color stays white, so a color-only check misses them.
+                // The naming convention in ProjectSetup is consistent:
+                // CharPanel, MinimapPanel, ChatPanel, InventoryPanel,
+                // SkillWindow, ItemTooltipPanel, etc.
+                bool nameMatch  = IsHudPanelName(img.gameObject.name);
+                bool colorMatch = IsPanelColor(img.color);
+                if (!nameMatch && !colorMatch) continue;
+
                 Apply(rt);
             }
+        }
+
+        private static bool IsHudPanelName(string n)
+        {
+            if (string.IsNullOrEmpty(n)) return false;
+            return n.EndsWith("Panel")
+                || n.EndsWith("Window")
+                || n.EndsWith("Frame")
+                || n.EndsWith("Tooltip");
         }
 
         private static bool IsPanelColor(Color c)
