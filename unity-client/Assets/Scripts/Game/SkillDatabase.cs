@@ -111,6 +111,22 @@ namespace Astrion.Game
                     isStarter = false,
                     ownerClass = "Archer",
                 },
+                // ── Basic attack (every class, MapleStory-style 'Ctrl key' melee) ──
+                // No MP cost, short cooldown, modest damage. Functions as a
+                // spam-friendly fallback so the player isn't standing around
+                // waiting on Q's longer cooldown.
+                ["basic_attack"] = new SkillDef
+                {
+                    id = "basic_attack",
+                    displayName = "기본 공격",
+                    description = "가까이 있는 적에게 약한 일격.\nMP 없음, 짧은 쿨다운.",
+                    iconColor = new Color(0.75f, 0.75f, 0.75f),
+                    iconLetter = "·",
+                    maxLevel = 1, unlockLevel = 1,
+                    isActive = true, mpCost = 0, cooldown = 0.35f,
+                    isStarter = true,
+                    ownerClass = "",  // any class
+                },
             };
             _initialized = true;
         }

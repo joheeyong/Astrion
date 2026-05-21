@@ -144,6 +144,15 @@ namespace Astrion.Game
                     if (cls == "Warrior") SkillCaster.Instance?.Cast("sword_slash");
                     else                  SkillCaster.Instance?.Cast("starbolt");
                 }
+                // Basic attack — MapleStory-style Ctrl key, plus left-click as
+                // a more modern alternative. Skip the mouse path while the
+                // pointer is over UI so clicking buttons doesn't also swing.
+                if (Input.GetKeyDown(KeyCode.LeftControl)
+                    || Input.GetKeyDown(KeyCode.RightControl)
+                    || (Input.GetMouseButtonDown(0) && !IsPointerOverUI()))
+                {
+                    SkillCaster.Instance?.Cast("basic_attack");
+                }
                 // 1~5 = hotbar slots
                 if      (Input.GetKeyDown(KeyCode.Alpha1)) HotbarSystem.Instance?.TryTrigger(0);
                 else if (Input.GetKeyDown(KeyCode.Alpha2)) HotbarSystem.Instance?.TryTrigger(1);
@@ -269,6 +278,15 @@ namespace Astrion.Game
                 s.x = right ? Mathf.Abs(s.x) : -Mathf.Abs(s.x);
                 _spriteContainer.localScale = s;
             }
+        }
+
+        /// True if the mouse is currently over a UGUI element. Used to gate
+        /// the left-click basic attack so clicking buttons doesn't trigger
+        /// a swing on top of the click.
+        private static bool IsPointerOverUI()
+        {
+            var es = UnityEngine.EventSystems.EventSystem.current;
+            return es != null && es.IsPointerOverGameObject();
         }
 
         private void ReadInput(out float h, out float v, out bool jump)

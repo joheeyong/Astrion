@@ -40,7 +40,9 @@ namespace Astrion.Game
             {
                 // Class primary attacks always usable (defends against load-order race
                 // where the class skill hasn't been auto-granted yet on first entry).
-                if (skillId == "starbolt" || skillId == "sword_slash") lv = 1;
+                // Auto-grant primary attacks + basic attack — they should
+                // always be usable even before SkillSystem finishes loading.
+                if (skillId == "starbolt" || skillId == "sword_slash" || skillId == "basic_attack") lv = 1;
                 else return false;
             }
 
@@ -63,6 +65,7 @@ namespace Astrion.Game
                 case "warrior_dash":  fired = FireDash(lv); break;
                 case "teleport":      fired = FireTeleport(lv); break;
                 case "double_jump":   fired = FireDoubleJump(); break;
+                case "basic_attack":  fired = FireBasicAttack(); break;
                 default: return false;
             }
             if (!fired) return false;
@@ -233,6 +236,63 @@ namespace Astrion.Game
             var p = FindPlayer();
             if (p == null) return false;
             return p.TryAirJump();
+        }
+
+        /// Class-agnostic light melee. Same cone shape as sword_slash but
+        /// shorter reach, lower damage, and a smaller hit-stop. The point of
+        /// a basic attack is volume — it should feel snappy and chip enemies
+        /// down between bigger cooldown skills, not replace them.
+        private bool FireBasicAttack()
+        {
+            var p = FindPlayer();
+            if (p == null) return false;
+            var stats = PlayerStats.Instance;
+
+            int weaponDmg = 0;
+            if (stats != null && !string.IsNullOrEmpty(stats.EquippedWeaponId))
+            {
+                var def = ItemDatabase.Get(stats.EquippedWeaponId);
+                if (def != null) weaponDmg = def.baseDamage;
+            }
+            // Tuning: roughly 50% of sword_slash at Lv 1. STR mainstat for the
+            // generic case; classes that lean on INT/DEX still get a useful
+            // tap from base + weaponDmg + level scaling.
+            int baseDmg = 2 + (stats != null ? stats.Str + stats.Level : 0)
+                            + Mathf.RoundToInt(weaponDmg * 0.5f);
+            float variance = baseDmg * 0.2f;
+            int dmg = Mathf.Max(1, Mathf.RoundToInt(baseDmg + Random.Range(-variance, variance)));
+            bool crit = stats != null && stats.RollCritical();
+            if (crit) dmg = Mathf.RoundToInt(dmg * 1.6f);
+
+            // Cone — shorter than sword_slash so it really is a 'light' tap.
+            Vector2 origin = p.transform.position;
+            float facing = p.FacingRight ? 1f : -1f;
+            float reach = 1.3f;
+            float halfHeight = 0.6f;
+
+            var monsters = Object.FindObjectsOfType<ServerMonster2D>();
+            int hits = 0;
+            var nm = Astrion.Network.MonsterNetworkManager.Instance;
+            foreach (var m in monsters)
+            {
+                if (m == null) continue;
+                Vector2 to = (Vector2)m.transform.position - origin;
+                if (to.x * facing < -0.1f) continue;
+                if (Mathf.Abs(to.x) > reach) continue;
+                if (Mathf.Abs(to.y) > halfHeight) continue;
+                if (nm != null) nm.SendHit(m.Id, dmg, crit);
+                hits++;
+            }
+            if (hits > 0)
+                Camera2D.HitStop(crit ? 0.04f : 0.02f, 0.12f, crit ? 0.30f : 0.18f);
+
+            // Visual: small arm swing — reuse the existing motion at the
+            // non-big variant so it reads as a quick poke, not a heavy strike.
+            var anim = p.GetComponent<PlayerAnimator2D>();
+            if (anim != null) anim.TriggerAttackMotion(bigSwing: false);
+
+            BroadcastSkillCast(origin, p.FacingRight ? 1 : -1, "basic_attack");
+            return true;
         }
 
         private void BroadcastSkillCast(Vector2 origin, int dir, string type)
