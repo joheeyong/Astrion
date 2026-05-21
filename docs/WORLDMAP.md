@@ -156,11 +156,12 @@ to the previous hunting zone or the city.
 
 | Phase | Work                                                                                             | Status        |
 |-------|--------------------------------------------------------------------------------------------------|---------------|
-| 1     | This design document                                                                             | **this PR**   |
-| 2     | Server-side `MonsterManager.spawnInitial` extended: spawn entries for all 18 hunting zones       | **this PR**   |
-| 3     | Unity scene auto-generation (ProjectSetup) for 22 new scenes (6 cities + 16 huntings)            | next          |
-| 4     | Portal trigger components + zone-transition flow + spawn-on-arrival points                       | next          |
-| 5     | NPC catalog per city: innkeeper, shopkeeper, class-trainer, ferry/ship master                    | later         |
+| 1     | This design document                                                                             | ✅ done       |
+| 2     | Server-side `MonsterManager.spawnInitial` extended: spawn entries for all 18 hunting zones       | ✅ done       |
+| 3     | Unity scene auto-generation (ProjectSetup) for 22 new scenes (5 cities + 16 huntings)            | ✅ done       |
+| 3.5   | In-game World Map overlay (M key) + LoginPanel theme unification                                 | ✅ done       |
+| 4     | Portal labels + pulse glow (zone-transition trigger components were already in place)            | ✅ done       |
+| 5     | NPC catalog per city: innkeeper, shopkeeper, class-trainer, ferry/ship master                    | next          |
 | 6     | Mob sprite work — 13 new monster types now referenced (snail, mushroom, wolf, fire_imp, etc.)    | later (art)   |
 | 7     | Quest threading across the city tree (Lv 10 intro → Lv 20 hub → Lv 35 region boss → endgame)     | later         |
 

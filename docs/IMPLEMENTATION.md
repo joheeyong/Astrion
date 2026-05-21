@@ -1,6 +1,9 @@
 # ASTRION — 구현 상태 / 갭 분석
 
 > `docs/STORY.md` 의 설계와 현재 코드의 차이를 정리한 문서.
+> 운영 / 보안 / 백업 / 배포 등 인프라 측면은 `docs/OPERATIONS.md` 참고.
+> 월드맵 v1 디자인 + 25 zone 정의는 `docs/WORLDMAP.md` 참고.
+>
 > 기호: ✅ 구현 완료 / 🟡 부분 구현 / ❌ 미구현
 
 ---
@@ -11,18 +14,28 @@
 | 항목 | 상태 | 비고 |
 |---|---|---|
 | 서버 (Netty + Redis) AWS 배포 | ✅ | 3.38.109.138:9000 |
+| **TLS (자체 서명 + fingerprint pinning)** | ✅ | 9000번 암호화. 2036년 만료 |
+| **버전 매칭 (LOGIN에 clientVersion 첨부)** | ✅ | mismatch 시 자격증명 검증 자체 안 함 |
 | 로그인 / 회원가입 | ✅ | SHA-256 + Redis |
+| **3-layer rate limit (IP/username/account)** | ✅ | brute-force / 분산 spray / 누적 stealth 방어 |
+| **DDoS 보호 (connection rate)** | ✅ | TLS handshake 전에 차단 |
 | 캐릭터 생성/선택/삭제 | ✅ | 4슬롯 한도 |
 | 위치 동기화 (PLAYER_MOVED + facing) | ✅ | |
-| 채팅 패킷 (CHAT_MESSAGE) | 🟡 | 서버 브로드캐스트만, 클라 UI 표시 미구현 |
-| Zone 기반 브로드캐스트 필터 | ✅ | ZONE_ENTER 패킷 + 스냅샷 |
+| 채팅 패킷 (CHAT_MESSAGE) | ✅ | Zone chat 작동 (귓속말 / 외침 미구현) |
+| Zone 기반 브로드캐스트 필터 | ✅ | zone-keyed 인덱스 (O(zone) 비용) |
+| 그래스풀 셧다운 | ✅ | SIGTERM → 30s 안에 player offline + Redis drain |
+| ACK 패턴 (중요 저장 확인) | ✅ | STATE_SAVE saveId |
 | 채널 시스템 | ❌ | 보류 (1채널 운용) |
-| ACK 패턴 (중요 저장 확인) | ❌ | 향후 필요 |
 
 ### 저장 / 영구화
 | 항목 | 상태 | 비고 |
 |---|---|---|
 | 서버 Redis 영구화 | ✅ | player:state:{id} JSON 블롭 |
+| **Redis AOF** (1초 fsync) | ✅ | write 단위 영속 |
+| **Redis 자동 snapshot** | ✅ | 15분/5분/1분 빈도 |
+| **Redis 백업 자동화** | ✅ | 6시간 cron → ~/backups/redis (14일) |
+| **오프사이트 백업** | ✅ | Mac으로 매일 rsync (90일) |
+| **STATE_SAVE 검증 (anti-cheat)** | ✅ | gold/level/inv 범위 검사, 비정상 거부 |
 | 퀘스트 진행도 / 완료 목록 | ✅ | |
 | 인벤토리 / 픽업 수집 | ✅ | |
 | HP/MP / 스탯 / 레벨 / 장착 무기 | ✅ | |
@@ -46,17 +59,34 @@
 
 ## 3. 지역 / 하늘섬
 
+> v1 월드맵 (메이플 구조 차용 — 새 이름)로 25 zone 별도 확장. 상세는 `docs/WORLDMAP.md`.
+
+### 스토리 기준 (STORY.md)
 | 지역 | Act | 상태 |
 |---|---|---|
 | 바람의 등대섬 (Beacon of Winds) | I | ✅ MainScene |
 | 잊혀진 숲 (Forgotten Woods) | I | ✅ ForgottenWoodsScene |
-| 여명의 성채 (Citadel of Dawn) | II | ❌ |
+| 여명의 성채 (Citadel of Dawn) | II | ✅ Scene 존재 (v1 worldmap 통합) |
 | 하늘 시장 마을 (Skyhaven Market) | II | ❌ |
 | 베일 마법학원 (Veil Academy) | II | ❌ |
 | 추락한 수도원 (Fallen Monastery) | III | ❌ |
 | 별의 화구 (Stellar Crater) | III | ❌ |
 | 비틀린 영역 (The Warp) | III | ❌ |
 | 대별 추락지 (The Great Fall Site) | IV | ❌ |
+
+### v1 월드맵 (WORLDMAP.md)
+| 분류 | Zone | Scene |
+|---|---|---|
+| 도시 (5) | Solaria / Pyresummit / Verdaglen / Nightport / Tidehaven | ✅ |
+| Solaria 사냥터 (4) | Outskirts / SunlitPlains / WheatFields / PinewoodTrail | ✅ scene + ✅ monster spawn |
+| Pyresummit 사냥터 (3) | CinderRidge / AshfallCliffs / MagmaHollow | ✅ scene + ✅ monster spawn |
+| Verdaglen 사냥터 (4) | Mossglade / WhisperingBoughs / OldRoots / ForgottenWoods | ✅ scene + ✅ monster spawn |
+| Nightport 사냥터 (3) | Backalleys / SewerTunnels / UndergroundVault | ✅ scene + ✅ monster spawn |
+| Tidehaven 사냥터 (3) | TideDocks / DriftwoodBeach / SunkenReef | ✅ scene + ✅ monster spawn |
+| **포털 시각 표시** | 라벨 + 화살표 + 펄스 글로우 | ✅ |
+| 도시 NPC (innkeeper / shopkeeper 등) | ❌ phase 5 |
+| Mob sprite (13종) | ❌ phase 6 (placeholder) |
+| 퀘스트 thread | ❌ phase 7 |
 
 ---
 
@@ -123,7 +153,9 @@
 | 스탯 분배 (STR/DEX/INT/LUK + 포인트) | ✅ | 캐릭터 정보 + 버튼 |
 | 인벤토리 (24슬롯) | ✅ | 6 픽업 |
 | 아이템 사용 (포션/장비) | ✅ | 클릭으로 |
-| 데미지 팝업 | ✅ | |
+| 데미지 팝업 | ✅ | 외곽선 + 포물선 + tier 색 + crit ! |
+| 점프 중 facing 변경 | ✅ | 메이플 스타일 (air-strafe 잠긴 채) |
+| 사다리 sticky (좌우 무반응) | ✅ | 메이플 스타일 |
 | EXP / 레벨업 | ❌ | 몬스터 처치 시 EXP 미지급 |
 | 2차 / 3차 전직 | ❌ | |
 | 기본 공격 (스킬 외) | ❌ | Q만 있음 |
@@ -151,8 +183,10 @@
 | 상점 UI | ❌ |
 | 스킬 트리 UI | ❌ |
 | 파티 UI | ❌ |
-| 미니맵 | ❌ |
-| 월드맵 | ❌ |
+| 미니맵 | 🟡 (placeholder UI 만 있음) |
+| **월드맵 UI (M 키)** | ✅ 25 노드 + 포털 라인 + 펄스 halo |
+| **클라 Exception 서버 전송** | ✅ ~/logs/client-errors.log |
+| **HUD 일관 디자인** (LoginPanel signature) | ✅ 모든 패널 자동 적용 |
 
 ---
 
@@ -180,3 +214,7 @@
 
 ## 변경 이력
 - 2026-05-14: 초기 갭 분석 작성
+- 2026-05-20: 운영 인프라 대규모 보강 (TLS / rate limit / 백업 / monitoring) — 상세는 OPERATIONS.md
+- 2026-05-20: v1 월드맵 (25 zone) 추가 — 상세는 WORLDMAP.md
+- 2026-05-20: HUD를 LoginPanel signature로 통일, World Map UI 도입
+- 2026-05-21: 점프 facing / 사다리 sticky / 포털 라벨 / OOM 자동 재시작
