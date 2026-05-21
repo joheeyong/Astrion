@@ -60,7 +60,10 @@ namespace Astrion.Game
             if (_climbing)
             {
                 _rb.gravityScale = 0f;
-                _rb.velocity = new Vector2(h * moveSpeed * 0.6f, v * climbSpeed);
+                // MapleStory-style ladder: left/right are inert while climbing —
+                // the player stays glued to the rung and can only move up/down
+                // until they jump-off (jumpPressed branch below).
+                _rb.velocity = new Vector2(0f, v * climbSpeed);
 
                 if (!_onLadder)
                 {
@@ -121,8 +124,13 @@ namespace Astrion.Game
             // mid-jump even though air-strafe horizontal velocity stays locked
             // (the horizontal-speed lock lives in the input/movement block
             // above; this only touches which way the sprite faces).
-            if (h < -0.1f) SetFacing(false);
-            else if (h > 0.1f) SetFacing(true);
+            // While climbing a ladder, left/right are inert in every sense —
+            // they shouldn't even flip the sprite, same as in MapleStory.
+            if (!_climbing)
+            {
+                if (h < -0.1f) SetFacing(false);
+                else if (h > 0.1f) SetFacing(true);
+            }
 
             // Skills (suppressed while typing in chat or while a blocking modal is open)
             bool sysOpen = Astrion.UI.SystemMenuUI.Instance != null && Astrion.UI.SystemMenuUI.Instance.IsOpen;
