@@ -47,7 +47,14 @@ KillSignal=SIGTERM
 ## %% escapes the percent so systemd hands JVM a literal '%p', which the
 ## JVM then substitutes with the process PID. Without escaping, systemd
 ## expands %p to the unit name and every crash overwrites the same file.
-Environment="JAVA_OPTS=-Xms256m -Xmx512m -XX:ErrorFile=/home/ubuntu/logs/jvm-crash-%%p.log -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/home/ubuntu/logs"
+##
+## +ExitOnOutOfMemoryError: load-test runs showed OOM left the JVM in a
+## half-dead state where the listener stopped accepting but the process
+## was still alive, so systemd never tried to restart. The flag makes the
+## JVM exit immediately on OOM, which trips Restart=always above and
+## brings the server back in 5s. HeapDumpOnOutOfMemoryError still fires
+## before exit so the .hprof is captured for post-mortem.
+Environment="JAVA_OPTS=-Xms256m -Xmx512m -XX:ErrorFile=/home/ubuntu/logs/jvm-crash-%%p.log -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/home/ubuntu/logs -XX:+ExitOnOutOfMemoryError"
 
 # TLS material. Paths match the defaults inside GameServerMain, but we
 # pin them here so the unit file alone tells you where the cert lives.
