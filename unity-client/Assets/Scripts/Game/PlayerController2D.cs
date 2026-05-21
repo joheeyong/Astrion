@@ -117,12 +117,12 @@ namespace Astrion.Game
             }
             _wasGrounded = _isGrounded;
 
-            // Facing also locked while airborne — don't flip mid-jump
-            if (_isGrounded || _climbing)
-            {
-                if (h < -0.1f) SetFacing(false);
-                else if (h > 0.1f) SetFacing(true);
-            }
+            // Facing is free in the air — MapleStory-style. The body can turn
+            // mid-jump even though air-strafe horizontal velocity stays locked
+            // (the horizontal-speed lock lives in the input/movement block
+            // above; this only touches which way the sprite faces).
+            if (h < -0.1f) SetFacing(false);
+            else if (h > 0.1f) SetFacing(true);
 
             // Skills (suppressed while typing in chat or while a blocking modal is open)
             bool sysOpen = Astrion.UI.SystemMenuUI.Instance != null && Astrion.UI.SystemMenuUI.Instance.IsOpen;
