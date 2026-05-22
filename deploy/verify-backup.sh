@@ -112,9 +112,13 @@ fi
 
 # 5. Inspect keys. Filters out the fails:/locked:/cheats: noise from the
 # rate-limit + anti-cheat layers so 'account:*' is the real-account count.
+# awk filter (not grep -v) so 'no match' exits 0 — under set -e an
+# empty backup would otherwise abort the script here before the WARN
+# branch below could fire.
 TOTAL=$(redis-cli -p "$TEST_PORT" dbsize | awk '{print $1}')
 ACCOUNTS=$(redis-cli -p "$TEST_PORT" --scan --pattern 'account:*' 2>/dev/null \
-           | grep -Ev '^account:(fails|locked|cheats):' | wc -l | tr -d ' ')
+           | awk '!/^account:(fails|locked|cheats):/' \
+           | wc -l | tr -d ' ')
 PLAYER_STATE=$(redis-cli -p "$TEST_PORT" --scan --pattern 'player:state:*' 2>/dev/null \
                | wc -l | tr -d ' ')
 
