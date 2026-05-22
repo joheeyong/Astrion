@@ -90,18 +90,46 @@ public partial class ProjectSetup
     [MenuItem("Astrion/Build macOS (Debug)")]
     public static void BuildMacOS()
     {
+        BuildMacOSWithDefines(new[] { "Builds/macOS/Astrion.app" }[0], "", "[Astrion] macOS build complete!");
+    }
+
+    /// Dev build — same source tree, but ASTRION_DEV scripting define is
+    /// set so NetworkConfig points at localhost and NetworkManager skips
+    /// TLS. The resulting .app is named Astrion-Dev to keep it visually
+    /// distinct from the prod build in Builds/macOS-dev/.
+    [MenuItem("Astrion/Build macOS (Dev → localhost)")]
+    public static void BuildMacOSDev()
+    {
+        BuildMacOSWithDefines("Builds/macOS-dev/Astrion-Dev.app", "ASTRION_DEV", "[Astrion] macOS DEV build complete!");
+    }
+
+    private static void BuildMacOSWithDefines(string outputPath, string defines, string doneLog)
+    {
         var scenes = AllScenes;
-        PlayerSettings.productName = "Astrion";
+        PlayerSettings.productName = string.IsNullOrEmpty(defines) ? "Astrion" : "Astrion-Dev";
         PlayerSettings.companyName = "Astrion";
-        PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Standalone, "com.astrion.game");
+        PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Standalone,
+            string.IsNullOrEmpty(defines) ? "com.astrion.game" : "com.astrion.game.dev");
         PlayerSettings.defaultScreenWidth = 1920;
         PlayerSettings.defaultScreenHeight = 1080;
         PlayerSettings.fullScreenMode = FullScreenMode.Windowed;
         PlayerSettings.resizableWindow = true;
 
-        BuildPipeline.BuildPlayer(scenes, "Builds/macOS/Astrion.app",
-            BuildTarget.StandaloneOSX, BuildOptions.Development | BuildOptions.AllowDebugging);
-        Debug.Log("[Astrion] macOS build complete!");
+        // Apply the requested define for this build, then restore on exit
+        // so the editor itself doesn't end up stuck in dev mode if Build
+        // throws midway.
+        var prevDefines = PlayerSettings.GetScriptingDefineSymbolsForGroup(BuildTargetGroup.Standalone);
+        PlayerSettings.SetScriptingDefineSymbolsForGroup(BuildTargetGroup.Standalone, defines);
+        try
+        {
+            BuildPipeline.BuildPlayer(scenes, outputPath,
+                BuildTarget.StandaloneOSX, BuildOptions.Development | BuildOptions.AllowDebugging);
+            Debug.Log(doneLog);
+        }
+        finally
+        {
+            PlayerSettings.SetScriptingDefineSymbolsForGroup(BuildTargetGroup.Standalone, prevDefines);
+        }
     }
 
     [MenuItem("Astrion/Build Windows (Debug)")]

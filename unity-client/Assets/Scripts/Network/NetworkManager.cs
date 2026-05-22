@@ -72,15 +72,25 @@ namespace Astrion.Network
                     _client.NoDelay = true;
                     _client.Connect(host, port);
 
+                    var rawStream = _client.GetStream();
+#if ASTRION_DEV
+                    // Dev build talks to the operator's local mac server,
+                    // which runs without TLS to keep the dev loop quick
+                    // (no cert provisioning per developer). The connection
+                    // is localhost-only, never crosses the wire. Prod
+                    // builds (without the ASTRION_DEV define) keep the
+                    // full TLS+fingerprint-pinning path below.
+                    _stream = rawStream;
+#else
                     // Wrap the raw socket in TLS. The targetHost arg is only
                     // used for SNI / hostname matching, which we override via
                     // ValidateServerCert (we pin on fingerprint, not CN/SAN),
                     // so any non-empty string here is fine.
-                    var rawStream = _client.GetStream();
                     var ssl = new SslStream(rawStream, leaveInnerStreamOpen: false,
                         userCertificateValidationCallback: ValidateServerCert);
                     ssl.AuthenticateAsClient(host);
                     _stream = ssl;
+#endif
                     _isConnected = true;
 
                     _receiveThread = new Thread(ReceiveLoop) { IsBackground = true };

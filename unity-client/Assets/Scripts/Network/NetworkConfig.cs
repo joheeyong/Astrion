@@ -9,8 +9,18 @@ namespace Astrion.Network
     /// 3. Production defaults baked into the binary.
     public static class NetworkConfig
     {
+        // Build-time switch. The Astrion/Build macOS (Dev) menu sets the
+        // ASTRION_DEV scripting define before BuildPipeline runs, so a dev
+        // build talks to the operator's local game-server instead of the
+        // production EC2 box. Prod builds keep the EC2 address baked in
+        // and there is no way at runtime to redirect them at the dev
+        // server (the field is still a const).
+#if ASTRION_DEV
+        public const string DefaultHost = "localhost";
+#else
         public const string DefaultHost = "3.38.109.138";
-        public const int    DefaultPort = 9000;
+#endif
+        public const int DefaultPort = 9000;
 
         private const string PrefHostKey = "net.serverHost";
         private const string PrefPortKey = "net.serverPort";
