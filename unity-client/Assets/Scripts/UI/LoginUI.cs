@@ -91,10 +91,13 @@ namespace Astrion.UI
         private void SendLogin(string username, string password, bool isRegister)
         {
             SetStatus(isRegister ? "Registering..." : "Logging in...");
+            // Hash on the client. Server expects the digest now, not the
+            // plaintext. See PasswordHasher for rationale.
+            string hashed = Astrion.Network.PasswordHasher.Sha256Hex(password);
             string payload = JsonUtility.ToJson(new LoginRequest
             {
                 username = username,
-                password = password,
+                password = hashed,
                 isRegister = isRegister,
                 clientVersion = Astrion.Network.Version.Current,
             });
@@ -114,9 +117,12 @@ namespace Astrion.UI
                 PlayerPrefs.SetString("playerId", result.playerId);
                 PlayerPrefs.Save();
 
-                // Cache credentials in-memory for auto-reconnect (not persisted)
+                // Cache credentials in-memory for auto-reconnect (not persisted).
+                // Store the hashed form — the plaintext is never retained,
+                // so a memory scrape / coredump can't read the real password.
                 Astrion.Network.SessionCredentials.Username = usernameInput.text.Trim();
-                Astrion.Network.SessionCredentials.Password = passwordInput.text;
+                Astrion.Network.SessionCredentials.Password =
+                    Astrion.Network.PasswordHasher.Sha256Hex(passwordInput.text);
 
                 // Request persisted game state (quest progress, collected items) from server.
                 // Server must support STATE_REQUEST (0x09); see PlayerStateManager.ServerSupportsState

@@ -409,7 +409,13 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             return;
         }
 
-        String hashedPassword = hashPassword(password);
+        // The client hashes the password before sending now (SHA-256 hex,
+        // see Unity PasswordHasher). The payload field already IS the
+        // digest — don't hash again. Existing on-disk accounts were
+        // stored as the same SHA-256 digest of plaintext (the previous
+        // server-side hashPassword call produced an identical value),
+        // so this is a wire-only change with no data migration.
+        String hashedPassword = password;
         String accountKey = "account:" + username;
 
         if (isRegister) {
