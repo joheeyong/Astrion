@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel any prior in-flight CI run for the same ref. Saves runner
+# minutes when commits land back-to-back.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  server-build:
+    name: server build + version sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pin JDK to match what the deploy.sh deploys against (the EC2 box
+      # runs OpenJDK 21 from the Ubuntu 24.04 default; the project
+      # build.gradle targets Java 17 source/target which 21 happily
+      # compiles). Using Temurin for reproducibility.
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Validate gradle wrapper
+        uses: gradle/wrapper-validation-action@v3
+
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      # The :common:checkVersionSync task verifies that root build.gradle
+      # version + Version.java + Version.cs all agree. Catching a drift
+      # here keeps the worldmap-version handshake working at deploy time.
+      - name: Version sync check
+        run: ./gradlew :common:checkVersionSync --no-daemon
+
+      # game-server distTar is what deploy.sh ships to EC2; if it builds
+      # locally and packages, the deploy step won't surprise us.
+      - name: Build game-server
+        run: ./gradlew :game-server:distTar --no-daemon
+
+      - name: Upload server tar as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: game-server-${{ github.sha }}.tar
+          path: game-server/build/distributions/game-server-*.tar
+          retention-days: 7
+
+  shell-scripts:
+    name: shell script syntax check
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: bash -n every .sh in deploy/ and root deploy.sh
+        run: |
+          set -e
+          fail=0
+          for f in deploy/*.sh deploy.sh bump-version.sh; do
+              [[ -f "$f" ]] || continue
+              if ! bash -n "$f"; then
+                  echo "::error file=$f::bash -n failed"
+                  fail=1
+              fi
+          done
+          exit $fail
