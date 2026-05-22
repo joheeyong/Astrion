@@ -300,3 +300,20 @@ ssh ubuntu@3.38.109.138 'python3 ~/loadtest.py 200 60'   # N=200 동시, 60초
 | 2026-05-20 | Broadcast zone-keyed 최적화 |
 | 2026-05-20 | 클라이언트 Exception 서버 전송 |
 | 2026-05-21 | OOM 자동 재시작 (`+ExitOnOutOfMemoryError`) |
+
+---
+
+## 10. SSH key rotation
+
+See `docs/SSH-KEY-ROTATION.md` for the full runbook. Quick path:
+
+```bash
+# Local machine — interactive, downtime 0
+~/projects/Astrion/deploy/rotate-ssh-key.sh
+```
+
+It generates an Ed25519 key, adds it to the EC2 authorized_keys,
+verifies SSH works with the new key, then removes the old one and
+archives the old `.pem` locally with `chmod 000`. Aborts before
+touching the old key if the new key fails verification — botched
+rotation can't lock you out.
