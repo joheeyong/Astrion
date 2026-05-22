@@ -140,6 +140,31 @@ public class RedisManager {
         return commands.sismember("friends:" + a, b);
     }
 
+    // Friend requests — pending invites. Two parallel sets so each side
+    // can see what's pending without scanning the other. A sends to B:
+    //   friend_req_out:A <- B    (A's perspective: 'I asked B')
+    //   friend_req_in :B <- A    (B's perspective: 'A asked me')
+    public void addFriendRequest(String from, String to) {
+        commands.sadd("friend_req_out:" + from, to);
+        commands.sadd("friend_req_in:"  + to,   from);
+    }
+    public void removeFriendRequest(String from, String to) {
+        commands.srem("friend_req_out:" + from, to);
+        commands.srem("friend_req_in:"  + to,   from);
+    }
+    public java.util.Set<String> incomingRequests(String username) {
+        return commands.smembers("friend_req_in:" + username);
+    }
+    public java.util.Set<String> outgoingRequests(String username) {
+        return commands.smembers("friend_req_out:" + username);
+    }
+    public boolean hasIncomingRequest(String user, String from) {
+        return commands.sismember("friend_req_in:" + user, from);
+    }
+    public boolean hasOutgoingRequest(String user, String to) {
+        return commands.sismember("friend_req_out:" + user, to);
+    }
+
     // Low-level passthroughs. Used by AccountLockout (and any future feature
     // that needs counters / TTL keys outside the dedicated DTO accessors above).
     public long incr(String key)                       { return commands.incr(key); }

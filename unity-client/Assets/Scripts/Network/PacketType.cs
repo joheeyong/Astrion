@@ -21,6 +21,9 @@ namespace Astrion.Network
         FriendAdd = 0x11,
         FriendRemove = 0x12,
         FriendListRequest = 0x13,
+        FriendAccept = 0x14,
+        FriendReject = 0x15,
+        FriendCancel = 0x16,
 
         // Server -> Client
         LoginResult = 0x81,
@@ -48,5 +51,6 @@ namespace Astrion.Network
         FriendListData = 0xA0,
         FriendError = 0xA1,
         FriendAddedBy = 0xA2,
+        FriendRequestFrom = 0xA3,
     }
 }

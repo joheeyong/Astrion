@@ -25,6 +25,11 @@ namespace Astrion.UI
         // Row prefab is generated at runtime by the ProjectSetup builder;
         // we keep one hidden template and clone it.
         [SerializeField] private RectTransform rowTemplate;
+        // Optional — section header for 'received requests' and its own
+        // row template (accept ✓ / reject × buttons). The builder fills
+        // these in; if absent (older build), we silently skip the section.
+        [SerializeField] private RectTransform requestsHeader;
+        [SerializeField] private RectTransform requestRowTemplate;
 
         public bool IsOpen => panel != null && panel.activeSelf;
 
@@ -35,6 +40,8 @@ namespace Astrion.UI
             Instance = this;
             if (panel) panel.SetActive(false);
             if (rowTemplate) rowTemplate.gameObject.SetActive(false);
+            if (requestRowTemplate) requestRowTemplate.gameObject.SetActive(false);
+            if (requestsHeader) requestsHeader.gameObject.SetActive(false);
         }
 
         private void OnDestroy() { if (Instance == this) Instance = null; }
@@ -48,8 +55,11 @@ namespace Astrion.UI
                 FriendSystem.Instance.OnFriendListUpdated += Rebuild;
                 FriendSystem.Instance.OnFriendError       += ShowStatus;
                 FriendSystem.Instance.OnAddedBy           += OnAddedBy;
+                FriendSystem.Instance.OnRequestFrom       += OnRequestFrom;
             }
         }
+
+        private void OnRequestFrom(string from) { ShowStatus($"{from} 님으로부터 친구 요청이 도착했습니다."); }
 
         private void Update()
         {
@@ -99,6 +109,53 @@ namespace Astrion.UI
             if (FriendSystem.Instance == null || listContainer == null || rowTemplate == null) return;
 
             float y = 0f;
+
+            // ── Incoming requests section (rendered only when there are any) ──
+            if (requestRowTemplate != null && FriendSystem.Instance.Incoming.Count > 0)
+            {
+                if (requestsHeader != null)
+                {
+                    var hdr = Instantiate(requestsHeader.gameObject, listContainer);
+                    hdr.SetActive(true);
+                    var hRt = hdr.GetComponent<RectTransform>();
+                    hRt.anchoredPosition = new Vector2(0, -y);
+                    y += 22f;
+                    _liveRows.Add(hdr);
+                }
+
+                foreach (var from in FriendSystem.Instance.Incoming)
+                {
+                    var go = Instantiate(requestRowTemplate.gameObject, listContainer);
+                    go.SetActive(true);
+                    var rt = go.GetComponent<RectTransform>();
+                    rt.anchoredPosition = new Vector2(0, -y);
+                    y += 36f;
+
+                    var nameT = go.transform.Find("Name")?.GetComponent<Text>();
+                    if (nameT) nameT.text = from;
+
+                    string capture = from;
+                    var acceptB = go.transform.Find("AcceptB")?.GetComponent<Button>();
+                    if (acceptB)
+                    {
+                        acceptB.onClick.RemoveAllListeners();
+                        acceptB.onClick.AddListener(() => FriendSystem.Instance?.Accept(capture));
+                    }
+                    var rejectB = go.transform.Find("RejectB")?.GetComponent<Button>();
+                    if (rejectB)
+                    {
+                        rejectB.onClick.RemoveAllListeners();
+                        rejectB.onClick.AddListener(() => FriendSystem.Instance?.Reject(capture));
+                    }
+
+                    _liveRows.Add(go);
+                }
+
+                // Small spacer before the friend list proper.
+                y += 6f;
+            }
+
+            // ── Friends section ──
             foreach (var f in FriendSystem.Instance.Friends)
             {
                 var go = Instantiate(rowTemplate.gameObject, listContainer);
@@ -139,8 +196,19 @@ namespace Astrion.UI
             var contRect = listContainer;
             contRect.sizeDelta = new Vector2(contRect.sizeDelta.x, Mathf.Max(y, 80f));
 
-            if (statusText && _liveRows.Count == 0)
+            if (FriendSystem.Instance != null && FriendSystem.Instance.Outgoing.Count > 0)
+            {
+                // Compact info line: 'pending: A, B, C — click 추가 again to cancel'
+                if (statusText)
+                {
+                    var pending = string.Join(", ", FriendSystem.Instance.Outgoing);
+                    statusText.text = $"보낸 요청: {pending}";
+                }
+            }
+            else if (statusText && _liveRows.Count == 0)
+            {
                 statusText.text = "친구가 없습니다. 위 입력란에 닉네임을 입력하세요.";
+            }
         }
 
         private static string PrettyZone(string zone)

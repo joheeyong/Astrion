@@ -4997,6 +4997,73 @@ public partial class ProjectSetup
         fpRowRmTxt.color = new Color(0.95f, 0.90f, 0.80f);
         fpRowRmTxt.text = "×";
 
+        // Requests section header (hidden when no incoming requests exist).
+        var fpReqHeader = HUD_CreateRT("RequestsHeader", friendsPanel);
+        fpReqHeader.anchorMin = new Vector2(0, 1); fpReqHeader.anchorMax = new Vector2(1, 1);
+        fpReqHeader.pivot = new Vector2(0.5f, 1);
+        fpReqHeader.anchoredPosition = new Vector2(0, 0);
+        fpReqHeader.sizeDelta = new Vector2(-24, 18);
+        var fpReqHeaderT = fpReqHeader.gameObject.AddComponent<Text>();
+        fpReqHeaderT.font = font; fpReqHeaderT.fontSize = 12; fpReqHeaderT.fontStyle = FontStyle.Bold;
+        fpReqHeaderT.color = new Color(1f, 0.78f, 0.30f);
+        fpReqHeaderT.alignment = TextAnchor.MiddleLeft;
+        fpReqHeaderT.text = "받은 요청";
+
+        // Request row template (hidden): Name + ✓ accept + × reject
+        var fpReqRowTemplate = HUD_CreateRT("RequestRowTemplate", friendsPanel);
+        fpReqRowTemplate.anchorMin = new Vector2(0, 1); fpReqRowTemplate.anchorMax = new Vector2(1, 1);
+        fpReqRowTemplate.pivot = new Vector2(0.5f, 1);
+        fpReqRowTemplate.anchoredPosition = new Vector2(0, 0);
+        fpReqRowTemplate.sizeDelta = new Vector2(-24, 32);
+        var fpReqRowBg = fpReqRowTemplate.gameObject.AddComponent<Image>();
+        fpReqRowBg.sprite = TexToSprite(MakeRoundRectTex(64, 36, 4, new Color(0.18f, 0.14f, 0.07f, 0.92f)));
+        fpReqRowBg.type = Image.Type.Sliced;
+        // Name
+        var fpReqRowName = HUD_CreateRT("Name", fpReqRowTemplate);
+        fpReqRowName.anchorMin = new Vector2(0, 0); fpReqRowName.anchorMax = new Vector2(1, 1);
+        fpReqRowName.offsetMin = new Vector2(12, 0); fpReqRowName.offsetMax = new Vector2(-72, 0);
+        var fpReqRowNameT = fpReqRowName.gameObject.AddComponent<Text>();
+        fpReqRowNameT.font = font; fpReqRowNameT.fontSize = 13; fpReqRowNameT.fontStyle = FontStyle.Bold;
+        fpReqRowNameT.color = new Color(0.96f, 0.90f, 0.78f);
+        fpReqRowNameT.alignment = TextAnchor.MiddleLeft;
+        fpReqRowNameT.text = "name";
+        // Accept (✓)
+        var fpReqAccept = HUD_CreateRT("AcceptB", fpReqRowTemplate);
+        fpReqAccept.anchorMin = new Vector2(1, 0.5f); fpReqAccept.anchorMax = new Vector2(1, 0.5f);
+        fpReqAccept.pivot = new Vector2(1, 0.5f);
+        fpReqAccept.anchoredPosition = new Vector2(-36, 0);
+        fpReqAccept.sizeDelta = new Vector2(26, 22);
+        var fpReqAcceptImg = fpReqAccept.gameObject.AddComponent<Image>();
+        fpReqAcceptImg.sprite = TexToSprite(MakeRoundRectTex(48, 36, 4, new Color(0.18f, 0.55f, 0.22f, 0.92f)));
+        fpReqAcceptImg.type = Image.Type.Sliced;
+        var fpReqAcceptBtn = fpReqAccept.gameObject.AddComponent<Button>();
+        var fpReqAcceptLbl = HUD_CreateRT("L", fpReqAccept);
+        fpReqAcceptLbl.anchorMin = Vector2.zero; fpReqAcceptLbl.anchorMax = Vector2.one;
+        fpReqAcceptLbl.offsetMin = fpReqAcceptLbl.offsetMax = Vector2.zero;
+        var fpReqAcceptT = fpReqAcceptLbl.gameObject.AddComponent<Text>();
+        fpReqAcceptT.font = font; fpReqAcceptT.fontSize = 13; fpReqAcceptT.fontStyle = FontStyle.Bold;
+        fpReqAcceptT.alignment = TextAnchor.MiddleCenter;
+        fpReqAcceptT.color = new Color(0.96f, 0.92f, 0.78f);
+        fpReqAcceptT.text = "✓";
+        // Reject (×)
+        var fpReqReject = HUD_CreateRT("RejectB", fpReqRowTemplate);
+        fpReqReject.anchorMin = new Vector2(1, 0.5f); fpReqReject.anchorMax = new Vector2(1, 0.5f);
+        fpReqReject.pivot = new Vector2(1, 0.5f);
+        fpReqReject.anchoredPosition = new Vector2(-6, 0);
+        fpReqReject.sizeDelta = new Vector2(26, 22);
+        var fpReqRejectImg = fpReqReject.gameObject.AddComponent<Image>();
+        fpReqRejectImg.sprite = TexToSprite(MakeRoundRectTex(48, 36, 4, new Color(0.55f, 0.18f, 0.18f, 0.85f)));
+        fpReqRejectImg.type = Image.Type.Sliced;
+        var fpReqRejectBtn = fpReqReject.gameObject.AddComponent<Button>();
+        var fpReqRejectLbl = HUD_CreateRT("L", fpReqReject);
+        fpReqRejectLbl.anchorMin = Vector2.zero; fpReqRejectLbl.anchorMax = Vector2.one;
+        fpReqRejectLbl.offsetMin = fpReqRejectLbl.offsetMax = Vector2.zero;
+        var fpReqRejectT = fpReqRejectLbl.gameObject.AddComponent<Text>();
+        fpReqRejectT.font = font; fpReqRejectT.fontSize = 13; fpReqRejectT.fontStyle = FontStyle.Bold;
+        fpReqRejectT.alignment = TextAnchor.MiddleCenter;
+        fpReqRejectT.color = new Color(0.96f, 0.92f, 0.78f);
+        fpReqRejectT.text = "×";
+
         // List container under the status text (rows are positioned by FriendsUI.Rebuild)
         var fpListContainer = HUD_CreateRT("ListContainer", friendsPanel);
         fpListContainer.anchorMin = new Vector2(0, 0); fpListContainer.anchorMax = new Vector2(1, 1);
@@ -5015,6 +5082,8 @@ public partial class ProjectSetup
         fuiSo.FindProperty("listContainer").objectReferenceValue = fpListContainer;
         fuiSo.FindProperty("statusText").objectReferenceValue = fpStatusT;
         fuiSo.FindProperty("rowTemplate").objectReferenceValue = fpRowTemplate;
+        fuiSo.FindProperty("requestsHeader").objectReferenceValue = fpReqHeader;
+        fuiSo.FindProperty("requestRowTemplate").objectReferenceValue = fpReqRowTemplate;
         fuiSo.ApplyModifiedPropertiesWithoutUndo();
         friendsPanel.gameObject.SetActive(false);
     }

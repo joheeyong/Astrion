@@ -17,9 +17,12 @@ public enum PacketType {
     DROP_CLAIM(0x0E),
     STATUS_UPDATE(0x0F),
     CLIENT_LOG(0x10),  // client-side Exception / Error forwarded to server
-    FRIEND_ADD(0x11),
+    FRIEND_ADD(0x11),       // semantics: send a request (not auto-mutual anymore)
     FRIEND_REMOVE(0x12),
     FRIEND_LIST_REQUEST(0x13),
+    FRIEND_ACCEPT(0x14),    // accept an incoming request → both become friends
+    FRIEND_REJECT(0x15),    // reject an incoming request → drop it
+    FRIEND_CANCEL(0x16),    // cancel an outgoing request
 
     // Server -> Client
     LOGIN_RESULT(0x81),
@@ -44,9 +47,10 @@ public enum PacketType {
     PLAYER_STATUS(0x99),
     STATE_ACK(0x9A),
     MONSTER_ATTACK(0x9B),
-    FRIEND_LIST_DATA(0xA0),
+    FRIEND_LIST_DATA(0xA0),    // includes friends + incoming + outgoing in one shot
     FRIEND_ERROR(0xA1),
-    FRIEND_ADDED_BY(0xA2);  // 'X has added you as a friend'
+    FRIEND_ADDED_BY(0xA2),     // someone accepted YOUR request, or vice-versa
+    FRIEND_REQUEST_FROM(0xA3); // someone sent you a request (toast hint)
 
     private final int code;
 

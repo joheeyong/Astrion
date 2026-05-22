@@ -79,13 +79,26 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             case FRIEND_ADD -> handleFriendAdd(ctx, packet);
             case FRIEND_REMOVE -> handleFriendRemove(ctx, packet);
             case FRIEND_LIST_REQUEST -> handleFriendListRequest(ctx, packet);
+            case FRIEND_ACCEPT -> handleFriendAccept(ctx, packet);
+            case FRIEND_REJECT -> handleFriendReject(ctx, packet);
+            case FRIEND_CANCEL -> handleFriendCancel(ctx, packet);
             default -> log.warn("Unhandled packet type: {}", packet.getType());
         }
     }
 
     // ── Friend system ──────────────────────────────────────────────────────
     private static final int MAX_FRIENDS = 50;
+    private static final int MAX_OUTGOING_REQUESTS = 20;
 
+    /// FRIEND_ADD semantics: this is now a *request* — both sides have to
+    /// agree before mutual friendship is recorded. The target sees the
+    /// pending entry in their incoming list; either side can withdraw it
+    /// (cancel / reject) and only an accept moves the relationship into
+    /// the real friends sets.
+    ///
+    /// Special case: if 'target' already has an outgoing request TO 'self',
+    /// we auto-accept (both wanted each other). Saves a click and avoids
+    /// the deadlock where two people send simultaneously and neither knows.
     private void handleFriendAdd(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
         PlayerSession session = worldManager.getSession(ctx.channel());
         if (session == null) return;
@@ -105,22 +118,116 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             sendFriendError(ctx, "이미 친구입니다.");
             return;
         }
+        if (redisManager.hasOutgoingRequest(self, target)) {
+            sendFriendError(ctx, "이미 요청을 보냈습니다.");
+            return;
+        }
+        // Mutual-want shortcut.
+        if (redisManager.hasIncomingRequest(self, target)) {
+            // target had asked us; treat this as an accept.
+            acceptInternal(self, target);
+            sendFriendList(ctx.channel(), self);
+            PlayerSession ts = worldManager.getSessionByPlayerId(target);
+            if (ts != null) {
+                sendFriendList(ts.getChannel(), target);
+                pushNotification(ts.getChannel(), PacketType.FRIEND_ADDED_BY, new FriendAddedByPayload(self));
+            }
+            return;
+        }
+        if (redisManager.friendCount(self) >= MAX_FRIENDS) {
+            sendFriendError(ctx, "친구가 너무 많습니다 (최대 " + MAX_FRIENDS + ").");
+            return;
+        }
+        if (redisManager.outgoingRequests(self).size() >= MAX_OUTGOING_REQUESTS) {
+            sendFriendError(ctx, "보낸 요청이 너무 많습니다 (최대 " + MAX_OUTGOING_REQUESTS + ").");
+            return;
+        }
+
+        redisManager.addFriendRequest(self, target);
+
+        // Echo updated state to both sides.
+        sendFriendList(ctx.channel(), self);
+        PlayerSession ts = worldManager.getSessionByPlayerId(target);
+        if (ts != null) {
+            sendFriendList(ts.getChannel(), target);
+            pushNotification(ts.getChannel(), PacketType.FRIEND_REQUEST_FROM, new FriendRequestFromPayload(self));
+        }
+    }
+
+    private void handleFriendAccept(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession session = worldManager.getSession(ctx.channel());
+        if (session == null) return;
+        String self = session.getPlayerId();
+        JsonNode node = mapper.readTree(packet.getPayload());
+        String from = node.has("target") ? node.get("target").asText().trim() : "";
+        if (from.isEmpty() || from.equals(self)) {
+            sendFriendError(ctx, "잘못된 이름입니다.");
+            return;
+        }
+        if (!redisManager.hasIncomingRequest(self, from)) {
+            sendFriendError(ctx, "그 사용자로부터 요청이 없습니다.");
+            return;
+        }
         if (redisManager.friendCount(self) >= MAX_FRIENDS) {
             sendFriendError(ctx, "친구가 너무 많습니다 (최대 " + MAX_FRIENDS + ").");
             return;
         }
 
-        redisManager.addFriendBoth(self, target);
-
-        // Echo new list back to requester
+        acceptInternal(self, from);
         sendFriendList(ctx.channel(), self);
-        // If the target is online, push them an updated list + a toast hint.
-        PlayerSession targetSession = worldManager.getSessionByPlayerId(target);
-        if (targetSession != null) {
-            sendFriendList(targetSession.getChannel(), target);
-            String notif = mapper.writeValueAsString(new FriendAddedByPayload(self));
-            targetSession.getChannel().writeAndFlush(new GamePacket(PacketType.FRIEND_ADDED_BY, notif));
+        PlayerSession fs = worldManager.getSessionByPlayerId(from);
+        if (fs != null) {
+            sendFriendList(fs.getChannel(), from);
+            pushNotification(fs.getChannel(), PacketType.FRIEND_ADDED_BY, new FriendAddedByPayload(self));
         }
+    }
+
+    private void handleFriendReject(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession session = worldManager.getSession(ctx.channel());
+        if (session == null) return;
+        String self = session.getPlayerId();
+        JsonNode node = mapper.readTree(packet.getPayload());
+        String from = node.has("target") ? node.get("target").asText().trim() : "";
+        if (from.isEmpty()) { sendFriendError(ctx, "잘못된 이름입니다."); return; }
+        if (!redisManager.hasIncomingRequest(self, from)) {
+            sendFriendError(ctx, "그 사용자로부터 요청이 없습니다.");
+            return;
+        }
+        redisManager.removeFriendRequest(from, self);
+        sendFriendList(ctx.channel(), self);
+        // No notification to the sender; rejection stays quiet by design.
+    }
+
+    private void handleFriendCancel(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession session = worldManager.getSession(ctx.channel());
+        if (session == null) return;
+        String self = session.getPlayerId();
+        JsonNode node = mapper.readTree(packet.getPayload());
+        String to = node.has("target") ? node.get("target").asText().trim() : "";
+        if (to.isEmpty()) { sendFriendError(ctx, "잘못된 이름입니다."); return; }
+        if (!redisManager.hasOutgoingRequest(self, to)) {
+            sendFriendError(ctx, "그 사용자에게 보낸 요청이 없습니다.");
+            return;
+        }
+        redisManager.removeFriendRequest(self, to);
+        sendFriendList(ctx.channel(), self);
+        // If target is online, refresh their view so the cancelled request
+        // disappears from their incoming list immediately.
+        PlayerSession ts = worldManager.getSessionByPlayerId(to);
+        if (ts != null) sendFriendList(ts.getChannel(), to);
+    }
+
+    private void acceptInternal(String a, String b) {
+        // Clear any pending in either direction, then add to friends both sides.
+        redisManager.removeFriendRequest(a, b);
+        redisManager.removeFriendRequest(b, a);
+        redisManager.addFriendBoth(a, b);
+    }
+
+    private void pushNotification(io.netty.channel.Channel ch, PacketType type, Object payload) {
+        try {
+            ch.writeAndFlush(new GamePacket(type, mapper.writeValueAsString(payload)));
+        } catch (Exception ignored) { /* best effort */ }
     }
 
     private void handleFriendRemove(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
@@ -163,7 +270,14 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
                 if (a.online != b.online) return a.online ? -1 : 1;
                 return a.name.compareToIgnoreCase(b.name);
             });
-            String json = mapper.writeValueAsString(new FriendListPayload(entries));
+            // Pending invites — both directions, alphabetised. UI shows the
+            // incoming set as actionable rows, outgoing as info-only.
+            java.util.List<String> incoming = new java.util.ArrayList<>(redisManager.incomingRequests(username));
+            java.util.List<String> outgoing = new java.util.ArrayList<>(redisManager.outgoingRequests(username));
+            java.util.Collections.sort(incoming, String.CASE_INSENSITIVE_ORDER);
+            java.util.Collections.sort(outgoing, String.CASE_INSENSITIVE_ORDER);
+
+            String json = mapper.writeValueAsString(new FriendListPayload(entries, incoming, outgoing));
             ch.writeAndFlush(new GamePacket(PacketType.FRIEND_LIST_DATA, json));
         } catch (Exception e) {
             log.warn("sendFriendList for {} failed: {}", username, e.getMessage());
@@ -178,9 +292,12 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
     }
 
     private record FriendEntry(String name, boolean online, String zone) {}
-    private record FriendListPayload(java.util.List<FriendEntry> friends) {}
+    private record FriendListPayload(java.util.List<FriendEntry> friends,
+                                     java.util.List<String> incoming,
+                                     java.util.List<String> outgoing) {}
     private record FriendErrorPayload(String message) {}
     private record FriendAddedByPayload(String by) {}
+    private record FriendRequestFromPayload(String from) {}
 
     private void handleClientLog(ChannelHandlerContext ctx, GamePacket packet) {
         PlayerSession session = worldManager.getSession(ctx.channel());
