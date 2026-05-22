@@ -17,7 +17,10 @@ namespace Astrion.Network
         SkillCast = 0x0D,
         DropClaim = 0x0E,
         StatusUpdate = 0x0F,
-        ClientLog = 0x10,  // forward a client-side Exception / Error to the server
+        ClientLog = 0x10,
+        FriendAdd = 0x11,
+        FriendRemove = 0x12,
+        FriendListRequest = 0x13,
 
         // Server -> Client
         LoginResult = 0x81,
@@ -42,5 +45,8 @@ namespace Astrion.Network
         PlayerStatus = 0x99,
         StateAck = 0x9A,
         MonsterAttack = 0x9B,
+        FriendListData = 0xA0,
+        FriendError = 0xA1,
+        FriendAddedBy = 0xA2,
     }
 }

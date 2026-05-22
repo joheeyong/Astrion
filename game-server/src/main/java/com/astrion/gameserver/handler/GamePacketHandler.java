@@ -76,9 +76,111 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             case DROP_CLAIM -> handleDropClaim(ctx, packet);
             case STATUS_UPDATE -> handleStatusUpdate(ctx, packet);
             case CLIENT_LOG -> handleClientLog(ctx, packet);
+            case FRIEND_ADD -> handleFriendAdd(ctx, packet);
+            case FRIEND_REMOVE -> handleFriendRemove(ctx, packet);
+            case FRIEND_LIST_REQUEST -> handleFriendListRequest(ctx, packet);
             default -> log.warn("Unhandled packet type: {}", packet.getType());
         }
     }
+
+    // ── Friend system ──────────────────────────────────────────────────────
+    private static final int MAX_FRIENDS = 50;
+
+    private void handleFriendAdd(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession session = worldManager.getSession(ctx.channel());
+        if (session == null) return;
+        String self = session.getPlayerId();
+        JsonNode node = mapper.readTree(packet.getPayload());
+        String target = node.has("target") ? node.get("target").asText().trim() : "";
+
+        if (target.isEmpty() || target.equals(self)) {
+            sendFriendError(ctx, "잘못된 친구 이름입니다.");
+            return;
+        }
+        if (redisManager.get("account:" + target) == null) {
+            sendFriendError(ctx, "그런 모험가는 없습니다.");
+            return;
+        }
+        if (redisManager.areFriends(self, target)) {
+            sendFriendError(ctx, "이미 친구입니다.");
+            return;
+        }
+        if (redisManager.friendCount(self) >= MAX_FRIENDS) {
+            sendFriendError(ctx, "친구가 너무 많습니다 (최대 " + MAX_FRIENDS + ").");
+            return;
+        }
+
+        redisManager.addFriendBoth(self, target);
+
+        // Echo new list back to requester
+        sendFriendList(ctx.channel(), self);
+        // If the target is online, push them an updated list + a toast hint.
+        PlayerSession targetSession = worldManager.getSessionByPlayerId(target);
+        if (targetSession != null) {
+            sendFriendList(targetSession.getChannel(), target);
+            String notif = mapper.writeValueAsString(new FriendAddedByPayload(self));
+            targetSession.getChannel().writeAndFlush(new GamePacket(PacketType.FRIEND_ADDED_BY, notif));
+        }
+    }
+
+    private void handleFriendRemove(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession session = worldManager.getSession(ctx.channel());
+        if (session == null) return;
+        String self = session.getPlayerId();
+        JsonNode node = mapper.readTree(packet.getPayload());
+        String target = node.has("target") ? node.get("target").asText().trim() : "";
+        if (target.isEmpty() || target.equals(self)) {
+            sendFriendError(ctx, "잘못된 이름입니다.");
+            return;
+        }
+        if (!redisManager.areFriends(self, target)) {
+            sendFriendError(ctx, "친구 목록에 없습니다.");
+            return;
+        }
+        redisManager.removeFriendBoth(self, target);
+        sendFriendList(ctx.channel(), self);
+        PlayerSession targetSession = worldManager.getSessionByPlayerId(target);
+        if (targetSession != null) sendFriendList(targetSession.getChannel(), target);
+    }
+
+    private void handleFriendListRequest(ChannelHandlerContext ctx, GamePacket packet) {
+        PlayerSession session = worldManager.getSession(ctx.channel());
+        if (session == null) return;
+        sendFriendList(ctx.channel(), session.getPlayerId());
+    }
+
+    private void sendFriendList(io.netty.channel.Channel ch, String username) {
+        try {
+            java.util.Set<String> names = redisManager.getFriends(username);
+            java.util.List<FriendEntry> entries = new java.util.ArrayList<>(names.size());
+            for (String name : names) {
+                PlayerSession s = worldManager.getSessionByPlayerId(name);
+                boolean online = s != null;
+                String zone = online ? s.getZoneId() : "";
+                entries.add(new FriendEntry(name, online, zone));
+            }
+            entries.sort((a, b) -> {
+                if (a.online != b.online) return a.online ? -1 : 1;
+                return a.name.compareToIgnoreCase(b.name);
+            });
+            String json = mapper.writeValueAsString(new FriendListPayload(entries));
+            ch.writeAndFlush(new GamePacket(PacketType.FRIEND_LIST_DATA, json));
+        } catch (Exception e) {
+            log.warn("sendFriendList for {} failed: {}", username, e.getMessage());
+        }
+    }
+
+    private void sendFriendError(ChannelHandlerContext ctx, String msg) {
+        try {
+            String json = mapper.writeValueAsString(new FriendErrorPayload(msg));
+            ctx.writeAndFlush(new GamePacket(PacketType.FRIEND_ERROR, json));
+        } catch (Exception ignored) { /* best effort */ }
+    }
+
+    private record FriendEntry(String name, boolean online, String zone) {}
+    private record FriendListPayload(java.util.List<FriendEntry> friends) {}
+    private record FriendErrorPayload(String message) {}
+    private record FriendAddedByPayload(String by) {}
 
     private void handleClientLog(ChannelHandlerContext ctx, GamePacket packet) {
         PlayerSession session = worldManager.getSession(ctx.channel());

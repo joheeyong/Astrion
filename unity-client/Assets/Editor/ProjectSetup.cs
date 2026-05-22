@@ -204,6 +204,10 @@ public partial class ProjectSetup
         // WorldMapUI — DDOL overlay toggled with M. Built once on the
         // login scene; survives every portal transition.
         networkGo.AddComponent<Astrion.UI.WorldMapUI>();
+        // FriendSystem — DDOL singleton holding the friend list cache
+        // and packet plumbing for FRIEND_* messages. UI lives on each
+        // game scene's HUD; system is built once here.
+        networkGo.AddComponent<Astrion.Game.FriendSystem>();
 
         // PlayerStateManager (persists across scenes via DontDestroyOnLoad)
         var stateGo = new GameObject("PlayerStateManager");
@@ -4832,6 +4836,187 @@ public partial class ProjectSetup
         sysPanel.gameObject.SetActive(false);
 
         // (Top-right ☰ removed — the action bar's ESC button now covers system menu.)
+
+        // ========== FRIENDS PANEL (F) ==========
+        // A compact modal: header strip, add-row at top, scrollable list below.
+        var friendsPanel = HUD_CreateRT("FriendsPanel", root);
+        friendsPanel.anchorMin = friendsPanel.anchorMax = new Vector2(0.5f, 0.5f);
+        friendsPanel.pivot = new Vector2(0.5f, 0.5f);
+        friendsPanel.anchoredPosition = Vector2.zero;
+        friendsPanel.sizeDelta = new Vector2(420, 520);
+        var fpBg = friendsPanel.gameObject.AddComponent<Image>();
+        fpBg.color = panelBg;
+
+        // Header
+        var fpHdr = HUD_CreateRT("Header", friendsPanel);
+        fpHdr.anchorMin = new Vector2(0, 1); fpHdr.anchorMax = new Vector2(1, 1);
+        fpHdr.pivot = new Vector2(0.5f, 1);
+        fpHdr.anchoredPosition = new Vector2(0, -14);
+        fpHdr.sizeDelta = new Vector2(-20, 28);
+        var fpHdrT = fpHdr.gameObject.AddComponent<Text>();
+        fpHdrT.font = font; fpHdrT.fontSize = 16; fpHdrT.fontStyle = FontStyle.Bold;
+        fpHdrT.color = new Color(1f, 0.85f, 0.40f);
+        fpHdrT.alignment = TextAnchor.MiddleCenter;
+        fpHdrT.text = "친구  (F)";
+
+        // Close button (top-right X)
+        var fpClose = HUD_CreateRT("CloseB", friendsPanel);
+        fpClose.anchorMin = fpClose.anchorMax = new Vector2(1, 1);
+        fpClose.pivot = new Vector2(1, 1);
+        fpClose.anchoredPosition = new Vector2(-10, -10);
+        fpClose.sizeDelta = new Vector2(28, 28);
+        var fpCloseImg = fpClose.gameObject.AddComponent<Image>();
+        fpCloseImg.sprite = TexToSprite(MakeRoundRectTex(48, 48, 4, new Color(0.30f, 0.20f, 0.12f, 1f)));
+        fpCloseImg.type = Image.Type.Sliced;
+        var fpCloseBtn = fpClose.gameObject.AddComponent<Button>();
+        var fpCloseT = HUD_CreateRT("X", fpClose);
+        fpCloseT.anchorMin = Vector2.zero; fpCloseT.anchorMax = Vector2.one;
+        fpCloseT.offsetMin = fpCloseT.offsetMax = Vector2.zero;
+        var fpCloseTxt = fpCloseT.gameObject.AddComponent<Text>();
+        fpCloseTxt.font = font; fpCloseTxt.fontSize = 14; fpCloseTxt.fontStyle = FontStyle.Bold;
+        fpCloseTxt.alignment = TextAnchor.MiddleCenter;
+        fpCloseTxt.color = new Color(0.94f, 0.88f, 0.74f);
+        fpCloseTxt.text = "×";
+
+        // Add row: input field + button
+        var fpAddRow = HUD_CreateRT("AddRow", friendsPanel);
+        fpAddRow.anchorMin = new Vector2(0, 1); fpAddRow.anchorMax = new Vector2(1, 1);
+        fpAddRow.pivot = new Vector2(0.5f, 1);
+        fpAddRow.anchoredPosition = new Vector2(0, -54);
+        fpAddRow.sizeDelta = new Vector2(-24, 36);
+
+        var fpNameRT = HUD_CreateRT("NameField", fpAddRow);
+        fpNameRT.anchorMin = new Vector2(0, 0); fpNameRT.anchorMax = new Vector2(1, 1);
+        fpNameRT.offsetMin = new Vector2(0, 0); fpNameRT.offsetMax = new Vector2(-86, 0);
+        var fpNameBg = fpNameRT.gameObject.AddComponent<Image>();
+        fpNameBg.sprite = TexToSprite(MakeRoundRectTex(64, 36, 5, new Color(0.06f, 0.04f, 0.02f, 0.95f)));
+        fpNameBg.type = Image.Type.Sliced;
+        var fpNameField = fpNameRT.gameObject.AddComponent<InputField>();
+        fpNameField.targetGraphic = fpNameBg;
+        var fpNameTxt = HUD_CreateRT("Text", fpNameRT);
+        fpNameTxt.anchorMin = Vector2.zero; fpNameTxt.anchorMax = Vector2.one;
+        fpNameTxt.offsetMin = new Vector2(10, 4); fpNameTxt.offsetMax = new Vector2(-10, -4);
+        var fpNameTxtC = fpNameTxt.gameObject.AddComponent<Text>();
+        fpNameTxtC.font = font; fpNameTxtC.fontSize = 13;
+        fpNameTxtC.color = new Color(0.96f, 0.90f, 0.78f);
+        fpNameTxtC.alignment = TextAnchor.MiddleLeft;
+        fpNameTxtC.supportRichText = false;
+        fpNameField.textComponent = fpNameTxtC;
+        var fpNamePh = HUD_CreateRT("Placeholder", fpNameRT);
+        fpNamePh.anchorMin = Vector2.zero; fpNamePh.anchorMax = Vector2.one;
+        fpNamePh.offsetMin = new Vector2(10, 4); fpNamePh.offsetMax = new Vector2(-10, -4);
+        var fpNamePhT = fpNamePh.gameObject.AddComponent<Text>();
+        fpNamePhT.font = font; fpNamePhT.fontSize = 13; fpNamePhT.fontStyle = FontStyle.Italic;
+        fpNamePhT.color = new Color(0.55f, 0.48f, 0.38f, 0.7f);
+        fpNamePhT.alignment = TextAnchor.MiddleLeft;
+        fpNamePhT.text = "닉네임";
+        fpNameField.placeholder = fpNamePhT;
+
+        var fpAddBtnRT = HUD_CreateRT("AddBtn", fpAddRow);
+        fpAddBtnRT.anchorMin = new Vector2(1, 0); fpAddBtnRT.anchorMax = new Vector2(1, 1);
+        fpAddBtnRT.pivot = new Vector2(1, 0.5f);
+        fpAddBtnRT.anchoredPosition = new Vector2(0, 0);
+        fpAddBtnRT.sizeDelta = new Vector2(80, 0);
+        var fpAddImg = fpAddBtnRT.gameObject.AddComponent<Image>();
+        fpAddImg.sprite = TexToSprite(MakeRoundRectTex(64, 36, 6, new Color(0.42f, 0.28f, 0.15f, 1f)));
+        fpAddImg.type = Image.Type.Sliced;
+        var fpAddBtn = fpAddBtnRT.gameObject.AddComponent<Button>();
+        var fpAddLbl = HUD_CreateRT("L", fpAddBtnRT);
+        fpAddLbl.anchorMin = Vector2.zero; fpAddLbl.anchorMax = Vector2.one;
+        fpAddLbl.offsetMin = fpAddLbl.offsetMax = Vector2.zero;
+        var fpAddLblT = fpAddLbl.gameObject.AddComponent<Text>();
+        fpAddLblT.font = font; fpAddLblT.fontSize = 13; fpAddLblT.fontStyle = FontStyle.Bold;
+        fpAddLblT.alignment = TextAnchor.MiddleCenter;
+        fpAddLblT.color = new Color(0.96f, 0.90f, 0.78f);
+        fpAddLblT.text = "추가";
+
+        // Status text just under the add row
+        var fpStatusRT = HUD_CreateRT("Status", friendsPanel);
+        fpStatusRT.anchorMin = new Vector2(0, 1); fpStatusRT.anchorMax = new Vector2(1, 1);
+        fpStatusRT.pivot = new Vector2(0.5f, 1);
+        fpStatusRT.anchoredPosition = new Vector2(0, -98);
+        fpStatusRT.sizeDelta = new Vector2(-24, 16);
+        var fpStatusT = fpStatusRT.gameObject.AddComponent<Text>();
+        fpStatusT.font = font; fpStatusT.fontSize = 11;
+        fpStatusT.color = new Color(0.78f, 0.55f, 0.24f);
+        fpStatusT.alignment = TextAnchor.MiddleCenter;
+        fpStatusT.text = "";
+
+        // Row template (hidden) — FriendsUI clones it per row
+        var fpRowTemplate = HUD_CreateRT("RowTemplate", friendsPanel);
+        fpRowTemplate.anchorMin = new Vector2(0, 1); fpRowTemplate.anchorMax = new Vector2(1, 1);
+        fpRowTemplate.pivot = new Vector2(0.5f, 1);
+        fpRowTemplate.anchoredPosition = new Vector2(0, 0);
+        fpRowTemplate.sizeDelta = new Vector2(-24, 32);
+        var fpRowBg = fpRowTemplate.gameObject.AddComponent<Image>();
+        fpRowBg.sprite = TexToSprite(MakeRoundRectTex(64, 36, 4, new Color(0.13f, 0.10f, 0.07f, 0.92f)));
+        fpRowBg.type = Image.Type.Sliced;
+        // Dot
+        var fpDot = HUD_CreateRT("Dot", fpRowTemplate);
+        fpDot.anchorMin = new Vector2(0, 0.5f); fpDot.anchorMax = new Vector2(0, 0.5f);
+        fpDot.pivot = new Vector2(0, 0.5f);
+        fpDot.anchoredPosition = new Vector2(10, 0);
+        fpDot.sizeDelta = new Vector2(10, 10);
+        var fpDotImg = fpDot.gameObject.AddComponent<Image>();
+        fpDotImg.sprite = TexToSprite(MakeCircleTex(32, Color.white));
+        fpDotImg.color = new Color(0.45f, 0.42f, 0.36f);
+        // Name
+        var fpRowName = HUD_CreateRT("Name", fpRowTemplate);
+        fpRowName.anchorMin = new Vector2(0, 0); fpRowName.anchorMax = new Vector2(0.5f, 1);
+        fpRowName.offsetMin = new Vector2(28, 0); fpRowName.offsetMax = new Vector2(0, 0);
+        var fpRowNameT = fpRowName.gameObject.AddComponent<Text>();
+        fpRowNameT.font = font; fpRowNameT.fontSize = 13; fpRowNameT.fontStyle = FontStyle.Bold;
+        fpRowNameT.color = new Color(0.96f, 0.90f, 0.78f);
+        fpRowNameT.alignment = TextAnchor.MiddleLeft;
+        fpRowNameT.text = "name";
+        // Zone
+        var fpRowZone = HUD_CreateRT("Zone", fpRowTemplate);
+        fpRowZone.anchorMin = new Vector2(0.5f, 0); fpRowZone.anchorMax = new Vector2(1, 1);
+        fpRowZone.offsetMin = new Vector2(0, 0); fpRowZone.offsetMax = new Vector2(-48, 0);
+        var fpRowZoneT = fpRowZone.gameObject.AddComponent<Text>();
+        fpRowZoneT.font = font; fpRowZoneT.fontSize = 11;
+        fpRowZoneT.color = new Color(0.78f, 0.55f, 0.24f);
+        fpRowZoneT.alignment = TextAnchor.MiddleRight;
+        fpRowZoneT.text = "";
+        // Remove button (×)
+        var fpRowRm = HUD_CreateRT("RemoveB", fpRowTemplate);
+        fpRowRm.anchorMin = new Vector2(1, 0.5f); fpRowRm.anchorMax = new Vector2(1, 0.5f);
+        fpRowRm.pivot = new Vector2(1, 0.5f);
+        fpRowRm.anchoredPosition = new Vector2(-6, 0);
+        fpRowRm.sizeDelta = new Vector2(28, 22);
+        var fpRowRmImg = fpRowRm.gameObject.AddComponent<Image>();
+        fpRowRmImg.sprite = TexToSprite(MakeRoundRectTex(48, 36, 4, new Color(0.55f, 0.18f, 0.18f, 0.85f)));
+        fpRowRmImg.type = Image.Type.Sliced;
+        var fpRowRmBtn = fpRowRm.gameObject.AddComponent<Button>();
+        var fpRowRmLbl = HUD_CreateRT("L", fpRowRm);
+        fpRowRmLbl.anchorMin = Vector2.zero; fpRowRmLbl.anchorMax = Vector2.one;
+        fpRowRmLbl.offsetMin = fpRowRmLbl.offsetMax = Vector2.zero;
+        var fpRowRmTxt = fpRowRmLbl.gameObject.AddComponent<Text>();
+        fpRowRmTxt.font = font; fpRowRmTxt.fontSize = 13; fpRowRmTxt.fontStyle = FontStyle.Bold;
+        fpRowRmTxt.alignment = TextAnchor.MiddleCenter;
+        fpRowRmTxt.color = new Color(0.95f, 0.90f, 0.80f);
+        fpRowRmTxt.text = "×";
+
+        // List container under the status text (rows are positioned by FriendsUI.Rebuild)
+        var fpListContainer = HUD_CreateRT("ListContainer", friendsPanel);
+        fpListContainer.anchorMin = new Vector2(0, 0); fpListContainer.anchorMax = new Vector2(1, 1);
+        fpListContainer.pivot = new Vector2(0.5f, 1);
+        fpListContainer.offsetMin = new Vector2(12, 16);
+        fpListContainer.offsetMax = new Vector2(-12, -118);
+
+        // FriendsUI component wiring (SerializedObject so the [SerializeField]
+        // fields are populated at edit time)
+        var friendsUI = canvasGo.AddComponent<Astrion.UI.FriendsUI>();
+        var fuiSo = new UnityEditor.SerializedObject(friendsUI);
+        fuiSo.FindProperty("panel").objectReferenceValue = friendsPanel.gameObject;
+        fuiSo.FindProperty("nameField").objectReferenceValue = fpNameField;
+        fuiSo.FindProperty("addButton").objectReferenceValue = fpAddBtn;
+        fuiSo.FindProperty("closeButton").objectReferenceValue = fpCloseBtn;
+        fuiSo.FindProperty("listContainer").objectReferenceValue = fpListContainer;
+        fuiSo.FindProperty("statusText").objectReferenceValue = fpStatusT;
+        fuiSo.FindProperty("rowTemplate").objectReferenceValue = fpRowTemplate;
+        fuiSo.ApplyModifiedPropertiesWithoutUndo();
+        friendsPanel.gameObject.SetActive(false);
     }
 
     private static Image CreateMapleBar(RectTransform parent, string name, Vector2 pos, Vector2 size,

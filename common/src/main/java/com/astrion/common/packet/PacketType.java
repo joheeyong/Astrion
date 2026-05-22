@@ -17,6 +17,9 @@ public enum PacketType {
     DROP_CLAIM(0x0E),
     STATUS_UPDATE(0x0F),
     CLIENT_LOG(0x10),  // client-side Exception / Error forwarded to server
+    FRIEND_ADD(0x11),
+    FRIEND_REMOVE(0x12),
+    FRIEND_LIST_REQUEST(0x13),
 
     // Server -> Client
     LOGIN_RESULT(0x81),
@@ -40,7 +43,10 @@ public enum PacketType {
     DROP_REMOVED(0x98),
     PLAYER_STATUS(0x99),
     STATE_ACK(0x9A),
-    MONSTER_ATTACK(0x9B);
+    MONSTER_ATTACK(0x9B),
+    FRIEND_LIST_DATA(0xA0),
+    FRIEND_ERROR(0xA1),
+    FRIEND_ADDED_BY(0xA2);  // 'X has added you as a friend'
 
     private final int code;
 

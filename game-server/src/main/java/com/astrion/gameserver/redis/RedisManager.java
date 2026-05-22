@@ -118,6 +118,28 @@ public class RedisManager {
         return commands.get(key);
     }
 
+    // Friends — mutual relationship stored as two parallel Redis sets so a
+    // lookup of 'who are A's friends' is O(N) without scanning anyone else.
+    // friends:{user} is the source of truth; the addFriend/removeFriend pair
+    // keeps both sides consistent.
+    public void addFriendBoth(String a, String b) {
+        commands.sadd("friends:" + a, b);
+        commands.sadd("friends:" + b, a);
+    }
+    public void removeFriendBoth(String a, String b) {
+        commands.srem("friends:" + a, b);
+        commands.srem("friends:" + b, a);
+    }
+    public java.util.Set<String> getFriends(String username) {
+        return commands.smembers("friends:" + username);
+    }
+    public int friendCount(String username) {
+        return commands.scard("friends:" + username).intValue();
+    }
+    public boolean areFriends(String a, String b) {
+        return commands.sismember("friends:" + a, b);
+    }
+
     // Low-level passthroughs. Used by AccountLockout (and any future feature
     // that needs counters / TTL keys outside the dedicated DTO accessors above).
     public long incr(String key)                       { return commands.incr(key); }
