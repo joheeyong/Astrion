@@ -1,0 +1,20 @@
+[DEFAULT]
+# Aggressive but not paranoid: 5 failed attempts in 10 min → 1 h ban.
+# bantime can be longer in prod (24h) once we trust the rule set.
+bantime  = 1h
+findtime = 10m
+maxretry = 5
+
+# Hard whitelist for loopback. The operator's IP should be added here too
+# (one line per IP). Listing it means even a typo can't lock us out.
+# Edit this file and 'sudo systemctl reload fail2ban' to update.
+ignoreip = 127.0.0.1/8 ::1
+
+# Use the firewallcmd-rich-rules if firewalld is the firewall.
+# On Ubuntu's stock setup it'll fall back to iptables-multiport.
+banaction = iptables-multiport
+
+[sshd]
+enabled  = true
+port     = ssh
+backend  = systemd
