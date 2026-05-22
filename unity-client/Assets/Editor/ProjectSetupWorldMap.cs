@@ -12,6 +12,81 @@ using UnityEngine;
 /// See docs/WORLDMAP.md for the canonical layout this code targets.
 public partial class ProjectSetup
 {
+    private enum NpcKind { Innkeeper, Shopkeeper }
+
+    /// Spawn a single NPC at a city's flat ground. Reuses the player's
+    /// procedural body/limbs (BuildPlayerVisual) tinted with a different
+    /// tunic color so each NPC kind reads distinctly at a glance.
+    private static void SpawnNpc(Transform parent, Vector2 pos, string displayName,
+                                  Color tunic, Color hair, NpcKind kind)
+    {
+        var go = new GameObject($"NPC_{displayName}");
+        go.transform.SetParent(parent, false);
+        go.transform.position = new Vector3(pos.x, pos.y, 0);
+
+        var parts = MakePlayerParts(shirt: tunic, hair: hair,
+                                     pants: new Color(0.30f, 0.22f, 0.14f));
+        BuildPlayerVisual(go, parts, out _, out _, out _, out _, out _);
+
+        // Name floats above the head; matches the portal-label style so the
+        // city reads as a single visual language.
+        var lblGo = new GameObject("Label");
+        lblGo.transform.SetParent(go.transform, false);
+        lblGo.transform.localPosition = new Vector3(0, 0.85f, 0);
+        lblGo.transform.localScale = Vector3.one * 0.04f;
+        var tm = lblGo.AddComponent<TextMesh>();
+        tm.text = displayName;
+        tm.fontSize = 40;
+        tm.fontStyle = FontStyle.Bold;
+        tm.anchor = TextAnchor.MiddleCenter;
+        tm.alignment = TextAlignment.Center;
+        tm.color = new Color(1f, 0.92f, 0.65f);
+        tm.characterSize = 0.10f;
+        var mr = lblGo.GetComponent<MeshRenderer>();
+        mr.sortingOrder = 12;
+
+        var col = go.AddComponent<BoxCollider2D>();
+        col.size = new Vector2(1.0f, 1.4f);
+        col.isTrigger = true;
+
+        switch (kind)
+        {
+            case NpcKind.Innkeeper:
+            {
+                var ink = go.AddComponent<Astrion.Game.InnkeeperNPC2D>();
+                var so = new SerializedObject(ink);
+                so.FindProperty("npcName").stringValue = displayName;
+                so.ApplyModifiedPropertiesWithoutUndo();
+                break;
+            }
+            case NpcKind.Shopkeeper:
+            {
+                var shop = go.AddComponent<Astrion.Game.ShopNPC2D>();
+                var so = new SerializedObject(shop);
+                so.FindProperty("npcName").stringValue = displayName;
+                so.ApplyModifiedPropertiesWithoutUndo();
+                break;
+            }
+        }
+    }
+
+    /// Per-city NPC name pairs. Solaria gets Korean honorific-style names
+    /// (the central hub city); the four sub-region capitals get short
+    /// distinct names that hint at their biome (Pyresummit warmth, Tidehaven
+    /// salt etc.) without being heavy.
+    private static (string innkeeper, string shopkeeper) NpcNamesForCity(string city)
+    {
+        switch (city)
+        {
+            case "Solaria":    return ("미라", "브론");
+            case "Pyresummit": return ("베라", "콜란");
+            case "Verdaglen":  return ("리라", "사렌");
+            case "Nightport":  return ("닉스", "드레브");
+            case "Tidehaven":  return ("세라", "펜");
+            default:           return ("Innkeeper", "Shopkeeper");
+        }
+    }
+
     /// Portal description for procedural scene generation.
     private struct PortalSpec
     {
@@ -183,6 +258,20 @@ public partial class ProjectSetup
             // City: a low decorative bench so the layout isn't completely flat.
             SpawnGround("Bench", worldRoot.transform, platformSpr,
                 new Vector2(0, -1f), new Vector2(8, 0.5f), GROUND_LAYER, true);
+
+            // Innkeeper (left) + Shopkeeper (right) per city. Names per-city so
+            // the world has a little texture instead of every town having the
+            // same 'Innkeeper'. Two NPC kinds, two distinct tunic colors so
+            // the player can tell them apart at a glance.
+            var (innkName, shopName) = NpcNamesForCity(baseName);
+            SpawnNpc(worldRoot.transform, new Vector2(-10f, -2.5f), innkName,
+                tunic: new Color(0.62f, 0.42f, 0.20f),   // warm tan — innkeeper
+                hair:  new Color(0.86f, 0.74f, 0.42f),
+                kind: NpcKind.Innkeeper);
+            SpawnNpc(worldRoot.transform, new Vector2(10f, -2.5f), shopName,
+                tunic: new Color(0.22f, 0.48f, 0.30f),   // green — shopkeeper
+                hair:  new Color(0.30f, 0.20f, 0.10f),
+                kind: NpcKind.Shopkeeper);
         }
         else
         {
