@@ -17,7 +17,11 @@ REMOTE_USER=ubuntu
 REMOTE_HOST=3.38.109.138
 SSH_KEY="${ASTRION_SSH_KEY:-$HOME/.ssh/astrion-key.pem}"
 TAR="game-server/build/distributions/game-server-0.1.0.tar"
-HEALTH_URL="http://${REMOTE_HOST}:9002/health"
+# Health check happens INSIDE the EC2 box (via ssh) so the script
+# works regardless of how the AWS Security Group exposes 9002 to the
+# operator's current IP. The local probe is the more reliable signal
+# of 'the service came back up' anyway.
+HEALTH_PROBE='curl -fsS --max-time 3 http://localhost:9002/health'
 
 # ── flags ──────────────────────────────────────────────────────────
 NO_BUILD=0
@@ -80,12 +84,14 @@ else
         "
 fi
 
-# ── 4. verify ──────────────────────────────────────────────────────
-echo "[4/4] health-checking $HEALTH_URL ..."
+# ── 4. verify (probe from inside EC2 to skip SG / public-IP concerns) ─
+echo "[4/4] health-checking http://localhost:9002/health on EC2 ..."
 ok=0
 for i in 1 2 3 4 5; do
     sleep 3
-    if curl -fsS --max-time 3 "$HEALTH_URL" 2>/dev/null | grep -q '"status":"ok"'; then
+    if ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no -o BatchMode=yes \
+           "$REMOTE_USER@$REMOTE_HOST" "$HEALTH_PROBE" 2>/dev/null \
+           | grep -q '"status":"ok"'; then
         ok=1
         echo "  attempt $i: ok"
         break
