@@ -55,7 +55,7 @@ print(json.dumps({'content': sys.argv[1] + ' **[backup-verify]** ' + sys.argv[2]
 }
 
 # Pre-flight: required commands present?
-for cmd in redis-server redis-cli redis-check-rdb gunzip python3; do
+for cmd in redis-server redis-cli redis-check-rdb gunzip gpg python3; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
         log "FAIL — required command missing: $cmd"
         push_webhook "🚨" "missing command on host: $cmd"
@@ -63,8 +63,11 @@ for cmd in redis-server redis-cli redis-check-rdb gunzip python3; do
     fi
 done
 
-# 1. Latest backup
-LATEST=$(/bin/ls -t "$BACKUP_DIR"/dump-*.rdb.gz 2>/dev/null | head -1)
+# 1. Latest backup — prefer .gpg (encrypted), fall back to .gz (legacy).
+LATEST=$(/bin/ls -t "$BACKUP_DIR"/dump-*.rdb.gz.gpg 2>/dev/null | head -1)
+if [[ -z "$LATEST" ]]; then
+    LATEST=$(/bin/ls -t "$BACKUP_DIR"/dump-*.rdb.gz 2>/dev/null | head -1)
+fi
 if [[ -z "$LATEST" ]]; then
     log "FAIL — no backup files in $BACKUP_DIR"
     push_webhook "🚨" "no backup files found in $BACKUP_DIR"
@@ -79,13 +82,38 @@ if (( FILE_AGE_DAYS > 2 )); then
     push_webhook "⚠️" "newest backup is $FILE_AGE_DAYS days old — check the rsync cron"
 fi
 
-# 2. Decompress
+# 2. Decrypt (if .gpg) and decompress to the temp dir.
 DUMP_FILE="$TMP_DIR/dump.rdb"
-if ! gunzip -c "$LATEST" > "$DUMP_FILE"; then
-    log "FAIL — gunzip rejected $LATEST"
-    push_webhook "🚨" "gunzip failed for $(basename "$LATEST")"
-    exit 1
-fi
+PASSPHRASE_FILE="$HOME/.config/astrion/backup-passphrase.txt"
+case "$LATEST" in
+    *.rdb.gz.gpg)
+        if [[ ! -r "$PASSPHRASE_FILE" ]]; then
+            log "FAIL — encrypted backup but no passphrase at $PASSPHRASE_FILE"
+            push_webhook "🚨" "encrypted backup but no passphrase on this host"
+            exit 1
+        fi
+        if ! gpg --batch --quiet --yes --pinentry-mode loopback \
+                 --passphrase-file "$PASSPHRASE_FILE" \
+                 --decrypt "$LATEST" 2>/dev/null \
+             | gunzip -c > "$DUMP_FILE"; then
+            log "FAIL — gpg decrypt / gunzip rejected $(basename "$LATEST")"
+            push_webhook "🚨" "decrypt failed for $(basename "$LATEST")"
+            exit 1
+        fi
+        ;;
+    *.rdb.gz)
+        if ! gunzip -c "$LATEST" > "$DUMP_FILE"; then
+            log "FAIL — gunzip rejected $LATEST"
+            push_webhook "🚨" "gunzip failed for $(basename "$LATEST")"
+            exit 1
+        fi
+        ;;
+    *)
+        log "FAIL — unexpected backup extension on $LATEST"
+        push_webhook "🚨" "unexpected backup extension: $(basename "$LATEST")"
+        exit 1
+        ;;
+esac
 
 # 3. redis-check-rdb
 if ! redis-check-rdb "$DUMP_FILE" >/dev/null 2>&1; then

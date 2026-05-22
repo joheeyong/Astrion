@@ -21,6 +21,7 @@ set -euo pipefail
 BACKUP_DIR="$HOME/backups/redis"
 KEEP_DAYS=14
 REDIS_PW_FILE="$HOME/.config/astrion/redis-password.env"
+BACKUP_PASSPHRASE_FILE="$HOME/.config/astrion/backup-passphrase.txt"
 
 # Pick up the Redis AUTH credential so the BGSAVE + --rdb calls below work
 # against a requirepass-enabled server. The env file is the same one
@@ -57,7 +58,32 @@ fi
 
 gzip --force "$OUT"
 
-# Retention: keep the newest KEEP_DAYS days of point-in-time snapshots.
-find "$BACKUP_DIR" -maxdepth 1 -name 'dump-*.rdb.gz' -mtime "+$KEEP_DAYS" -delete
+# Encrypt the gzipped dump with gpg (AES-256, symmetric) so a stolen
+# backup file alone can't be loaded into a redis server. Passphrase
+# lives at ~/.config/astrion/backup-passphrase.txt (chmod 600, owned by
+# ubuntu, mirrored to the operator's Mac for restore). The file is
+# decrypted at verify/restore time only.
+#
+# If the passphrase file is missing we fall back to the unencrypted .gz
+# — this is the same precedent webhook/redis-pw files set. Mostly a
+# convenience for dev boxes that don't bother with key material.
+if [[ -r "$BACKUP_PASSPHRASE_FILE" ]]; then
+    gpg --batch --quiet --yes \
+        --pinentry-mode loopback \
+        --passphrase-file "$BACKUP_PASSPHRASE_FILE" \
+        --symmetric --cipher-algo AES256 \
+        --output "$OUT.gz.gpg" "$OUT.gz"
+    rm "$OUT.gz"
+    OUT_FINAL="$OUT.gz.gpg"
+else
+    echo "$(date -Is) backup-redis: WARN — no passphrase file, leaving backup unencrypted" >&2
+    OUT_FINAL="$OUT.gz"
+fi
 
-echo "$(date -Is) backup-redis: $(stat -c %s "$OUT.gz") bytes -> $OUT.gz"
+# Retention: keep the newest KEEP_DAYS days of point-in-time snapshots
+# (matches both .gz and .gz.gpg so transitions between encrypted /
+# unencrypted runs roll cleanly).
+find "$BACKUP_DIR" -maxdepth 1 \( -name 'dump-*.rdb.gz' -o -name 'dump-*.rdb.gz.gpg' \) \
+     -mtime "+$KEEP_DAYS" -delete
+
+echo "$(date -Is) backup-redis: $(stat -c %s "$OUT_FINAL") bytes -> $OUT_FINAL"
