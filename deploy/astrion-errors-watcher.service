@@ -1,0 +1,29 @@
+[Unit]
+Description=Astrion errors.log → Discord webhook forwarder
+# Wait for the game server itself so the log file path exists. Also wants
+# (not requires) the network so curl can reach Discord.
+After=astrion-game-server.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu
+ExecStart=/home/ubuntu/scripts/errors-watcher.sh
+
+# Restart aggressively — this is a watcher, not heavy work. If it dies
+# (curl timeout, transient pipe error), bring it back in 10s.
+Restart=always
+RestartSec=10
+
+# tail-based daemon — almost no resource usage; small caps just in case.
+MemoryMax=64M
+CPUQuota=10%
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=astrion-errors-watcher
+
+[Install]
+WantedBy=multi-user.target
