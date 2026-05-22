@@ -20,6 +20,20 @@ set -euo pipefail
 
 BACKUP_DIR="$HOME/backups/redis"
 KEEP_DAYS=14
+REDIS_PW_FILE="$HOME/.config/astrion/redis-password.env"
+
+# Pick up the Redis AUTH credential so the BGSAVE + --rdb calls below work
+# against a requirepass-enabled server. The env file is the same one
+# astrion-game-server.service reads via EnvironmentFile (KEY=VALUE format).
+# If the file isn't there we leave REDISCLI_AUTH unset — works against an
+# unauthenticated dev Redis.
+if [[ -r "$REDIS_PW_FILE" ]]; then
+    # shellcheck disable=SC1090
+    source "$REDIS_PW_FILE"
+    if [[ -n "${ASTRION_REDIS_PASSWORD:-}" ]]; then
+        export REDISCLI_AUTH="$ASTRION_REDIS_PASSWORD"
+    fi
+fi
 
 mkdir -p "$BACKUP_DIR"
 TS=$(date -u +%Y%m%d-%H%M%S)

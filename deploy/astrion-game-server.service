@@ -61,6 +61,12 @@ Environment="JAVA_OPTS=-Xms256m -Xmx512m -XX:ErrorFile=/home/ubuntu/logs/jvm-cra
 Environment="ASTRION_TLS_CERT=/home/ubuntu/game-server-cert/server.crt"
 Environment="ASTRION_TLS_KEY=/home/ubuntu/game-server-cert/server.key"
 
+# Redis AUTH credential, read from a file outside the unit so the password
+# isn't visible in systemctl show / journal output. The file is chmod 600
+# and owned by ubuntu; the unit runs as ubuntu so it can read.
+# Format: ASTRION_REDIS_PASSWORD=...
+EnvironmentFile=-/home/ubuntu/.config/astrion/redis-password.env
+
 # Routing: rolling INFO log goes to ~/logs/server.log via logback, so the
 # journal only needs to catch what falls outside that — startup banner,
 # JVM-level crashes, anything written to stdout before logback initialises.

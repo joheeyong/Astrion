@@ -16,10 +16,20 @@ public class RedisManager {
     private final RedisCommands<String, String> commands;
 
     public RedisManager(String host, int port) {
-        this.client = RedisClient.create("redis://" + host + ":" + port);
+        // Lettuce URL accepts ':password@' in the userinfo segment for AUTH.
+        // We pick it up from ASTRION_REDIS_PASSWORD; an empty/absent value
+        // gives the unauthenticated URL, which is the same shape that worked
+        // before requirepass was added on the Redis side. Lets local dev
+        // boxes without a password keep running.
+        String pw = System.getenv("ASTRION_REDIS_PASSWORD");
+        String url = (pw == null || pw.isEmpty())
+            ? "redis://" + host + ":" + port
+            : "redis://:" + pw + "@" + host + ":" + port;
+        this.client = RedisClient.create(url);
         this.connection = client.connect();
         this.commands = connection.sync();
-        log.info("Connected to Redis at {}:{}", host, port);
+        log.info("Connected to Redis at {}:{} ({})",
+            host, port, (pw == null || pw.isEmpty()) ? "no auth" : "AUTH set");
     }
 
     // Player position cache
