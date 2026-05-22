@@ -144,6 +144,16 @@ curl http://3.38.109.138:9001/metrics
 | Cron 6시간 백업 | `~/backups/redis/dump-UTC.rdb.gz` (14일 보관) | 6시간 |
 | Mac off-site rsync | `~/Astrion-Backups/redis/` (90일 보관) | 1일 |
 
+### EBS snapshot (AWS-side disaster recovery)
+
+Real off-site backup at the AWS layer. Survives EBS corruption,
+instance termination, accidental volume deletion — situations the
+Mac-local rsync can't recover from on its own.
+
+Configured via AWS Data Lifecycle Manager once in the Console (~5
+min, ~$0.20/month). Full runbook including tag setup, policy
+template, restore procedure: **`docs/EBS-SNAPSHOTS.md`**.
+
 ### 백업 명령
 
 ```bash
