@@ -3265,6 +3265,8 @@ public partial class ProjectSetup
         }
 
         // ========== BOTTOM-LEFT: Chat panel ==========
+        // F8 toggles visibility via ChatToggleUI (attached on the HUD
+        // canvas, references this panel). Enter while hidden re-opens.
         var chatPanel = HUD_CreateRT("ChatPanel", root);
         chatPanel.anchorMin = chatPanel.anchorMax = new Vector2(0, 0);
         chatPanel.pivot = new Vector2(0, 0);
@@ -3305,6 +3307,14 @@ public partial class ProjectSetup
         placeholderText.text = "Press [Enter] to chat...";
         inputField.textComponent = inputText;
         inputField.placeholder = placeholderText;
+
+        // Hide/show toggle for the chat panel. Attached to the HUD canvas
+        // (lives outside the panel itself so it can still listen for F8
+        // when the panel is currently SetActive(false)).
+        var chatToggle = canvasGo.AddComponent<Astrion.UI.ChatToggleUI>();
+        var chatToggleSo = new UnityEditor.SerializedObject(chatToggle);
+        chatToggleSo.FindProperty("chatPanel").objectReferenceValue = chatPanel.gameObject;
+        chatToggleSo.ApplyModifiedPropertiesWithoutUndo();
 
         // ========== MOBILE: Joystick + Jump button ==========
         var joyArea = HUD_CreateRT("JoystickArea", root);
