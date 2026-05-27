@@ -6,8 +6,13 @@ namespace Astrion.Game
     [RequireComponent(typeof(Collider2D))]
     public class PlayerController2D : MonoBehaviour
     {
-        [SerializeField] private float moveSpeed = 5f;
-        [SerializeField] private float jumpForce = 13f;
+        // MapleStory-classic feel: a slower, more committed walk and a
+        // chest-high jump rather than the previous 'parkour' tuning.
+        // Old values were moveSpeed=5, jumpForce=13 (head-height jump,
+        // sprint-feeling walk). Anti-cheat MAX_MOVE_SPEED on the server
+        // is 12 u/s so these stay well inside the tolerance.
+        [SerializeField] private float moveSpeed = 3.4f;
+        [SerializeField] private float jumpForce = 9.5f;
         [SerializeField] private float climbSpeed = 4f;
         [SerializeField] private LayerMask groundMask;
         [SerializeField] private Transform groundCheck;
