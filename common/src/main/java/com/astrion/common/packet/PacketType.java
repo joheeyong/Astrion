@@ -23,6 +23,7 @@ public enum PacketType {
     FRIEND_ACCEPT(0x14),    // accept an incoming request → both become friends
     FRIEND_REJECT(0x15),    // reject an incoming request → drop it
     FRIEND_CANCEL(0x16),    // cancel an outgoing request
+    WHISPER(0x17),          // 1:1 chat — payload {target, message}
 
     // Server -> Client
     LOGIN_RESULT(0x81),
@@ -50,7 +51,8 @@ public enum PacketType {
     FRIEND_LIST_DATA(0xA0),    // includes friends + incoming + outgoing in one shot
     FRIEND_ERROR(0xA1),
     FRIEND_ADDED_BY(0xA2),     // someone accepted YOUR request, or vice-versa
-    FRIEND_REQUEST_FROM(0xA3); // someone sent you a request (toast hint)
+    FRIEND_REQUEST_FROM(0xA3), // someone sent you a request (toast hint)
+    WHISPER_RESULT(0xA4);      // whisper delivery — kind=incoming|echo|error
 
     private final int code;
 

@@ -24,6 +24,7 @@ namespace Astrion.Network
         FriendAccept = 0x14,
         FriendReject = 0x15,
         FriendCancel = 0x16,
+        Whisper = 0x17,
 
         // Server -> Client
         LoginResult = 0x81,
@@ -52,5 +53,6 @@ namespace Astrion.Network
         FriendError = 0xA1,
         FriendAddedBy = 0xA2,
         FriendRequestFrom = 0xA3,
+        WhisperResult = 0xA4,
     }
 }

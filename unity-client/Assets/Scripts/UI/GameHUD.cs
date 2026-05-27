@@ -99,6 +99,26 @@ namespace Astrion.UI
             TrimChatBuffer();
         }
 
+        /// Whisper line — purple to distinguish from zone chat. Direction
+        /// is encoded in the label: 'from→to'. Either side of the arrow
+        /// can be 'You' depending on who's reading.
+        public void AppendWhisperLine(string from, string to, string message)
+        {
+            if (_chatMessages == null) return;
+            string color = "#d9a0ff";
+            string line = $"\n<color={color}>[{from}→{to}]</color> {message}";
+            _chatMessages.text += line;
+            TrimChatBuffer();
+        }
+
+        public void AppendSystemLine(string message)
+        {
+            if (_chatMessages == null) return;
+            string line = $"\n<color=#ff9090>[System]</color> {message}";
+            _chatMessages.text += line;
+            TrimChatBuffer();
+        }
+
         private void TrimChatBuffer()
         {
             if (_chatMessages == null) return;
@@ -151,8 +171,29 @@ namespace Astrion.UI
                         var nm = NetworkManager.Instance;
                         if (nm != null && nm.IsConnected)
                         {
-                            string payload = JsonUtility.ToJson(new ChatRequest { message = msg });
-                            nm.SendPacket(PacketType.Chat, payload);
+                            // /w nickname message → whisper packet
+                            if (msg.StartsWith("/w ") || msg.StartsWith("/W "))
+                            {
+                                int sp = msg.IndexOf(' ', 3);
+                                if (sp > 3)
+                                {
+                                    string target = msg.Substring(3, sp - 3).Trim();
+                                    string body   = msg.Substring(sp + 1).Trim();
+                                    if (!string.IsNullOrEmpty(target) && !string.IsNullOrEmpty(body))
+                                    {
+                                        string wpayload = JsonUtility.ToJson(
+                                            new WhisperRequest { target = target, message = body });
+                                        nm.SendPacket(PacketType.Whisper, wpayload);
+                                    }
+                                    else AppendSystemLine("형식: /w 닉네임 메시지");
+                                }
+                                else AppendSystemLine("형식: /w 닉네임 메시지");
+                            }
+                            else
+                            {
+                                string payload = JsonUtility.ToJson(new ChatRequest { message = msg });
+                                nm.SendPacket(PacketType.Chat, payload);
+                            }
                         }
                         else if (_chatMessages != null)
                         {
@@ -178,6 +219,7 @@ namespace Astrion.UI
         }
 
         [System.Serializable] private class ChatRequest { public string message; }
+        [System.Serializable] private class WhisperRequest { public string target; public string message; }
 
         private void LateUpdate()
         {

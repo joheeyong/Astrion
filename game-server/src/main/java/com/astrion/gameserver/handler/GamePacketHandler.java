@@ -82,6 +82,7 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             case FRIEND_ACCEPT -> handleFriendAccept(ctx, packet);
             case FRIEND_REJECT -> handleFriendReject(ctx, packet);
             case FRIEND_CANCEL -> handleFriendCancel(ctx, packet);
+            case WHISPER -> handleWhisper(ctx, packet);
             default -> log.warn("Unhandled packet type: {}", packet.getType());
         }
     }
@@ -229,6 +230,58 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             ch.writeAndFlush(new GamePacket(type, mapper.writeValueAsString(payload)));
         } catch (Exception ignored) { /* best effort */ }
     }
+
+    // ── Whisper (1:1 chat) ────────────────────────────────────────────────
+    private static final int MAX_WHISPER_BYTES = 500;
+
+    private void handleWhisper(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession sender = worldManager.getSession(ctx.channel());
+        if (sender == null) return;
+        JsonNode node = mapper.readTree(packet.getPayload());
+        String target  = node.has("target")  ? node.get("target").asText().trim()  : "";
+        String message = node.has("message") ? node.get("message").asText() : "";
+        if (target.isEmpty() || message.isEmpty()) {
+            sendWhisperError(ctx, "잘못된 귓속말 형식입니다.");
+            return;
+        }
+        if (target.equals(sender.getPlayerId())) {
+            sendWhisperError(ctx, "자기 자신에게 귓속말 할 수 없습니다.");
+            return;
+        }
+        // Truncate runaway pastes so a copy-paste of a megabyte doesn't
+        // flood the recipient. 500 bytes is a UTF-8-safe cap; the server
+        // is the source of truth and the client should also limit its
+        // own input field length but we don't trust that.
+        if (message.length() > MAX_WHISPER_BYTES) {
+            message = message.substring(0, MAX_WHISPER_BYTES);
+        }
+
+        PlayerSession targetSession = worldManager.getSessionByPlayerId(target);
+        if (targetSession == null) {
+            sendWhisperError(ctx, target + " 님은 접속 중이 아닙니다.");
+            return;
+        }
+
+        // Deliver to recipient, then echo to sender so the sender's own
+        // chat panel shows what they just said in the same whisper colour.
+        String incoming = mapper.writeValueAsString(
+            new WhisperResultPayload(sender.getPlayerId(), target, message, "incoming", null));
+        targetSession.getChannel().writeAndFlush(new GamePacket(PacketType.WHISPER_RESULT, incoming));
+
+        String echo = mapper.writeValueAsString(
+            new WhisperResultPayload(sender.getPlayerId(), target, message, "echo", null));
+        ctx.writeAndFlush(new GamePacket(PacketType.WHISPER_RESULT, echo));
+    }
+
+    private void sendWhisperError(ChannelHandlerContext ctx, String reason) {
+        try {
+            String json = mapper.writeValueAsString(
+                new WhisperResultPayload("", "", "", "error", reason));
+            ctx.writeAndFlush(new GamePacket(PacketType.WHISPER_RESULT, json));
+        } catch (Exception ignored) { /* best effort */ }
+    }
+
+    private record WhisperResultPayload(String from, String to, String message, String kind, String error) {}
 
     private void handleFriendRemove(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
         PlayerSession session = worldManager.getSession(ctx.channel());

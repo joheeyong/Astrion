@@ -76,6 +76,9 @@ namespace Astrion.Game
                 case PacketType.ChatMessage:
                     OnChatMessage(packet.Payload);
                     break;
+                case PacketType.WhisperResult:
+                    OnWhisperResult(packet.Payload);
+                    break;
                 case PacketType.SkillBroadcast:
                     OnSkillBroadcast(packet.Payload);
                     break;
@@ -224,6 +227,24 @@ namespace Astrion.Game
             // chat shown in HUD panel; not duplicated to console
             var hud = Astrion.UI.GameHUD.Instance;
             if (hud != null) hud.AppendChatLine(data.playerId, data.message);
+        }
+
+        [System.Serializable] private class WhisperData {
+            public string from; public string to; public string message; public string kind; public string error;
+        }
+
+        private void OnWhisperResult(string payload)
+        {
+            var data = JsonUtility.FromJson<WhisperData>(payload);
+            if (data == null) return;
+            var hud = Astrion.UI.GameHUD.Instance;
+            if (hud == null) return;
+            switch (data.kind)
+            {
+                case "incoming": hud.AppendWhisperLine(data.from, "You", data.message); break;
+                case "echo":     hud.AppendWhisperLine("You", data.to,   data.message); break;
+                case "error":    hud.AppendSystemLine(data.error); break;
+            }
         }
 
         private void OnDestroy()
