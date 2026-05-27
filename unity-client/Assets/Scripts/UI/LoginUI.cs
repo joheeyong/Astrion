@@ -12,20 +12,60 @@ namespace Astrion.UI
         [SerializeField] private Button loginButton;
         [SerializeField] private Button registerButton;
         [SerializeField] private Text statusText;
+        [SerializeField] private Toggle autoLoginToggle;
 
         private bool _waitingForResponse;
+        // Tracks whether the current in-flight login was initiated by the
+        // auto-login flow (passwordInput is empty in that case). If the
+        // server rejects it, we wipe the stored hash so we don't loop on a
+        // stale credential.
+        private bool _autoLoginAttempt;
+
+        private const string PrefAutoLogin     = "autoLogin";
+        private const string PrefAutoLoginUser = "autoLoginUser";
+        private const string PrefAutoLoginHash = "autoLoginHash";
 
         private void Start()
         {
-            // Auto-fill saved username
             string saved = PlayerPrefs.GetString("username", "");
             if (!string.IsNullOrEmpty(saved))
                 usernameInput.text = saved;
+
+            if (autoLoginToggle != null)
+                autoLoginToggle.isOn = PlayerPrefs.GetInt(PrefAutoLogin, 0) == 1;
 
             loginButton.onClick.AddListener(OnLoginClicked);
             registerButton.onClick.AddListener(OnRegisterClicked);
 
             NetworkManager.Instance.OnPacketReceived += HandlePacket;
+
+            // If the toggle is on AND we have a credential saved for the
+            // currently-displayed username, kick off auto-login immediately.
+            string savedUser = PlayerPrefs.GetString(PrefAutoLoginUser, "");
+            string savedHash = PlayerPrefs.GetString(PrefAutoLoginHash, "");
+            if (autoLoginToggle != null && autoLoginToggle.isOn
+                && !string.IsNullOrEmpty(savedUser) && !string.IsNullOrEmpty(savedHash)
+                && savedUser == saved)
+            {
+                TryAutoLogin(savedUser, savedHash);
+            }
+        }
+
+        private void TryAutoLogin(string username, string passwordHash)
+        {
+            SetStatus("Auto-logging in...");
+            _waitingForResponse = true;
+            _autoLoginAttempt = true;
+
+            if (NetworkManager.Instance.IsConnected)
+            {
+                SendLoginHashed(username, passwordHash, false);
+            }
+            else
+            {
+                NetworkManager.Instance.OnConnected += () => SendLoginHashed(username, passwordHash, false);
+                NetworkManager.Instance.Connect();
+            }
         }
 
         private void OnLoginClicked()
@@ -43,6 +83,7 @@ namespace Astrion.UI
 
             SetStatus("Connecting...");
             _waitingForResponse = true;
+            _autoLoginAttempt = false;
 
             if (NetworkManager.Instance.IsConnected)
             {
@@ -76,6 +117,7 @@ namespace Astrion.UI
 
             SetStatus("Connecting...");
             _waitingForResponse = true;
+            _autoLoginAttempt = false;
 
             if (NetworkManager.Instance.IsConnected)
             {
@@ -90,14 +132,18 @@ namespace Astrion.UI
 
         private void SendLogin(string username, string password, bool isRegister)
         {
-            SetStatus(isRegister ? "Registering..." : "Logging in...");
-            // Hash on the client. Server expects the digest now, not the
-            // plaintext. See PasswordHasher for rationale.
+            // Hash on the client. Server expects the digest, not the plaintext.
             string hashed = Astrion.Network.PasswordHasher.Sha256Hex(password);
+            SendLoginHashed(username, hashed, isRegister);
+        }
+
+        private void SendLoginHashed(string username, string passwordHash, bool isRegister)
+        {
+            SetStatus(isRegister ? "Registering..." : "Logging in...");
             string payload = JsonUtility.ToJson(new LoginRequest
             {
                 username = username,
-                password = hashed,
+                password = passwordHash,
                 isRegister = isRegister,
                 clientVersion = Astrion.Network.Version.Current,
             });
@@ -113,20 +159,36 @@ namespace Astrion.UI
 
             if (result.success)
             {
-                PlayerPrefs.SetString("username", usernameInput.text.Trim());
+                string user = usernameInput.text.Trim();
+                PlayerPrefs.SetString("username", user);
                 PlayerPrefs.SetString("playerId", result.playerId);
+
+                // Persist auto-login decision. We only have a fresh hash when
+                // the player just typed a password — on the auto-login round
+                // trip passwordInput is empty, so leave the stored hash alone.
+                bool autoOn = autoLoginToggle != null && autoLoginToggle.isOn;
+                if (autoOn && !string.IsNullOrEmpty(passwordInput.text))
+                {
+                    string hashed = Astrion.Network.PasswordHasher.Sha256Hex(passwordInput.text);
+                    PlayerPrefs.SetInt(PrefAutoLogin, 1);
+                    PlayerPrefs.SetString(PrefAutoLoginUser, user);
+                    PlayerPrefs.SetString(PrefAutoLoginHash, hashed);
+                }
+                else if (!autoOn)
+                {
+                    PlayerPrefs.SetInt(PrefAutoLogin, 0);
+                    PlayerPrefs.DeleteKey(PrefAutoLoginUser);
+                    PlayerPrefs.DeleteKey(PrefAutoLoginHash);
+                }
                 PlayerPrefs.Save();
 
                 // Cache credentials in-memory for auto-reconnect (not persisted).
-                // Store the hashed form — the plaintext is never retained,
-                // so a memory scrape / coredump can't read the real password.
-                Astrion.Network.SessionCredentials.Username = usernameInput.text.Trim();
+                Astrion.Network.SessionCredentials.Username = user;
                 Astrion.Network.SessionCredentials.Password =
-                    Astrion.Network.PasswordHasher.Sha256Hex(passwordInput.text);
+                    string.IsNullOrEmpty(passwordInput.text)
+                        ? PlayerPrefs.GetString(PrefAutoLoginHash, "")
+                        : Astrion.Network.PasswordHasher.Sha256Hex(passwordInput.text);
 
-                // Request persisted game state (quest progress, collected items) from server.
-                // Server must support STATE_REQUEST (0x09); see PlayerStateManager.ServerSupportsState
-                // as the runtime guard.
                 PlayerStateManager.Instance?.RequestLoad();
 
                 NetworkManager.Instance.OnPacketReceived -= HandlePacket;
@@ -134,7 +196,22 @@ namespace Astrion.UI
             }
             else
             {
-                SetStatus(result.message);
+                // If the rejected attempt was an auto-login, the stored hash
+                // is stale (password changed, account locked, etc.). Wipe it
+                // and disable the toggle so the player can re-enter manually.
+                if (_autoLoginAttempt)
+                {
+                    PlayerPrefs.SetInt(PrefAutoLogin, 0);
+                    PlayerPrefs.DeleteKey(PrefAutoLoginHash);
+                    PlayerPrefs.Save();
+                    if (autoLoginToggle != null) autoLoginToggle.isOn = false;
+                    SetStatus("Auto-login failed: " + result.message);
+                }
+                else
+                {
+                    SetStatus(result.message);
+                }
+                _autoLoginAttempt = false;
             }
         }
 

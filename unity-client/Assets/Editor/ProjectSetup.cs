@@ -392,14 +392,53 @@ public partial class ProjectSetup
         var rowGo = CreateUIElement("OptionsRow", panelGo.transform);
         SetRectInPanel(rowGo, 0, 42, 600, 22);
 
+        // Real Toggle \u2014 was a plain Text glyph before, now hooked to auto-login.
         var stayGo = CreateUIElement("StaySignedIn", rowGo.transform);
-        var stayText = stayGo.AddComponent<Text>();
-        stayText.text = "\u25A1 Stay signed in";
-        stayText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        stayText.fontSize = 13;
-        stayText.alignment = TextAnchor.MiddleLeft;
-        stayText.color = TextMuted;
         StretchFull(stayGo);
+        var stayToggle = stayGo.AddComponent<Toggle>();
+
+        var stayBox = CreateUIElement("Background", stayGo.transform);
+        var stayBoxImg = stayBox.AddComponent<Image>();
+        stayBoxImg.color = new Color(0.25f, 0.22f, 0.18f, 0.85f);
+        var stayBoxOutline = stayBox.AddComponent<Outline>();
+        stayBoxOutline.effectColor = AccentGoldDim;
+        stayBoxOutline.effectDistance = new Vector2(1, 1);
+        var stayBoxRect = stayBox.GetComponent<RectTransform>();
+        stayBoxRect.anchorMin = new Vector2(0, 0.5f);
+        stayBoxRect.anchorMax = new Vector2(0, 0.5f);
+        stayBoxRect.pivot     = new Vector2(0, 0.5f);
+        stayBoxRect.anchoredPosition = new Vector2(0, 0);
+        stayBoxRect.sizeDelta = new Vector2(16, 16);
+
+        var stayMark = CreateUIElement("Checkmark", stayBox.transform);
+        var stayMarkText = stayMark.AddComponent<Text>();
+        stayMarkText.text = "\u2713";
+        stayMarkText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        stayMarkText.fontSize = 14;
+        stayMarkText.fontStyle = FontStyle.Bold;
+        stayMarkText.alignment = TextAnchor.MiddleCenter;
+        stayMarkText.color = AccentGold;
+        var stayMarkRect = stayMark.GetComponent<RectTransform>();
+        stayMarkRect.anchorMin = Vector2.zero;
+        stayMarkRect.anchorMax = Vector2.one;
+        stayMarkRect.offsetMin = stayMarkRect.offsetMax = Vector2.zero;
+
+        var stayLabel = CreateUIElement("Label", stayGo.transform);
+        var stayLabelText = stayLabel.AddComponent<Text>();
+        stayLabelText.text = "Stay signed in";
+        stayLabelText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        stayLabelText.fontSize = 13;
+        stayLabelText.alignment = TextAnchor.MiddleLeft;
+        stayLabelText.color = TextMuted;
+        var stayLabelRect = stayLabel.GetComponent<RectTransform>();
+        stayLabelRect.anchorMin = new Vector2(0, 0);
+        stayLabelRect.anchorMax = new Vector2(1, 1);
+        stayLabelRect.offsetMin = new Vector2(22, 0);
+        stayLabelRect.offsetMax = new Vector2(0, 0);
+
+        stayToggle.targetGraphic = stayBoxImg;
+        stayToggle.graphic = stayMarkText;
+        stayToggle.isOn = false;
 
         var forgotGo = CreateUIElement("ForgotPassword", rowGo.transform);
         var forgotText = forgotGo.AddComponent<Text>();
@@ -521,6 +560,7 @@ public partial class ProjectSetup
         so.FindProperty("loginButton").objectReferenceValue = awakenBtnGo.GetComponent<Button>();
         so.FindProperty("registerButton").objectReferenceValue = newGo.GetComponent<Button>();
         so.FindProperty("statusText").objectReferenceValue = statusText;
+        so.FindProperty("autoLoginToggle").objectReferenceValue = stayToggle;
         so.ApplyModifiedPropertiesWithoutUndo();
 
         // EventSystem
