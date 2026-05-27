@@ -2922,51 +2922,82 @@ public partial class ProjectSetup
         var root = canvasGo.GetComponent<RectTransform>();
 
         // ========== TOP-LEFT: Character info panel ==========
+        // Layout: [Portrait 60×60 with corner Lv badge] [Name / class / gold]
+        // Portrait carries the class color so the player's identity reads
+        // at a glance; the Lv badge demotes to a corner overlay on the
+        // portrait, freeing horizontal space for the name.
         var charPanel = HUD_CreateRT("CharPanel", root);
         charPanel.anchorMin = charPanel.anchorMax = new Vector2(0, 1);
         charPanel.pivot = new Vector2(0, 1);
         charPanel.anchoredPosition = new Vector2(16, -16);
-        charPanel.sizeDelta = new Vector2(200, 76);
+        charPanel.sizeDelta = new Vector2(244, 84);
         var cpBg = charPanel.gameObject.AddComponent<Image>();
         cpBg.sprite = panelSpr; cpBg.type = Image.Type.Sliced;
 
-        // Level badge (gold square, MapleStory style)
-        var lvlBadge = HUD_CreateRT("LvlBadge", charPanel);
-        lvlBadge.anchorMin = lvlBadge.anchorMax = new Vector2(0, 0.5f);
-        lvlBadge.anchoredPosition = new Vector2(32, 0);
-        lvlBadge.sizeDelta = new Vector2(44, 44);
+        // Portrait swatch — class-tinted at runtime by CharPortraitWidget.
+        // Keeping the original LvlBadge GameObject name so GameHUD.cs (which
+        // path-finds 'CharPanel/LvlBadge/Num') still resolves; visually
+        // the Level number is now in the portrait's bottom-right corner.
+        var portraitRT = HUD_CreateRT("Portrait", charPanel);
+        portraitRT.anchorMin = portraitRT.anchorMax = new Vector2(0, 0.5f);
+        portraitRT.anchoredPosition = new Vector2(40, 0);
+        portraitRT.sizeDelta = new Vector2(60, 60);
+        var portraitImg = portraitRT.gameObject.AddComponent<Image>();
+        portraitImg.sprite = TexToSprite(MakeRoundRectTex(80, 80, 10, Color.white));
+        portraitImg.color = new Color(0.85f, 0.72f, 0.40f);  // gold default; widget retints
+        portraitRT.gameObject.AddComponent<Astrion.UI.CharPortraitWidget>();
+
+        // Small star glyph on top of the portrait (Astrion motif — same hint
+        // the world-map title uses).
+        var starRT = HUD_CreateRT("Star", portraitRT);
+        starRT.anchorMin = starRT.anchorMax = new Vector2(0.5f, 0.5f);
+        starRT.pivot = new Vector2(0.5f, 0.5f);
+        starRT.anchoredPosition = Vector2.zero;
+        starRT.sizeDelta = new Vector2(60, 60);
+        var starT = starRT.gameObject.AddComponent<Text>();
+        starT.font = font; starT.fontSize = 30; starT.fontStyle = FontStyle.Bold;
+        starT.color = new Color(0.18f, 0.10f, 0.04f, 0.55f);
+        starT.alignment = TextAnchor.MiddleCenter;
+        starT.text = "✦";
+        starT.raycastTarget = false;
+
+        // Level corner badge — child of the portrait, bottom-right.
+        var lvlBadge = HUD_CreateRT("LvlBadge", portraitRT);
+        lvlBadge.anchorMin = lvlBadge.anchorMax = new Vector2(1, 0);
+        lvlBadge.pivot = new Vector2(1, 0);
+        lvlBadge.anchoredPosition = new Vector2(2, -2);
+        lvlBadge.sizeDelta = new Vector2(28, 22);
         var lvlBg = lvlBadge.gameObject.AddComponent<Image>();
-        lvlBg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 8, new Color(0.95f, 0.72f, 0.22f, 1f)));
+        lvlBg.sprite = TexToSprite(MakeRoundRectTex(48, 36, 5, new Color(0.95f, 0.72f, 0.22f, 1f)));
+        lvlBg.type = Image.Type.Sliced;
         var lvlNumRT = HUD_CreateRT("Num", lvlBadge);
         lvlNumRT.anchorMin = Vector2.zero; lvlNumRT.anchorMax = Vector2.one;
         lvlNumRT.offsetMin = lvlNumRT.offsetMax = Vector2.zero;
         var lvlNumText = lvlNumRT.gameObject.AddComponent<Text>();
-        lvlNumText.font = font; lvlNumText.fontSize = 22; lvlNumText.fontStyle = FontStyle.Bold;
+        lvlNumText.font = font; lvlNumText.fontSize = 13; lvlNumText.fontStyle = FontStyle.Bold;
         lvlNumText.color = new Color(0.18f, 0.10f, 0.04f);
         lvlNumText.alignment = TextAnchor.MiddleCenter; lvlNumText.text = "1";
 
-        // Char name
+        // Char name — shifted right to clear the portrait.
         var nameRT = HUD_CreateRT("CharName", charPanel);
-        nameRT.anchorMin = new Vector2(0, 0.55f); nameRT.anchorMax = new Vector2(1, 1);
-        nameRT.offsetMin = new Vector2(64, 0); nameRT.offsetMax = new Vector2(-8, -4);
+        nameRT.anchorMin = new Vector2(0, 0.58f); nameRT.anchorMax = new Vector2(1, 1);
+        nameRT.offsetMin = new Vector2(86, 0); nameRT.offsetMax = new Vector2(-8, -4);
         var nameText = nameRT.gameObject.AddComponent<Text>();
-        nameText.font = font; nameText.fontSize = 15; nameText.fontStyle = FontStyle.Bold;
+        nameText.font = font; nameText.fontSize = 16; nameText.fontStyle = FontStyle.Bold;
         nameText.color = textWhite;
         nameText.text = "Adventurer"; nameText.alignment = TextAnchor.LowerLeft;
 
-        // Char level/class
         var levelRT = HUD_CreateRT("CharLevel", charPanel);
-        levelRT.anchorMin = new Vector2(0, 0.42f); levelRT.anchorMax = new Vector2(1, 0.70f);
-        levelRT.offsetMin = new Vector2(64, 0); levelRT.offsetMax = new Vector2(-8, 0);
+        levelRT.anchorMin = new Vector2(0, 0.36f); levelRT.anchorMax = new Vector2(1, 0.68f);
+        levelRT.offsetMin = new Vector2(86, 0); levelRT.offsetMax = new Vector2(-8, 0);
         var levelText = levelRT.gameObject.AddComponent<Text>();
         levelText.font = font; levelText.fontSize = 11;
         levelText.color = textMuted;
         levelText.text = "Lv.1 Warrior"; levelText.alignment = TextAnchor.MiddleLeft;
 
-        // Gold (below Lv)
         var goldRT = HUD_CreateRT("CharGold", charPanel);
-        goldRT.anchorMin = new Vector2(0, 0.05f); goldRT.anchorMax = new Vector2(1, 0.40f);
-        goldRT.offsetMin = new Vector2(64, 0); goldRT.offsetMax = new Vector2(-8, 0);
+        goldRT.anchorMin = new Vector2(0, 0.04f); goldRT.anchorMax = new Vector2(1, 0.36f);
+        goldRT.offsetMin = new Vector2(86, 0); goldRT.offsetMax = new Vector2(-8, 0);
         var goldText = goldRT.gameObject.AddComponent<Text>();
         goldText.font = font; goldText.fontSize = 12; goldText.fontStyle = FontStyle.Bold;
         goldText.color = new Color(0.94f, 0.78f, 0.30f);
@@ -3009,15 +3040,39 @@ public partial class ProjectSetup
         mmInnerImg.sprite = TexToSprite(MakeRoundRectTex(64, 64, 4, new Color(0.03f, 0.02f, 0.01f, 0.95f)));
         mmInnerImg.type = Image.Type.Sliced;
 
-        // Placeholder label inside minimap area
-        var mmLabel = HUD_CreateRT("Label", mmInner);
-        mmLabel.anchorMin = Vector2.zero; mmLabel.anchorMax = Vector2.one;
-        mmLabel.offsetMin = mmLabel.offsetMax = Vector2.zero;
-        var mmLabelT = mmLabel.gameObject.AddComponent<Text>();
-        mmLabelT.font = font; mmLabelT.fontSize = 10;
-        mmLabelT.color = new Color(0.50f, 0.42f, 0.30f, 0.7f);
-        mmLabelT.alignment = TextAnchor.MiddleCenter;
-        mmLabelT.text = "MINIMAP";
+        // 'You are here' dot: a small gold disc the runtime widget moves
+        // every frame as the player walks around.
+        var mmYouRT = HUD_CreateRT("YouDot", mmInner);
+        mmYouRT.anchorMin = mmYouRT.anchorMax = new Vector2(0.5f, 0.5f);
+        mmYouRT.pivot = new Vector2(0.5f, 0.5f);
+        mmYouRT.anchoredPosition = Vector2.zero;
+        mmYouRT.sizeDelta = new Vector2(8, 8);
+        var mmYouImg = mmYouRT.gameObject.AddComponent<Image>();
+        mmYouImg.sprite = TexToSprite(MakeCircleTex(32, Color.white));
+        mmYouImg.color = new Color(1f, 0.88f, 0.30f);   // gold pulse-ready
+        mmYouImg.raycastTarget = false;
+        // Subtle outer ring so the dot reads against any darkness inside the panel.
+        var mmYouRingRT = HUD_CreateRT("Ring", mmInner);
+        mmYouRingRT.anchorMin = mmYouRingRT.anchorMax = new Vector2(0.5f, 0.5f);
+        mmYouRingRT.pivot = new Vector2(0.5f, 0.5f);
+        mmYouRingRT.anchoredPosition = Vector2.zero;
+        mmYouRingRT.sizeDelta = new Vector2(16, 16);
+        var mmYouRingImg = mmYouRingRT.gameObject.AddComponent<Image>();
+        mmYouRingImg.sprite = TexToSprite(MakeCircleTex(48, Color.white));
+        mmYouRingImg.color = new Color(1f, 0.78f, 0.20f, 0.25f);
+        mmYouRingImg.raycastTarget = false;
+        // The widget moves YouDot directly; the ring is parented to mmInner
+        // so it stays centred — minor design choice, keeps the highlight
+        // visually anchored on the panel even when the dot is at an edge.
+        // (Move the ring with the dot if you prefer it to follow.)
+
+        // Hook up the runtime minimap widget. Defensive — older HUDs that
+        // didn't have these fields just no-op silently.
+        var mmWidget = minimapPanel.gameObject.AddComponent<Astrion.UI.MinimapWidget>();
+        var mmWidgetSo = new UnityEditor.SerializedObject(mmWidget);
+        mmWidgetSo.FindProperty("mapArea").objectReferenceValue = mmInner;
+        mmWidgetSo.FindProperty("youDot").objectReferenceValue = mmYouRT;
+        mmWidgetSo.ApplyModifiedPropertiesWithoutUndo();
 
         // ========== TOP-RIGHT (under minimap): Coords + FPS ==========
         var coordsRT = HUD_CreateRT("CoordsPanel", root);
