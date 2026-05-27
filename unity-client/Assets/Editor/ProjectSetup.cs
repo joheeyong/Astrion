@@ -5043,6 +5043,30 @@ public partial class ProjectSetup
         fpRowZoneT.color = new Color(0.78f, 0.55f, 0.24f);
         fpRowZoneT.alignment = TextAnchor.MiddleRight;
         fpRowZoneT.text = "";
+        // Zone column needs to clear both action buttons on its right edge,
+        // so its right offset moves from -48 to -82 to make room.
+        fpRowZone.offsetMax = new Vector2(-82, 0);
+
+        // Whisper shortcut button (✎) — left of the remove button. Clicking
+        // it pre-fills the chat input with '/w <name> '. Wired in FriendsUI.
+        var fpRowWhisper = HUD_CreateRT("WhisperB", fpRowTemplate);
+        fpRowWhisper.anchorMin = new Vector2(1, 0.5f); fpRowWhisper.anchorMax = new Vector2(1, 0.5f);
+        fpRowWhisper.pivot = new Vector2(1, 0.5f);
+        fpRowWhisper.anchoredPosition = new Vector2(-40, 0);
+        fpRowWhisper.sizeDelta = new Vector2(28, 22);
+        var fpRowWhisperImg = fpRowWhisper.gameObject.AddComponent<Image>();
+        fpRowWhisperImg.sprite = TexToSprite(MakeRoundRectTex(48, 36, 4, new Color(0.38f, 0.22f, 0.50f, 0.92f)));
+        fpRowWhisperImg.type = Image.Type.Sliced;
+        var fpRowWhisperBtn = fpRowWhisper.gameObject.AddComponent<Button>();
+        var fpRowWhisperLbl = HUD_CreateRT("L", fpRowWhisper);
+        fpRowWhisperLbl.anchorMin = Vector2.zero; fpRowWhisperLbl.anchorMax = Vector2.one;
+        fpRowWhisperLbl.offsetMin = fpRowWhisperLbl.offsetMax = Vector2.zero;
+        var fpRowWhisperTxt = fpRowWhisperLbl.gameObject.AddComponent<Text>();
+        fpRowWhisperTxt.font = font; fpRowWhisperTxt.fontSize = 13; fpRowWhisperTxt.fontStyle = FontStyle.Bold;
+        fpRowWhisperTxt.alignment = TextAnchor.MiddleCenter;
+        fpRowWhisperTxt.color = new Color(0.96f, 0.90f, 0.80f);
+        fpRowWhisperTxt.text = "✎";
+
         // Remove button (×)
         var fpRowRm = HUD_CreateRT("RemoveB", fpRowTemplate);
         fpRowRm.anchorMin = new Vector2(1, 0.5f); fpRowRm.anchorMax = new Vector2(1, 0.5f);

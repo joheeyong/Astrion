@@ -111,6 +111,18 @@ namespace Astrion.UI
             TrimChatBuffer();
         }
 
+        /// External entry point — used by FriendsUI's whisper shortcut. Drops
+        /// the supplied text into the chat input and focuses it so the player
+        /// can finish the message.
+        public void FocusChatWith(string prefill)
+        {
+            if (_chatInputField == null) return;
+            _chatInputField.text = prefill ?? "";
+            _chatInputField.ActivateInputField();
+            _chatInputField.caretPosition = _chatInputField.text.Length;
+            IsChatFocused = true;
+        }
+
         public void AppendSystemLine(string message)
         {
             if (_chatMessages == null) return;

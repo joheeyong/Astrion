@@ -181,12 +181,24 @@ namespace Astrion.UI
                 var zoneT = go.transform.Find("Zone")?.GetComponent<Text>();
                 if (zoneT) zoneT.text = f.online ? PrettyZone(f.zone) : "(offline)";
 
+                string capture = f.name;
                 var removeBtn = go.transform.Find("RemoveB")?.GetComponent<Button>();
                 if (removeBtn)
                 {
-                    string capture = f.name;
                     removeBtn.onClick.RemoveAllListeners();
                     removeBtn.onClick.AddListener(() => FriendSystem.Instance?.Remove(capture));
+                }
+                // ✎ shortcut: close the friend panel and put '/w <name> ' into
+                // the chat input. Cheaper than learning the command and the
+                // expected flow once you've added someone to chat with.
+                var whisperBtn = go.transform.Find("WhisperB")?.GetComponent<Button>();
+                if (whisperBtn)
+                {
+                    whisperBtn.onClick.RemoveAllListeners();
+                    whisperBtn.onClick.AddListener(() => {
+                        Close();
+                        GameHUD.Instance?.FocusChatWith($"/w {capture} ");
+                    });
                 }
 
                 _liveRows.Add(go);
