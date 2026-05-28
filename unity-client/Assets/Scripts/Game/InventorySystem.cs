@@ -74,7 +74,10 @@ namespace Astrion.Game
         /// (e.g. _v2) if a future re-grant event ships.
         private void GrantOneTimeEventItems()
         {
-            const string COMPASS_FLAG = "compass_granted_v1";
+            // Bumped from _v1 → _v2 to regrant compasses that were destroyed
+            // via the old right-click-drop path. Future regrants should bump
+            // the suffix again rather than reusing v2.
+            const string COMPASS_FLAG = "compass_granted_v2";
             if (UnityEngine.PlayerPrefs.GetInt(COMPASS_FLAG, 0) == 1) return;
 
             // If the item is already present (manual grant via console etc.),

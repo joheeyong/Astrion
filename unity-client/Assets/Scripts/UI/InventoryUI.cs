@@ -97,6 +97,17 @@ namespace Astrion.UI
             if (def == null) return;
             if (TabOf(def.itemType) != _currentTab) return;
 
+            // Bound / untradable items can't be dropped — guards against
+            // accidentally trashing a one-shot event grant (the compass was
+            // an easy victim before, since right-click in many MMOs means
+            // 'use' not 'drop').
+            if (def.untradable)
+            {
+                ToastUI.Instance?.Show("귀속/이벤트 아이템은 버릴 수 없습니다.",
+                    new Color(0.95f, 0.55f, 0.30f));
+                return;
+            }
+
             bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
             string name = def.displayName;
             Color tint = new Color(0.78f, 0.72f, 0.55f);
