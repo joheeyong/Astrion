@@ -52,16 +52,56 @@ namespace Astrion.Game
 
         private void RestoreFromState()
         {
-            var s = PlayerStateManager.Instance?.State;
             for (int i = 0; i < SLOT_COUNT; i++) Slots[i] = new Slot();
-            if (s == null || s.inventoryItemIds == null) { OnChanged?.Invoke(); return; }
 
-            int n = Mathf.Min(s.inventoryItemIds.Length, SLOT_COUNT);
-            for (int i = 0; i < n; i++)
+            var s = PlayerStateManager.Instance?.State;
+            if (s != null && s.inventoryItemIds != null)
             {
-                Slots[i] = new Slot { itemId = s.inventoryItemIds[i], qty = s.inventoryQuantities[i] };
+                int n = Mathf.Min(s.inventoryItemIds.Length, SLOT_COUNT);
+                for (int i = 0; i < n; i++)
+                {
+                    Slots[i] = new Slot { itemId = s.inventoryItemIds[i], qty = s.inventoryQuantities[i] };
+                }
             }
+
+            GrantOneTimeEventItems();
             OnChanged?.Invoke();
+        }
+
+        /// One-shot grants for limited-time event items. Each grant is gated
+        /// by a PlayerPrefs flag so the player keeps just one copy and we
+        /// don't re-grant after they sell/destroy it. Bump the version suffix
+        /// (e.g. _v2) if a future re-grant event ships.
+        private void GrantOneTimeEventItems()
+        {
+            const string COMPASS_FLAG = "compass_granted_v1";
+            if (UnityEngine.PlayerPrefs.GetInt(COMPASS_FLAG, 0) == 1) return;
+
+            // If the item is already present (manual grant via console etc.),
+            // just set the flag and skip — no double-grant.
+            for (int i = 0; i < SLOT_COUNT; i++)
+            {
+                if (Slots[i].itemId == "astral_compass")
+                {
+                    UnityEngine.PlayerPrefs.SetInt(COMPASS_FLAG, 1);
+                    UnityEngine.PlayerPrefs.Save();
+                    return;
+                }
+            }
+
+            // Don't bother granting after the window has already closed —
+            // the player would just get a dead item.
+            var def = ItemDatabase.Get("astral_compass");
+            if (def == null || ItemDatabase.IsExpired(def)) return;
+
+            if (Add("astral_compass", 1))
+            {
+                UnityEngine.PlayerPrefs.SetInt(COMPASS_FLAG, 1);
+                UnityEngine.PlayerPrefs.Save();
+                Astrion.UI.ToastUI.Instance?.Show(
+                    "★ [체험] 별의 나침반 획득!  (~6월 15일)",
+                    new Color(0.85f, 0.55f, 0.95f));
+            }
         }
 
         public bool Add(string itemId, int qty)
@@ -310,6 +350,26 @@ namespace Astrion.Game
                     Astrion.UI.ToastUI.Instance?.Show($"[장착]  {def.displayName}", ItemDatabase.RarityColor(def.rarity));
                     return true;
                 case "소비":
+                    // Special-case: astral compass — opens the world map in
+                    // teleport mode. Doesn't decrement on use; only consumed
+                    // if the event window has closed.
+                    if (def.id == "astral_compass")
+                    {
+                        if (ItemDatabase.IsExpired(def))
+                        {
+                            Slots[slotIndex] = new Slot { itemId = s.itemId, qty = s.qty - 1 };
+                            if (Slots[slotIndex].qty <= 0) Slots[slotIndex] = new Slot();
+                            SaveToState();
+                            OnChanged?.Invoke();
+                            Astrion.UI.ToastUI.Instance?.Show(
+                                $"★ 별의 나침반은 만료되었습니다. ({def.expiresAt})",
+                                new Color(0.75f, 0.45f, 0.45f));
+                            return true;
+                        }
+                        var wm = Astrion.UI.WorldMapUI.Instance;
+                        if (wm != null) wm.OpenForTeleport();
+                        return true;
+                    }
                     var stats = PlayerStats.Instance;
                     if (stats == null) return false;
                     bool used = false;

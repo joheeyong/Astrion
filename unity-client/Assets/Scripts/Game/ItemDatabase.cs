@@ -23,6 +23,23 @@ namespace Astrion.Game
             public int sellPrice = 1;  // gold given when sold to a vendor
             public string equipSlot = ""; // "weapon" / "helmet" / "armor" / "ring"
             public bool untradable = false; // bound to character — cannot be sold or traded
+            // Event-window cutoff (ISO "YYYY-MM-DD", treated as UTC end-of-day).
+            // Empty = no expiry. Used for promotional / limited-time items.
+            public string expiresAt = "";
+        }
+
+        /// True iff this item carries an expiry date that has passed.
+        public static bool IsExpired(ItemDef def)
+        {
+            if (def == null || string.IsNullOrEmpty(def.expiresAt)) return false;
+            // We parse the date and add one day so the item stays usable through
+            // the listed date itself (e.g. expiresAt='2026-06-15' is good until
+            // start of 2026-06-16 UTC).
+            if (!System.DateTime.TryParse(def.expiresAt, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
+                out var exp))
+                return false;
+            return System.DateTime.UtcNow >= exp.AddDays(1);
         }
 
         public static Color RarityColor(Rarity r)
@@ -264,6 +281,20 @@ namespace Astrion.Game
                     rarity = Rarity.Common, itemType = "장비",
                     baseDamage = 5, sellPrice = 0, equipSlot = "weapon",
                     untradable = true,
+                },
+                // Limited-event item: until 2026-06-15 (KST), the holder can
+                // open the world map in 'teleport mode' and click any city or
+                // hunting ground to instantly travel there. After the date,
+                // the next use consumes the item with an 'expired' toast.
+                ["astral_compass"] = new ItemDef
+                {
+                    id = "astral_compass", displayName = "[체험] 별의 나침반",
+                    description = "별빛이 가리키는 곳으로 향하는 신비한 나침반.\n사용 시 월드맵에서 원하는 지역으로 즉시 이동.\n\n사용 기간: 2026년 6월 15일까지\n무제한 사용 · 교환·판매 불가.",
+                    iconColor = new Color(0.85f, 0.55f, 0.95f),
+                    iconLetter = "★", maxStack = 1,
+                    rarity = Rarity.Epic, itemType = "소비",
+                    sellPrice = 0, untradable = true,
+                    expiresAt = "2026-06-15",
                 },
             };
             _initialized = true;

@@ -33,6 +33,10 @@ namespace Astrion.UI
         private RectTransform _highlightRing;
         private Outline _highlightOutline;
         private bool _open;
+        // Teleport mode — when true, clicking a node loads the matching scene
+        // (used by the astral compass event item). Reset whenever the panel
+        // closes so the next [M] press opens it as a plain reference map.
+        private bool _teleportMode;
 
         private const float PanelW = 1000f;
         private const float PanelH = 600f;
@@ -54,8 +58,14 @@ namespace Astrion.UI
 
         private void Update()
         {
-            if (Input.GetKeyDown(KeyCode.M)) Toggle();
-            if (_open && Input.GetKeyDown(KeyCode.Escape)) Toggle();
+            // M only opens the reference view. The compass uses OpenForTeleport
+            // directly. Either way Escape closes.
+            if (Input.GetKeyDown(KeyCode.M))
+            {
+                if (_open) Close();
+                else { _teleportMode = false; OpenInternal(); }
+            }
+            if (_open && Input.GetKeyDown(KeyCode.Escape)) Close();
 
             // Halo subtle pulse — keeps the same heartbeat as the previous
             // version but using the LoginPanel gold instead of a parchment hue.
@@ -70,12 +80,29 @@ namespace Astrion.UI
 
         private void OnSceneChanged(Scene prev, Scene next) => UpdateCurrentHighlight();
 
-        private void Toggle()
+        /// External entry point — opens the world map in teleport mode so the
+        /// player can click any zone to travel there. Called by InventorySystem
+        /// when the astral compass is used.
+        public void OpenForTeleport()
         {
-            _open = !_open;
-            _group.alpha = _open ? 1f : 0f;
-            _group.blocksRaycasts = _open;
-            if (_open) UpdateCurrentHighlight();
+            _teleportMode = true;
+            OpenInternal();
+        }
+
+        private void OpenInternal()
+        {
+            _open = true;
+            _group.alpha = 1f;
+            _group.blocksRaycasts = true;
+            UpdateCurrentHighlight();
+        }
+
+        private void Close()
+        {
+            _open = false;
+            _teleportMode = false;
+            _group.alpha = 0f;
+            _group.blocksRaycasts = false;
         }
 
         // ────────────────────────────────────────────────────────────────────
@@ -282,6 +309,7 @@ namespace Astrion.UI
             lbl.color = AccentGold;
             lbl.text = n.display;
 
+            AddTeleportClick(go, n.id);
             DrawLevelTag(parent, n.pos + new Vector2(0, -22), n, font);
         }
 
@@ -313,7 +341,37 @@ namespace Astrion.UI
             lbl.color = TextLight;
             lbl.text = n.display;
 
+            AddTeleportClick(go, n.id);
             DrawLevelTag(parent, n.pos + new Vector2(0, -18), n, font);
+        }
+
+        /// Attaches a Button + closure that handles a teleport click when the
+        /// map is in teleport mode. In normal (reference) mode the click is
+        /// a no-op so the map keeps its original "look but don't touch" feel.
+        private void AddTeleportClick(GameObject nodeGo, string zoneId)
+        {
+            var btn = nodeGo.AddComponent<Button>();
+            btn.transition = Selectable.Transition.None;
+            string capture = zoneId;
+            btn.onClick.AddListener(() => HandleNodeClick(capture));
+        }
+
+        private void HandleNodeClick(string zoneId)
+        {
+            if (!_teleportMode) return;
+            string scene = Astrion.Network.SceneZoneMap.ZoneToScene(zoneId);
+            if (string.IsNullOrEmpty(scene))
+            {
+                if (_statusText != null) _statusText.text = "이동할 수 없는 지역입니다.";
+                return;
+            }
+            // Same machinery the portal uses, so the arrival side can place
+            // the player correctly if a portal there happens to match.
+            string current = SceneManager.GetActiveScene().name;
+            if (scene == current) { Close(); return; }
+            Astrion.Game.PortalTransition.FromScene = current;
+            Close();
+            SceneManager.LoadScene(scene);
         }
 
         private void DrawLevelTag(RectTransform parent, Vector2 pos, WorldMapData.Node n, Font font)
@@ -359,10 +417,14 @@ namespace Astrion.UI
             string zoneId = Astrion.Network.SceneZoneMap.SceneToZone(scene);
             int idx = WorldMapData.NodeIndex(zoneId);
 
+            string footer = _teleportMode
+                ? "★ 별의 나침반 사용 중 — 도시/사냥터를 클릭하여 이동 · [Esc] 취소"
+                : "press [M] to close";
+
             if (idx < 0 || _highlightRing == null)
             {
                 if (_highlightRing != null) _highlightRing.gameObject.SetActive(false);
-                if (_statusText != null) _statusText.text = "(uncharted region)   press [M] to close";
+                if (_statusText != null) _statusText.text = $"(uncharted region)   {footer}";
                 return;
             }
 
@@ -371,7 +433,7 @@ namespace Astrion.UI
 
             var n = WorldMapData.Nodes[idx];
             string kind = n.isCity ? "city" : "wilds";
-            _statusText.text = $"current:  {n.display}   ·   {kind}   ·   Lv. {n.minLv}–{n.maxLv}   ·   press [M] to close";
+            _statusText.text = $"current:  {n.display}   ·   {kind}   ·   Lv. {n.minLv}–{n.maxLv}   ·   {footer}";
         }
 
         // ────────────────────────────────────────────────────────────────────

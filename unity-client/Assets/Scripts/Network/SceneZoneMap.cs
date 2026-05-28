@@ -51,5 +51,47 @@ namespace Astrion.Network
                 default: return "";
             }
         }
+
+        /// Reverse lookup. Used by teleport-style travel (e.g. the astral
+        /// compass): given a server zone id, return the Unity scene name to
+        /// load. Keep this in lockstep with SceneToZone above.
+        public static string ZoneToScene(string zoneId)
+        {
+            switch (zoneId)
+            {
+                case "beacon_of_winds":   return "MainScene";
+                case "forgotten_woods":   return "ForgottenWoodsScene";
+                case "citadel_of_dawn":   return "CitadelOfDawnScene";
+
+                case "solaria":           return "SolariaScene";
+                case "pyresummit":        return "PyresummitScene";
+                case "verdaglen":         return "VerdaglenScene";
+                case "nightport":         return "NightportScene";
+                case "tidehaven":         return "TidehavenScene";
+
+                case "solaria_outskirts": return "SolariaOutskirtsScene";
+                case "sunlit_plains":     return "SunlitPlainsScene";
+                case "wheat_fields":      return "WheatFieldsScene";
+                case "pinewood_trail":    return "PinewoodTrailScene";
+
+                case "cinder_ridge":      return "CinderRidgeScene";
+                case "ashfall_cliffs":    return "AshfallCliffsScene";
+                case "magma_hollow":      return "MagmaHollowScene";
+
+                case "mossglade":         return "MossgladeScene";
+                case "whispering_boughs": return "WhisperingBoughsScene";
+                case "old_roots":         return "OldRootsScene";
+
+                case "backalleys":        return "BackalleysScene";
+                case "sewer_tunnels":     return "SewerTunnelsScene";
+                case "underground_vault": return "UndergroundVaultScene";
+
+                case "tide_docks":        return "TideDocksScene";
+                case "driftwood_beach":   return "DriftwoodBeachScene";
+                case "sunken_reef":       return "SunkenReefScene";
+
+                default: return "";
+            }
+        }
     }
 }
