@@ -204,6 +204,9 @@ public partial class ProjectSetup
         // WorldMapUI — DDOL overlay toggled with M. Built once on the
         // login scene; survives every portal transition.
         networkGo.AddComponent<Astrion.UI.WorldMapUI>();
+        // AstralImbueUI — Star Sage NPC popup. Same DDOL lifecycle as the
+        // worldmap; opened by StarSageNPC2D in Solaria after the greeting.
+        networkGo.AddComponent<Astrion.UI.AstralImbueUI>();
         // FriendSystem — DDOL singleton holding the friend list cache
         // and packet plumbing for FRIEND_* messages. UI lives on each
         // game scene's HUD; system is built once here.

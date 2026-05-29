@@ -35,6 +35,13 @@ namespace Astrion.Network
         public int[] learnedSkillLevels = new int[0];
         public string[] hotbarSkillIds = new string[0]; // length 5 when populated; "" = empty slot
         public int gold = 0;
+        // Star Sage imbue counts — each tier consumes stardust and grants a
+        // permanent stat boost. Caps scale with character level so growth
+        // tracks the rest of the build. See PlayerStats.TryAstralImbue.
+        public int imbueAtkLv = 0;
+        public int imbueHpLv = 0;
+        public int imbueMpLv = 0;
+        public int imbueCritLv = 0;
         public string saveId = ""; // populated only by SaveImportant; server strips before persisting
     }
 }

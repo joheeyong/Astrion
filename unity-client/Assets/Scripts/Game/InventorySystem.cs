@@ -211,6 +211,43 @@ namespace Astrion.Game
             return false;
         }
 
+        /// <summary>Total count of itemId across all slots.</summary>
+        public int CountOf(string itemId)
+        {
+            if (string.IsNullOrEmpty(itemId)) return 0;
+            int total = 0;
+            for (int i = 0; i < SLOT_COUNT; i++)
+                if (Slots[i].itemId == itemId && !Slots[i].IsEmpty) total += Slots[i].qty;
+            return total;
+        }
+
+        /// <summary>
+        /// Consume exactly N units of itemId across slots (left-to-right).
+        /// All-or-nothing: returns false without mutating if the inventory
+        /// doesn't hold enough. Used by crafting/imbue flows that take a
+        /// flat material cost.
+        /// </summary>
+        public bool ConsumeAmount(string itemId, int amount)
+        {
+            if (amount <= 0) return true;
+            if (string.IsNullOrEmpty(itemId)) return false;
+            if (CountOf(itemId) < amount) return false;
+            int left = amount;
+            for (int i = 0; i < SLOT_COUNT && left > 0; i++)
+            {
+                if (Slots[i].itemId != itemId || Slots[i].IsEmpty) continue;
+                int take = Mathf.Min(left, Slots[i].qty);
+                int newQty = Slots[i].qty - take;
+                Slots[i] = newQty > 0
+                    ? new Slot { itemId = itemId, qty = newQty }
+                    : new Slot();
+                left -= take;
+            }
+            SaveToState();
+            OnChanged?.Invoke();
+            return true;
+        }
+
         /// <summary>Remove every unit of itemId across all slots. Returns total qty removed.</summary>
         public int RemoveAllOfItem(string itemId)
         {

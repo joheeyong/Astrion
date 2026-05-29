@@ -288,6 +288,15 @@ namespace Astrion.Network
             Save();
         }
 
+        public void UpdateImbue(int atkLv, int hpLv, int mpLv, int critLv)
+        {
+            State.imbueAtkLv  = atkLv;
+            State.imbueHpLv   = hpLv;
+            State.imbueMpLv   = mpLv;
+            State.imbueCritLv = critLv;
+            Save();
+        }
+
         public void UpdateSkillPoints(int skillPoints)
         {
             State.skillPoints = skillPoints;

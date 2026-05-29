@@ -27,6 +27,14 @@ namespace Astrion.Game
         public string EquippedArmorId  { get; private set; } = "";
         public string EquippedRingId   { get; private set; } = "";
 
+        // Star Sage imbue tiers (count of upgrades purchased). Each tier
+        // grants a fixed bonus; caps scale with character level so the
+        // ceiling moves with progression.
+        public int ImbueAtkLv  { get; private set; } = 0;  // +1 atk / tier
+        public int ImbueHpLv   { get; private set; } = 0;  // +20 maxHp / tier (already folded into MaxHp)
+        public int ImbueMpLv   { get; private set; } = 0;  // +10 maxMp / tier (already folded into MaxMp)
+        public int ImbueCritLv { get; private set; } = 0;  // +1% crit / tier
+
         public event Action OnChanged;
         public event Action OnDied;
         public event Action OnLeveledUp;
@@ -159,6 +167,10 @@ namespace Astrion.Game
             EquippedArmorId  = s.equippedArmorId  ?? "";
             EquippedRingId   = s.equippedRingId   ?? "";
             Gold = Mathf.Max(0, s.gold);
+            ImbueAtkLv  = Mathf.Max(0, s.imbueAtkLv);
+            ImbueHpLv   = Mathf.Max(0, s.imbueHpLv);
+            ImbueMpLv   = Mathf.Max(0, s.imbueMpLv);
+            ImbueCritLv = Mathf.Max(0, s.imbueCritLv);
             OnChanged?.Invoke();
         }
 
@@ -224,7 +236,7 @@ namespace Astrion.Game
             int skillLv = SkillSystem.Instance != null ? SkillSystem.Instance.GetLevel("starbolt") : 1;
             if (skillLv < 1) skillLv = 1;
             float skillBonus = (skillLv - 1) * 5f;
-            float baseD = 5f + Intel * 2f + Level * 3f + weaponDmg + skillBonus;
+            float baseD = 5f + Intel * 2f + Level * 3f + weaponDmg + skillBonus + ImbueAtkLv;
             float variance = baseD * 0.2f;
             int dmg = Mathf.Max(1, Mathf.RoundToInt(baseD + UnityEngine.Random.Range(-variance, variance)));
             isCritical = RollCritical();
@@ -233,10 +245,99 @@ namespace Astrion.Game
         }
 
         /// LUK-based critical: 2.5%% at LUK 5, 5%% at LUK 10, 10%% at LUK 20.
+        /// Star Sage imbue stacks 1%% per tier on top.
         public bool RollCritical()
         {
-            float chance = Luk * 0.005f;
+            float chance = Luk * 0.005f + ImbueCritLv * 0.01f;
             return UnityEngine.Random.value < chance;
+        }
+
+        /// Per-kind cap helpers — used by AstralImbueUI to disable buttons
+        /// and gray rows that are already maxed for the current level.
+        public int ImbueCap(string kind)
+        {
+            switch (kind)
+            {
+                case "atk":  return Mathf.Max(1, Level);
+                case "hp":   return Mathf.Max(1, Level / 2);
+                case "mp":   return Mathf.Max(1, Level / 2);
+                case "crit": return Mathf.Max(1, Level / 3);
+                default:     return 0;
+            }
+        }
+
+        public int ImbueCurrent(string kind)
+        {
+            switch (kind)
+            {
+                case "atk":  return ImbueAtkLv;
+                case "hp":   return ImbueHpLv;
+                case "mp":   return ImbueMpLv;
+                case "crit": return ImbueCritLv;
+                default:     return 0;
+            }
+        }
+
+        public int ImbueCost(string kind)
+        {
+            switch (kind)
+            {
+                case "atk":  return 20;
+                case "hp":   return 15;
+                case "mp":   return 15;
+                case "crit": return 50;
+                default:     return 0;
+            }
+        }
+
+        /// Consume stardust + bump the matching imbue tier. Caller (NPC UI)
+        /// is responsible for showing a refresh after this completes. All
+        /// failure paths surface a toast so the player gets feedback no
+        /// matter which precondition failed.
+        public bool TryAstralImbue(string kind)
+        {
+            int cost = ImbueCost(kind);
+            int cap  = ImbueCap(kind);
+            int cur  = ImbueCurrent(kind);
+            if (cost <= 0) return false;
+
+            if (cur >= cap)
+            {
+                Astrion.UI.ToastUI.Instance?.Show(
+                    "이미 최대치 — 레벨업이 필요합니다.",
+                    new Color(0.95f, 0.55f, 0.30f));
+                return false;
+            }
+
+            var inv = InventorySystem.Instance;
+            if (inv == null) return false;
+            if (inv.CountOf("stardust") < cost)
+            {
+                Astrion.UI.ToastUI.Instance?.Show(
+                    $"별 가루가 부족합니다. ({cost}개 필요)",
+                    new Color(0.95f, 0.55f, 0.30f));
+                return false;
+            }
+            if (!inv.ConsumeAmount("stardust", cost)) return false;
+
+            string label;
+            switch (kind)
+            {
+                case "atk":  ImbueAtkLv++;  label = "공격력 +1";       break;
+                case "hp":   ImbueHpLv++;   MaxHp += 20; Hp = Mathf.Min(Hp + 20, MaxHp); label = "활력 +20";   break;
+                case "mp":   ImbueMpLv++;   MaxMp += 10; Mp = Mathf.Min(Mp + 10, MaxMp); label = "정신력 +10"; break;
+                case "crit": ImbueCritLv++; label = "별의 가호 +1%";  break;
+                default: return false;
+            }
+
+            _dirty = true;
+            SaveAttributes();
+            FlushSave();
+            OnChanged?.Invoke();
+            Astrion.UI.ToastUI.Instance?.Show(
+                $"★ 별빛 각인  ·  {label}",
+                new Color(0.85f, 0.55f, 0.95f));
+            return true;
         }
 
         private void SaveAttributes()
@@ -246,6 +347,7 @@ namespace Astrion.Game
             psm.UpdateAttributes(Level, Exp, Str, Dex, Intel, Luk, StatPoints, EquippedWeaponId);
             psm.UpdateGold(Gold);
             psm.UpdateEquipment(EquippedWeaponId, EquippedHelmetId, EquippedArmorId, EquippedRingId);
+            psm.UpdateImbue(ImbueAtkLv, ImbueHpLv, ImbueMpLv, ImbueCritLv);
         }
 
         private void Update()

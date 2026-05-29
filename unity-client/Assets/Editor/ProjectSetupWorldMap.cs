@@ -12,7 +12,7 @@ using UnityEngine;
 /// See docs/WORLDMAP.md for the canonical layout this code targets.
 public partial class ProjectSetup
 {
-    private enum NpcKind { Innkeeper, Shopkeeper }
+    private enum NpcKind { Innkeeper, Shopkeeper, Sage }
 
     /// Spawn a single NPC at a city's flat ground. Reuses the player's
     /// procedural body/limbs (BuildPlayerVisual) tinted with a different
@@ -63,6 +63,14 @@ public partial class ProjectSetup
             {
                 var shop = go.AddComponent<Astrion.Game.ShopNPC2D>();
                 var so = new SerializedObject(shop);
+                so.FindProperty("npcName").stringValue = displayName;
+                so.ApplyModifiedPropertiesWithoutUndo();
+                break;
+            }
+            case NpcKind.Sage:
+            {
+                var sage = go.AddComponent<Astrion.Game.StarSageNPC2D>();
+                var so = new SerializedObject(sage);
                 so.FindProperty("npcName").stringValue = displayName;
                 so.ApplyModifiedPropertiesWithoutUndo();
                 break;
@@ -272,6 +280,15 @@ public partial class ProjectSetup
                 tunic: new Color(0.22f, 0.48f, 0.30f),   // green — shopkeeper
                 hair:  new Color(0.30f, 0.20f, 0.10f),
                 kind: NpcKind.Shopkeeper);
+            // Star Sage is Solaria-only — central hub gets the imbue altar.
+            // Other cities keep just the inn + shop pair.
+            if (baseName == "Solaria")
+            {
+                SpawnNpc(worldRoot.transform, new Vector2(0f, -2.5f), "별빛 신관",
+                    tunic: new Color(0.42f, 0.22f, 0.55f),   // violet — sage
+                    hair:  new Color(0.78f, 0.74f, 0.82f),
+                    kind: NpcKind.Sage);
+            }
         }
         else
         {
