@@ -469,6 +469,12 @@ public class MonsterManager {
             // fixed fraction. Solo grinders keep the full reward; partying
             // pays out more total but rewards group play directly.
             sharePartyExp(attacker, m);
+            // Ranking: kill counter. Server-authoritative — the client
+            // never reports kill count directly so it can't be forged.
+            if (redisManager != null) {
+                try { redisManager.incrementRankingScore("kills", attacker.getPlayerId(), 1); }
+                catch (Exception ignored) { /* never break combat on ranking write */ }
+            }
             // Roll for an item drop (zone-wide, first-claim wins)
             rollAndSpawnDrop(m);
             log.info("Monster {} killed by {} for {} dmg (+{} exp, +{} gold; respawn in {}s)",

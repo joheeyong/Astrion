@@ -31,6 +31,7 @@ namespace Astrion.Network
         PartyLeave = 0x1B,
         PartyKick = 0x1C,
         PartyRequest = 0x1D,
+        RankingRequest = 0x1E,
 
         // Server -> Client
         LoginResult = 0x81,
@@ -63,5 +64,6 @@ namespace Astrion.Network
         PartyUpdate = 0xA5,
         PartyInviteFrom = 0xA6,
         PartyError = 0xA7,
+        RankingData = 0xA8,
     }
 }

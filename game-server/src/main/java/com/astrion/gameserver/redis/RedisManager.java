@@ -223,6 +223,39 @@ public class RedisManager {
         commands.del("party_inv_to:" + recipient + ":" + inviter);
     }
 
+    // ──── Rankings (sorted sets) ────────────────────────────────────────
+    // Three leaderboards, each scored by a single int. ZADD is idempotent
+    // so re-sending the same level/gold is cheap; kill count uses ZINCRBY
+    // since the server only knows the delta per kill, not the total.
+    //
+    //   ranking:level  → score = character level
+    //   ranking:gold   → score = current gold balance
+    //   ranking:kills  → score = total monster kills (lifetime)
+    private static String rankingKey(String category) {
+        return "ranking:" + category;
+    }
+    public void updateRankingScore(String category, String username, long score) {
+        if (username == null || username.isEmpty()) return;
+        commands.zadd(rankingKey(category), score, username);
+    }
+    public long incrementRankingScore(String category, String username, long delta) {
+        if (username == null || username.isEmpty()) return 0L;
+        return commands.zincrby(rankingKey(category), delta, username).longValue();
+    }
+    /// Top N descending — index 0 is the leader. Each tuple is (name, score).
+    public java.util.List<io.lettuce.core.ScoredValue<String>> getRankingTop(String category, int n) {
+        if (n <= 0) return java.util.Collections.emptyList();
+        return commands.zrevrangeWithScores(rankingKey(category), 0, n - 1);
+    }
+    /// 0-based rank, -1 when the user is unranked.
+    public long getRankingRank(String category, String username) {
+        Long r = commands.zrevrank(rankingKey(category), username);
+        return r == null ? -1L : r;
+    }
+    public Double getRankingScore(String category, String username) {
+        return commands.zscore(rankingKey(category), username);
+    }
+
     // Low-level passthroughs. Used by AccountLockout (and any future feature
     // that needs counters / TTL keys outside the dedicated DTO accessors above).
     public long incr(String key)                       { return commands.incr(key); }

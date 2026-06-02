@@ -216,6 +216,10 @@ public partial class ProjectSetup
         // modal. Both survive every scene reload.
         networkGo.AddComponent<Astrion.Game.PartySystem>();
         networkGo.AddComponent<Astrion.UI.PartyWidget>();
+        // RankingSystem — DDOL cache for leaderboard packets.
+        // RankingUI is the modal opened by the Herald NPC in Solaria.
+        networkGo.AddComponent<Astrion.Game.RankingSystem>();
+        networkGo.AddComponent<Astrion.UI.RankingUI>();
 
         // PlayerStateManager (persists across scenes via DontDestroyOnLoad)
         var stateGo = new GameObject("PlayerStateManager");

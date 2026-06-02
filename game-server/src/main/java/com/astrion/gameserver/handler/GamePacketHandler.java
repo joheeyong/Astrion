@@ -89,6 +89,7 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             case PARTY_LEAVE -> handlePartyLeave(ctx, packet);
             case PARTY_KICK -> handlePartyKick(ctx, packet);
             case PARTY_REQUEST -> handlePartyRequest(ctx, packet);
+            case RANKING_REQUEST -> handleRankingRequest(ctx, packet);
             default -> log.warn("Unhandled packet type: {}", packet.getType());
         }
     }
@@ -607,6 +608,46 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
     private record FriendAddedByPayload(String by) {}
     private record FriendRequestFromPayload(String from) {}
 
+    // ── Rankings ──────────────────────────────────────────────────────────
+    private static final int RANKING_TOP_N = 20;
+    private static final java.util.Set<String> RANKING_CATEGORIES =
+        java.util.Set.of("level", "gold", "kills");
+
+    private void handleRankingRequest(ChannelHandlerContext ctx, GamePacket packet) {
+        try {
+            PlayerSession session = worldManager.getSession(ctx.channel());
+            if (session == null) return;
+            JsonNode node = mapper.readTree(packet.getPayload());
+            String category = node.has("category") ? node.get("category").asText() : "level";
+            if (!RANKING_CATEGORIES.contains(category)) category = "level";
+
+            java.util.List<io.lettuce.core.ScoredValue<String>> top =
+                redisManager.getRankingTop(category, RANKING_TOP_N);
+            java.util.List<RankingEntry> entries = new java.util.ArrayList<>(top.size());
+            for (int i = 0; i < top.size(); i++) {
+                var sv = top.get(i);
+                entries.add(new RankingEntry(i + 1, sv.getValue(), (long) sv.getScore()));
+            }
+            String self = session.getPlayerId();
+            long rank0 = redisManager.getRankingRank(category, self);
+            int selfRank = rank0 < 0 ? -1 : (int)(rank0 + 1);
+            Double selfScoreD = redisManager.getRankingScore(category, self);
+            long selfScore = selfScoreD == null ? 0L : selfScoreD.longValue();
+
+            String json = mapper.writeValueAsString(
+                new RankingPayload(category, entries, selfRank, selfScore));
+            ctx.writeAndFlush(new GamePacket(PacketType.RANKING_DATA, json));
+        } catch (Exception e) {
+            log.warn("ranking request failed: {}", e.getMessage());
+        }
+    }
+
+    private record RankingEntry(int rank, String name, long score) {}
+    private record RankingPayload(String category,
+                                   java.util.List<RankingEntry> entries,
+                                   int selfRank,
+                                   long selfScore) {}
+
     private void handleClientLog(ChannelHandlerContext ctx, GamePacket packet) {
         PlayerSession session = worldManager.getSession(ctx.channel());
         // Pre-login crashes still useful; tag them with the IP instead of player.
@@ -841,6 +882,21 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         }
 
         redisManager.savePlayerState(session.getPlayerId(), json);
+
+        // Mirror level + gold into the ranking sorted sets. Kill count is
+        // pushed separately from MonsterManager (server is the source of
+        // truth for kills — clients can't claim arbitrary kill counts).
+        try {
+            String user = session.getPlayerId();
+            if (node.has("level")) {
+                long lv = Math.max(1L, node.get("level").asLong());
+                redisManager.updateRankingScore("level", user, lv);
+            }
+            if (node.has("gold")) {
+                long g = Math.max(0L, node.get("gold").asLong());
+                redisManager.updateRankingScore("gold", user, g);
+            }
+        } catch (Exception ignored) { /* never fail save on ranking write */ }
 
         if (saveId != null) {
             try {

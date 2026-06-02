@@ -12,7 +12,7 @@ using UnityEngine;
 /// See docs/WORLDMAP.md for the canonical layout this code targets.
 public partial class ProjectSetup
 {
-    private enum NpcKind { Innkeeper, Shopkeeper, Sage }
+    private enum NpcKind { Innkeeper, Shopkeeper, Sage, Herald }
 
     /// Spawn a single NPC at a city's flat ground. Reuses the player's
     /// procedural body/limbs (BuildPlayerVisual) tinted with a different
@@ -71,6 +71,14 @@ public partial class ProjectSetup
             {
                 var sage = go.AddComponent<Astrion.Game.StarSageNPC2D>();
                 var so = new SerializedObject(sage);
+                so.FindProperty("npcName").stringValue = displayName;
+                so.ApplyModifiedPropertiesWithoutUndo();
+                break;
+            }
+            case NpcKind.Herald:
+            {
+                var herald = go.AddComponent<Astrion.Game.HeraldNPC2D>();
+                var so = new SerializedObject(herald);
                 so.FindProperty("npcName").stringValue = displayName;
                 so.ApplyModifiedPropertiesWithoutUndo();
                 break;
@@ -280,14 +288,19 @@ public partial class ProjectSetup
                 tunic: new Color(0.22f, 0.48f, 0.30f),   // green — shopkeeper
                 hair:  new Color(0.30f, 0.20f, 0.10f),
                 kind: NpcKind.Shopkeeper);
-            // Star Sage is Solaria-only — central hub gets the imbue altar.
-            // Other cities keep just the inn + shop pair.
+            // Star Sage + Herald are Solaria-only — central hub gets both
+            // the imbue altar and the leaderboard. Other cities keep just
+            // the inn + shop pair.
             if (baseName == "Solaria")
             {
-                SpawnNpc(worldRoot.transform, new Vector2(0f, -2.5f), "별빛 신관",
+                SpawnNpc(worldRoot.transform, new Vector2(-3f, -2.5f), "별빛 신관",
                     tunic: new Color(0.42f, 0.22f, 0.55f),   // violet — sage
                     hair:  new Color(0.78f, 0.74f, 0.82f),
                     kind: NpcKind.Sage);
+                SpawnNpc(worldRoot.transform, new Vector2(3f, -2.5f), "랭킹 전령",
+                    tunic: new Color(0.22f, 0.34f, 0.60f),   // sapphire — herald
+                    hair:  new Color(0.50f, 0.42f, 0.30f),
+                    kind: NpcKind.Herald);
             }
         }
         else

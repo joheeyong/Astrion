@@ -30,6 +30,7 @@ public enum PacketType {
     PARTY_LEAVE(0x1B),      // C2S: leave your current party
     PARTY_KICK(0x1C),       // C2S: leader-only kick of a member by username
     PARTY_REQUEST(0x1D),    // C2S: request current party state (on login / scene swap)
+    RANKING_REQUEST(0x1E),  // C2S: payload {category: "level"|"gold"|"kills"}
 
     // Server -> Client
     LOGIN_RESULT(0x81),
@@ -61,7 +62,8 @@ public enum PacketType {
     WHISPER_RESULT(0xA4),      // whisper delivery — kind=incoming|echo|error
     PARTY_UPDATE(0xA5),        // full party snapshot pushed to every member
     PARTY_INVITE_FROM(0xA6),   // someone invited YOU to their party
-    PARTY_ERROR(0xA7);         // user-facing reason a party action failed
+    PARTY_ERROR(0xA7),         // user-facing reason a party action failed
+    RANKING_DATA(0xA8);        // {category, entries:[{rank,name,score}], selfRank, selfScore}
 
     private final int code;
 
