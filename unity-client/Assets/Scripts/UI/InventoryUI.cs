@@ -193,6 +193,24 @@ namespace Astrion.UI
             var def = ItemDatabase.Get(s.itemId);
             if (def == null) return;
             if (TabOf(def.itemType) != _currentTab) return;
+
+            // Trade routing: when a trade window is open, a click on the
+            // inventory slot offers it into the first empty trade slot
+            // instead of using the item. Untradable items are silently
+            // refused (compass, bound gear, etc.).
+            var tradeUI = TradeUI.Instance;
+            if (tradeUI != null && tradeUI.IsOpen)
+            {
+                if (def.untradable)
+                {
+                    ToastUI.Instance?.Show("귀속 아이템은 거래할 수 없습니다.",
+                        new Color(0.95f, 0.55f, 0.30f));
+                    return;
+                }
+                tradeUI.TryOfferFromInventory(idx);
+                return;
+            }
+
             inv.UseSlot(idx);
         }
 

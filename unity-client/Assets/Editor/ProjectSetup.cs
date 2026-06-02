@@ -220,6 +220,10 @@ public partial class ProjectSetup
         // RankingUI is the modal opened by the Herald NPC in Solaria.
         networkGo.AddComponent<Astrion.Game.RankingSystem>();
         networkGo.AddComponent<Astrion.UI.RankingUI>();
+        // TradeSystem — DDOL P2P trade state. TradeUI hosts the bilateral
+        // window + invite modal; opened by FriendsUI 🤝 button.
+        networkGo.AddComponent<Astrion.Game.TradeSystem>();
+        networkGo.AddComponent<Astrion.UI.TradeUI>();
 
         // PlayerStateManager (persists across scenes via DontDestroyOnLoad)
         var stateGo = new GameObject("PlayerStateManager");
@@ -5102,9 +5106,29 @@ public partial class ProjectSetup
         fpRowZoneT.color = new Color(0.78f, 0.55f, 0.24f);
         fpRowZoneT.alignment = TextAnchor.MiddleRight;
         fpRowZoneT.text = "";
-        // Zone column right offset shifts to clear THREE action buttons now
-        // (party-invite +, whisper ✎, remove ✕). Each button is 28w + 6 gap.
-        fpRowZone.offsetMax = new Vector2(-116, 0);
+        // Zone column right offset shifts to clear FOUR action buttons now
+        // (trade 🤝, party-invite +, whisper ✎, remove ✕). Each button is
+        // 28w + 6 gap.
+        fpRowZone.offsetMax = new Vector2(-150, 0);
+
+        // Trade request button (🤝) — leftmost of the action cluster.
+        var fpRowTrade = HUD_CreateRT("TradeB", fpRowTemplate);
+        fpRowTrade.anchorMin = new Vector2(1, 0.5f); fpRowTrade.anchorMax = new Vector2(1, 0.5f);
+        fpRowTrade.pivot = new Vector2(1, 0.5f);
+        fpRowTrade.anchoredPosition = new Vector2(-108, 0);
+        fpRowTrade.sizeDelta = new Vector2(28, 22);
+        var fpRowTradeImg = fpRowTrade.gameObject.AddComponent<Image>();
+        fpRowTradeImg.sprite = TexToSprite(MakeRoundRectTex(48, 36, 4, new Color(0.42f, 0.34f, 0.20f, 0.92f)));
+        fpRowTradeImg.type = Image.Type.Sliced;
+        var fpRowTradeBtn = fpRowTrade.gameObject.AddComponent<Button>();
+        var fpRowTradeLbl = HUD_CreateRT("L", fpRowTrade);
+        fpRowTradeLbl.anchorMin = Vector2.zero; fpRowTradeLbl.anchorMax = Vector2.one;
+        fpRowTradeLbl.offsetMin = fpRowTradeLbl.offsetMax = Vector2.zero;
+        var fpRowTradeTxt = fpRowTradeLbl.gameObject.AddComponent<Text>();
+        fpRowTradeTxt.font = font; fpRowTradeTxt.fontSize = 12; fpRowTradeTxt.fontStyle = FontStyle.Bold;
+        fpRowTradeTxt.alignment = TextAnchor.MiddleCenter;
+        fpRowTradeTxt.color = new Color(0.96f, 0.90f, 0.80f);
+        fpRowTradeTxt.text = "↔";
 
         // Party invite button (＋) — left of the whisper shortcut. Wired in
         // FriendsUI.Rebuild to send PARTY_INVITE for that row's friend.

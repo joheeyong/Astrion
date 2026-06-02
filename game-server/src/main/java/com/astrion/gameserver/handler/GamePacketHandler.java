@@ -47,11 +47,15 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
     private final RedisManager redisManager;
     private final MonsterManager monsterManager;
     private final AccountLockout accountLockout;
+    private final com.astrion.gameserver.world.TradeManager tradeManager;
 
-    public GamePacketHandler(WorldManager worldManager, RedisManager redisManager, MonsterManager monsterManager) {
+    public GamePacketHandler(WorldManager worldManager, RedisManager redisManager,
+                              MonsterManager monsterManager,
+                              com.astrion.gameserver.world.TradeManager tradeManager) {
         this.worldManager = worldManager;
         this.redisManager = redisManager;
         this.monsterManager = monsterManager;
+        this.tradeManager = tradeManager;
         // AccountLockout is stateless apart from the redis handle, so one
         // per handler instance is fine — Lettuce's RedisCommands inside
         // RedisManager is what carries the actual state.
@@ -90,6 +94,15 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             case PARTY_KICK -> handlePartyKick(ctx, packet);
             case PARTY_REQUEST -> handlePartyRequest(ctx, packet);
             case RANKING_REQUEST -> handleRankingRequest(ctx, packet);
+            case TRADE_REQUEST -> handleTradeRequest(ctx, packet);
+            case TRADE_ACCEPT  -> handleTradeAccept(ctx, packet);
+            case TRADE_REJECT  -> handleTradeReject(ctx, packet);
+            case TRADE_OFFER   -> handleTradeOffer(ctx, packet);
+            case TRADE_GOLD    -> handleTradeGold(ctx, packet);
+            case TRADE_LOCK    -> handleTradeLock(ctx, packet);
+            case TRADE_UNLOCK  -> handleTradeUnlock(ctx, packet);
+            case TRADE_CONFIRM -> handleTradeConfirm(ctx, packet);
+            case TRADE_CANCEL  -> handleTradeCancel(ctx, packet);
             default -> log.warn("Unhandled packet type: {}", packet.getType());
         }
     }
@@ -647,6 +660,56 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
                                    java.util.List<RankingEntry> entries,
                                    int selfRank,
                                    long selfScore) {}
+
+    // ── Trade dispatch (logic in TradeManager) ────────────────────────────
+    private void handleTradeRequest(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession s = worldManager.getSession(ctx.channel()); if (s == null) return;
+        JsonNode n = mapper.readTree(packet.getPayload());
+        tradeManager.requestTrade(s.getPlayerId(),
+            n.has("target") ? n.get("target").asText().trim() : "");
+    }
+    private void handleTradeAccept(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession s = worldManager.getSession(ctx.channel()); if (s == null) return;
+        JsonNode n = mapper.readTree(packet.getPayload());
+        tradeManager.acceptTrade(s.getPlayerId(),
+            n.has("from") ? n.get("from").asText().trim() : "");
+    }
+    private void handleTradeReject(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession s = worldManager.getSession(ctx.channel()); if (s == null) return;
+        JsonNode n = mapper.readTree(packet.getPayload());
+        tradeManager.rejectTrade(s.getPlayerId(),
+            n.has("from") ? n.get("from").asText().trim() : "");
+    }
+    private void handleTradeOffer(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession s = worldManager.getSession(ctx.channel()); if (s == null) return;
+        JsonNode n = mapper.readTree(packet.getPayload());
+        int slot = n.has("slot") ? n.get("slot").asInt() : -1;
+        String id = n.has("itemId") ? n.get("itemId").asText("") : "";
+        int qty = n.has("qty") ? n.get("qty").asInt(0) : 0;
+        tradeManager.setOffer(s.getPlayerId(), slot, id, qty);
+    }
+    private void handleTradeGold(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession s = worldManager.getSession(ctx.channel()); if (s == null) return;
+        JsonNode n = mapper.readTree(packet.getPayload());
+        long g = n.has("gold") ? n.get("gold").asLong() : 0L;
+        tradeManager.setGold(s.getPlayerId(), g);
+    }
+    private void handleTradeLock(ChannelHandlerContext ctx, GamePacket packet) {
+        PlayerSession s = worldManager.getSession(ctx.channel()); if (s == null) return;
+        tradeManager.lock(s.getPlayerId());
+    }
+    private void handleTradeUnlock(ChannelHandlerContext ctx, GamePacket packet) {
+        PlayerSession s = worldManager.getSession(ctx.channel()); if (s == null) return;
+        tradeManager.unlock(s.getPlayerId());
+    }
+    private void handleTradeConfirm(ChannelHandlerContext ctx, GamePacket packet) {
+        PlayerSession s = worldManager.getSession(ctx.channel()); if (s == null) return;
+        tradeManager.confirm(s.getPlayerId());
+    }
+    private void handleTradeCancel(ChannelHandlerContext ctx, GamePacket packet) {
+        PlayerSession s = worldManager.getSession(ctx.channel()); if (s == null) return;
+        tradeManager.cancel(s.getPlayerId(), "거래가 취소되었습니다.");
+    }
 
     private void handleClientLog(ChannelHandlerContext ctx, GamePacket packet) {
         PlayerSession session = worldManager.getSession(ctx.channel());
@@ -1329,6 +1392,10 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             // shape as a voluntary /leave.
             try { removeFromParty(session.getPlayerId()); }
             catch (Exception e) { log.warn("party cleanup for {} failed: {}", session.getPlayerId(), e.getMessage()); }
+            // Same for any open trade — disconnect mid-trade looks like a
+            // cancel to the other side.
+            try { tradeManager.onDisconnect(session.getPlayerId()); }
+            catch (Exception e) { log.warn("trade cleanup for {} failed: {}", session.getPlayerId(), e.getMessage()); }
             redisManager.setPlayerOffline(session.getPlayerId());
             String despawnData = "{\"playerId\":\"" + session.getPlayerId() + "\"}";
             worldManager.broadcastAll(new GamePacket(PacketType.DESPAWN_PLAYER, despawnData), session.getPlayerId());

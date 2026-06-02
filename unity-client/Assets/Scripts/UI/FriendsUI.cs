@@ -212,6 +212,18 @@ namespace Astrion.UI
                         ShowStatus($"{capture} 님에게 파티 초대를 보냈습니다.");
                     });
                 }
+                // 🤝 trade: send TRADE_REQUEST. Server validates (target
+                // offline, already in another trade, etc.) and the recipient
+                // sees the TradeUI invite modal.
+                var tradeBtn = go.transform.Find("TradeB")?.GetComponent<Button>();
+                if (tradeBtn)
+                {
+                    tradeBtn.onClick.RemoveAllListeners();
+                    tradeBtn.onClick.AddListener(() => {
+                        Astrion.Game.TradeSystem.Instance?.RequestTrade(capture);
+                        ShowStatus($"{capture} 님에게 거래를 신청했습니다.");
+                    });
+                }
 
                 _liveRows.Add(go);
             }

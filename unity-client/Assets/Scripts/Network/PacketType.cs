@@ -32,6 +32,15 @@ namespace Astrion.Network
         PartyKick = 0x1C,
         PartyRequest = 0x1D,
         RankingRequest = 0x1E,
+        TradeRequest = 0x1F,
+        TradeAccept = 0x20,
+        TradeReject = 0x21,
+        TradeOffer = 0x22,
+        TradeGold = 0x23,
+        TradeLock = 0x24,
+        TradeUnlock = 0x25,
+        TradeConfirm = 0x26,
+        TradeCancel = 0x27,
 
         // Server -> Client
         LoginResult = 0x81,
@@ -65,5 +74,10 @@ namespace Astrion.Network
         PartyInviteFrom = 0xA6,
         PartyError = 0xA7,
         RankingData = 0xA8,
+        TradeRequestFrom = 0xA9,
+        TradeOpen = 0xAA,
+        TradeState = 0xAB,
+        TradeResult = 0xAC,
+        TradeError = 0xAD,
     }
 }

@@ -31,6 +31,15 @@ public enum PacketType {
     PARTY_KICK(0x1C),       // C2S: leader-only kick of a member by username
     PARTY_REQUEST(0x1D),    // C2S: request current party state (on login / scene swap)
     RANKING_REQUEST(0x1E),  // C2S: payload {category: "level"|"gold"|"kills"}
+    TRADE_REQUEST(0x1F),    // C2S: {target} — invite a trade
+    TRADE_ACCEPT(0x20),     // C2S: {from}
+    TRADE_REJECT(0x21),     // C2S: {from}
+    TRADE_OFFER(0x22),      // C2S: {slot, itemId, qty} — set your slot's offered item (qty 0 clears)
+    TRADE_GOLD(0x23),       // C2S: {gold} — set the gold you're offering
+    TRADE_LOCK(0x24),       // C2S: {} — lock my side
+    TRADE_UNLOCK(0x25),     // C2S: {} — unlock (also auto-fires when other side changes)
+    TRADE_CONFIRM(0x26),    // C2S: {} — only valid after both sides locked
+    TRADE_CANCEL(0x27),     // C2S: {} — abort the trade
 
     // Server -> Client
     LOGIN_RESULT(0x81),
@@ -63,7 +72,12 @@ public enum PacketType {
     PARTY_UPDATE(0xA5),        // full party snapshot pushed to every member
     PARTY_INVITE_FROM(0xA6),   // someone invited YOU to their party
     PARTY_ERROR(0xA7),         // user-facing reason a party action failed
-    RANKING_DATA(0xA8);        // {category, entries:[{rank,name,score}], selfRank, selfScore}
+    RANKING_DATA(0xA8),        // {category, entries:[{rank,name,score}], selfRank, selfScore}
+    TRADE_REQUEST_FROM(0xA9),  // {from}
+    TRADE_OPEN(0xAA),          // {partner} — trade window should open
+    TRADE_STATE(0xAB),         // full bilateral state snapshot
+    TRADE_RESULT(0xAC),        // {success, message, gainedItems:[{id,qty}], gainedGold}
+    TRADE_ERROR(0xAD);         // {message}
 
     private final int code;
 
