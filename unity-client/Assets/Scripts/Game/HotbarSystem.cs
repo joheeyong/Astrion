@@ -54,7 +54,11 @@ namespace Astrion.Game
                     _slots[i] = s.hotbarSkillIds[i] ?? "";
             }
 
-            // Default: slot 0 gets the class's primary attack if nothing's bound yet
+            // Defaults — only fire when every slot is empty (fresh character).
+            // Slots 0 and 1 stay free so the 1/2 keys fall through to the
+            // HP/MP potion fallback in PlayerController2D. Slots 2-3 get the
+            // class primary + mover so the player has at least one usable
+            // skill from the first second of play.
             bool empty = true;
             for (int i = 0; i < SLOT_COUNT; i++) if (!string.IsNullOrEmpty(_slots[i])) { empty = false; break; }
             if (empty && SkillSystem.Instance != null)
@@ -63,7 +67,17 @@ namespace Astrion.Game
                 string primary = (cls == "Warrior" && SkillSystem.Instance.IsLearned("sword_slash"))
                     ? "sword_slash"
                     : (SkillSystem.Instance.IsLearned("starbolt") ? "starbolt" : "");
-                if (!string.IsNullOrEmpty(primary)) _slots[0] = primary;
+                if (!string.IsNullOrEmpty(primary)) _slots[2] = primary;
+
+                string mover = cls switch
+                {
+                    "Warrior" => "warrior_dash",
+                    "Mage"    => "teleport",
+                    "Archer"  => "double_jump",
+                    _         => ""
+                };
+                if (!string.IsNullOrEmpty(mover) && SkillSystem.Instance.IsLearned(mover))
+                    _slots[3] = mover;
             }
 
             SaveToState();
