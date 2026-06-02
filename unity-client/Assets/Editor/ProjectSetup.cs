@@ -3168,6 +3168,13 @@ public partial class ProjectSetup
         Image expFill = CreateMapleBar(actionRoot, "EXPBar", new Vector2(14, 28), new Vector2(280, 20),
             expGrad, barBgSpr, font, "35.0%", out Text expBarText);
 
+        // Tiny [1] / [2] hotkey hints to the LEFT of the HP / MP bars so a
+        // new player notices the binding without having to read docs.
+        // The numbers track the key fallback in PlayerController2D —
+        // 1 → HP potion, 2 → MP potion (when the hotbar slot is empty).
+        BuildHotkeyHint(actionRoot, font, "1", new Vector2(-4, 84));
+        BuildHotkeyHint(actionRoot, font, "2", new Vector2(-4, 56));
+
         // Hotbar slots (5 — center column)
         float slotSize = 56f;
         float slotGap = 6f;
@@ -5243,6 +5250,34 @@ public partial class ProjectSetup
         fuiSo.FindProperty("requestRowTemplate").objectReferenceValue = fpReqRowTemplate;
         fuiSo.ApplyModifiedPropertiesWithoutUndo();
         friendsPanel.gameObject.SetActive(false);
+    }
+
+    /// Tiny dark badge with a centered glyph — used as a hotkey hint next
+    /// to HP/MP bars so the [1]/[2] binding is discoverable at a glance.
+    private static void BuildHotkeyHint(RectTransform parent, Font font, string glyph, Vector2 pos)
+    {
+        var rt = HUD_CreateRT("Hotkey_" + glyph, parent);
+        rt.anchorMin = rt.anchorMax = new Vector2(0, 0);
+        rt.pivot = new Vector2(1, 0);
+        rt.anchoredPosition = pos;
+        rt.sizeDelta = new Vector2(18, 18);
+        var bg = rt.gameObject.AddComponent<Image>();
+        bg.sprite = TexToSprite(MakeRoundRectTex(36, 36, 4, new Color(0.06f, 0.05f, 0.04f, 0.92f)));
+        bg.type = Image.Type.Sliced;
+        var outline = rt.gameObject.AddComponent<Outline>();
+        outline.effectColor = new Color(0.85f, 0.65f, 0.22f, 0.40f);
+        outline.effectDistance = new Vector2(1, 1);
+        var lblRT = HUD_CreateRT("L", rt);
+        lblRT.anchorMin = Vector2.zero; lblRT.anchorMax = Vector2.one;
+        lblRT.offsetMin = lblRT.offsetMax = Vector2.zero;
+        var txt = lblRT.gameObject.AddComponent<Text>();
+        txt.font = font;
+        txt.fontSize = 11;
+        txt.fontStyle = FontStyle.Bold;
+        txt.alignment = TextAnchor.MiddleCenter;
+        txt.color = new Color(0.94f, 0.78f, 0.32f);
+        txt.text = glyph;
+        txt.raycastTarget = false;
     }
 
     private static Image CreateMapleBar(RectTransform parent, string name, Vector2 pos, Vector2 size,

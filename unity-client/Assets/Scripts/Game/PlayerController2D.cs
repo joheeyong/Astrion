@@ -158,9 +158,14 @@ namespace Astrion.Game
                 {
                     SkillCaster.Instance?.Cast("basic_attack");
                 }
-                // 1~5 = hotbar slots
-                if      (Input.GetKeyDown(KeyCode.Alpha1)) HotbarSystem.Instance?.TryTrigger(0);
-                else if (Input.GetKeyDown(KeyCode.Alpha2)) HotbarSystem.Instance?.TryTrigger(1);
+                // 1~5 = hotbar slots. When slot 1 or 2 is empty, fall back to
+                // the first HP / MP consumable in the inventory — that way a
+                // brand-new character can press 1/2 to drink potions without
+                // having to learn the binding system first. As soon as they
+                // drag a skill onto the slot, the binding wins and the fallback
+                // stops firing.
+                if      (Input.GetKeyDown(KeyCode.Alpha1)) UseHotbarOrPotion(0, forHp: true);
+                else if (Input.GetKeyDown(KeyCode.Alpha2)) UseHotbarOrPotion(1, forHp: false);
                 else if (Input.GetKeyDown(KeyCode.Alpha3)) HotbarSystem.Instance?.TryTrigger(2);
                 else if (Input.GetKeyDown(KeyCode.Alpha4)) HotbarSystem.Instance?.TryTrigger(3);
                 else if (Input.GetKeyDown(KeyCode.Alpha5)) HotbarSystem.Instance?.TryTrigger(4);
@@ -175,19 +180,37 @@ namespace Astrion.Game
                         now ? new Color(0.40f, 0.85f, 0.40f) : new Color(0.78f, 0.72f, 0.55f));
                 }
 
-                // Quick consumables: R = HP potion, F = MP potion
+                // R = HP potion (legacy alternate; new players use 1).
+                // F used to be MP potion but conflicts with the friend panel
+                // hotkey, so the MP fallback now lives on key 2 only.
                 if (Input.GetKeyDown(KeyCode.R))
                 {
                     var inv = InventorySystem.Instance;
                     if (inv != null && !inv.UseFirstConsumable(forHp: true))
                         Astrion.UI.ToastUI.Instance?.Show("회복 아이템이 없거나 HP가 가득합니다.", new Color(0.85f, 0.55f, 0.40f));
                 }
-                if (Input.GetKeyDown(KeyCode.F))
-                {
-                    var inv = InventorySystem.Instance;
-                    if (inv != null && !inv.UseFirstConsumable(forHp: false))
-                        Astrion.UI.ToastUI.Instance?.Show("MP 아이템이 없거나 MP가 가득합니다.", new Color(0.55f, 0.70f, 0.85f));
-                }
+            }
+        }
+
+        /// 1/2 input router. If the hotbar slot has something bound (skill
+        /// the player explicitly dragged in), fire it. Otherwise fall back
+        /// to a potion gulp — HP for slot 0, MP for slot 1. No-op for the
+        /// remaining slots since they're 'real' hotbar territory.
+        private static void UseHotbarOrPotion(int hotbarSlot, bool forHp)
+        {
+            var hb = HotbarSystem.Instance;
+            if (hb != null && !hb.IsSlotEmpty(hotbarSlot)) { hb.TryTrigger(hotbarSlot); return; }
+            var inv = InventorySystem.Instance;
+            if (inv == null) return;
+            if (!inv.UseFirstConsumable(forHp: forHp))
+            {
+                string msg = forHp
+                    ? "회복 아이템이 없거나 HP가 가득합니다."
+                    : "MP 아이템이 없거나 MP가 가득합니다.";
+                Color tint = forHp
+                    ? new Color(0.85f, 0.55f, 0.40f)
+                    : new Color(0.55f, 0.70f, 0.85f);
+                Astrion.UI.ToastUI.Instance?.Show(msg, tint);
             }
         }
 

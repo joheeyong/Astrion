@@ -116,6 +116,16 @@ namespace Astrion.Game
             return SkillCaster.Instance != null && SkillCaster.Instance.Cast(id);
         }
 
+        /// True when nothing is bound to the slot — used by the input layer
+        /// to fall back to a default action (e.g. slot 0 empty → use HP
+        /// potion instead). Distinct from TryTrigger=false on Cast failure
+        /// because cooldown/MP shortage shouldn't trigger a fallback.
+        public bool IsSlotEmpty(int slot)
+        {
+            if (slot < 0 || slot >= SLOT_COUNT) return true;
+            return string.IsNullOrEmpty(_slots[slot]);
+        }
+
         private void SaveToState()
         {
             var psm = PlayerStateManager.Instance;
