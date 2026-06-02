@@ -41,6 +41,9 @@ namespace Astrion.Network
         TradeUnlock = 0x25,
         TradeConfirm = 0x26,
         TradeCancel = 0x27,
+        BlockAdd = 0x28,
+        BlockRemove = 0x29,
+        BlockListRequest = 0x2A,
 
         // Server -> Client
         LoginResult = 0x81,
@@ -79,5 +82,6 @@ namespace Astrion.Network
         TradeState = 0xAB,
         TradeResult = 0xAC,
         TradeError = 0xAD,
+        BlockListData = 0xAE,
     }
 }

@@ -223,6 +223,27 @@ public class RedisManager {
         commands.del("party_inv_to:" + recipient + ":" + inviter);
     }
 
+    // ──── Blocklist (per-user set) ───────────────────────────────────────
+    // blocks:{user} → set of usernames the user has muted/blocked. Block is
+    // one-directional: 'A blocks B' means B can't whisper/party/trade A,
+    // and B's zone chat is hidden from A's screen. A can still talk to B —
+    // hiding goes both ways only if both sides block each other.
+    public void addBlock(String user, String target) {
+        commands.sadd("blocks:" + user, target);
+    }
+    public void removeBlock(String user, String target) {
+        commands.srem("blocks:" + user, target);
+    }
+    public boolean isBlocked(String user, String target) {
+        return commands.sismember("blocks:" + user, target);
+    }
+    public java.util.Set<String> getBlocks(String user) {
+        return commands.smembers("blocks:" + user);
+    }
+    public int blockCount(String user) {
+        return commands.scard("blocks:" + user).intValue();
+    }
+
     // ──── Rankings (sorted sets) ────────────────────────────────────────
     // Three leaderboards, each scored by a single int. ZADD is idempotent
     // so re-sending the same level/gold is cheap; kill count uses ZINCRBY

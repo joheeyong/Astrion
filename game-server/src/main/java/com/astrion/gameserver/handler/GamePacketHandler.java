@@ -103,6 +103,9 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             case TRADE_UNLOCK  -> handleTradeUnlock(ctx, packet);
             case TRADE_CONFIRM -> handleTradeConfirm(ctx, packet);
             case TRADE_CANCEL  -> handleTradeCancel(ctx, packet);
+            case BLOCK_ADD     -> handleBlockAdd(ctx, packet);
+            case BLOCK_REMOVE  -> handleBlockRemove(ctx, packet);
+            case BLOCK_LIST_REQUEST -> handleBlockListRequest(ctx, packet);
             default -> log.warn("Unhandled packet type: {}", packet.getType());
         }
     }
@@ -137,6 +140,17 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         }
         if (redisManager.areFriends(self, target)) {
             sendFriendError(ctx, "이미 친구입니다.");
+            return;
+        }
+        // Block gate — both directions. If target blocks self, refuse with a
+        // generic message so the blocker stays hidden. If self blocks target,
+        // self gets a clear instruction to unblock first.
+        if (redisManager.isBlocked(self, target)) {
+            sendFriendError(ctx, "차단한 사용자입니다. 먼저 차단을 해제하세요.");
+            return;
+        }
+        if (redisManager.isBlocked(target, self)) {
+            sendFriendError(ctx, "해당 사용자에게 친구 요청을 보낼 수 없습니다.");
             return;
         }
         if (redisManager.hasOutgoingRequest(self, target)) {
@@ -281,6 +295,13 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             sendWhisperError(ctx, target + " 님은 접속 중이 아닙니다.");
             return;
         }
+        // Block gate — refuse delivery if the recipient has muted the sender.
+        // Sender sees a generic 'unavailable' rather than the truth so the
+        // blocker isn't exposed as the blocker.
+        if (redisManager.isBlocked(target, sender.getPlayerId())) {
+            sendWhisperError(ctx, target + " 님에게 귓속말을 보낼 수 없습니다.");
+            return;
+        }
 
         // Deliver to recipient, then echo to sender so the sender's own
         // chat panel shows what they just said in the same whisper colour.
@@ -348,6 +369,10 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         PlayerSession targetSession = worldManager.getSessionByPlayerId(target);
         if (targetSession == null) {
             sendPartyError(ctx, target + " 님은 접속 중이 아닙니다.");
+            return;
+        }
+        if (redisManager.isBlocked(self, target) || redisManager.isBlocked(target, self)) {
+            sendPartyError(ctx, "해당 사용자를 초대할 수 없습니다.");
             return;
         }
 
@@ -660,6 +685,62 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
                                    java.util.List<RankingEntry> entries,
                                    int selfRank,
                                    long selfScore) {}
+
+    // ── Block / mute ──────────────────────────────────────────────────────
+    private static final int MAX_BLOCKS = 100;
+
+    private void handleBlockAdd(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession s = worldManager.getSession(ctx.channel()); if (s == null) return;
+        String self = s.getPlayerId();
+        JsonNode n = mapper.readTree(packet.getPayload());
+        String target = n.has("target") ? n.get("target").asText().trim() : "";
+        if (target.isEmpty() || target.equals(self)) {
+            sendFriendError(ctx, "잘못된 대상입니다."); return;
+        }
+        if (redisManager.get("account:" + target) == null) {
+            sendFriendError(ctx, "그런 모험가는 없습니다."); return;
+        }
+        if (redisManager.blockCount(self) >= MAX_BLOCKS) {
+            sendFriendError(ctx, "차단 목록이 가득 찼습니다 (" + MAX_BLOCKS + ").");
+            return;
+        }
+        redisManager.addBlock(self, target);
+        // Side-effects: blocking implies severing any active social ties so
+        // the blocker isn't peppered by half-broken interactions.
+        if (redisManager.areFriends(self, target)) redisManager.removeFriendBoth(self, target);
+        redisManager.removeFriendRequest(self, target);
+        redisManager.removeFriendRequest(target, self);
+        sendBlockList(ctx.channel(), self);
+        sendFriendList(ctx.channel(), self);
+    }
+
+    private void handleBlockRemove(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession s = worldManager.getSession(ctx.channel()); if (s == null) return;
+        String self = s.getPlayerId();
+        JsonNode n = mapper.readTree(packet.getPayload());
+        String target = n.has("target") ? n.get("target").asText().trim() : "";
+        if (target.isEmpty()) return;
+        redisManager.removeBlock(self, target);
+        sendBlockList(ctx.channel(), self);
+    }
+
+    private void handleBlockListRequest(ChannelHandlerContext ctx, GamePacket packet) {
+        PlayerSession s = worldManager.getSession(ctx.channel()); if (s == null) return;
+        sendBlockList(ctx.channel(), s.getPlayerId());
+    }
+
+    private void sendBlockList(io.netty.channel.Channel ch, String username) {
+        try {
+            java.util.List<String> all = new java.util.ArrayList<>(redisManager.getBlocks(username));
+            java.util.Collections.sort(all, String.CASE_INSENSITIVE_ORDER);
+            String json = mapper.writeValueAsString(new BlockListPayload(all));
+            ch.writeAndFlush(new GamePacket(PacketType.BLOCK_LIST_DATA, json));
+        } catch (Exception e) {
+            log.warn("sendBlockList for {} failed: {}", username, e.getMessage());
+        }
+    }
+
+    private record BlockListPayload(java.util.List<String> blocked) {}
 
     // ── Trade dispatch (logic in TradeManager) ────────────────────────────
     private void handleTradeRequest(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
@@ -1234,8 +1315,16 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         if (zoneId == null || zoneId.isEmpty()) {
             // Sender hasn't picked a zone yet — echo only to themselves.
             ctx.writeAndFlush(out);
-        } else {
-            worldManager.broadcastToZone(zoneId, out);
+            return;
+        }
+        // Per-recipient block filter — anyone who has the sender on their
+        // block list silently drops the chat line. Cheap: most players have
+        // 0 blocks, and zone broadcasts are small (typically <20 sessions).
+        String sender = session.getPlayerId();
+        for (PlayerSession s : worldManager.sessionsInZone(zoneId)) {
+            if (s == null) continue;
+            if (s != session && redisManager.isBlocked(s.getPlayerId(), sender)) continue;
+            try { s.getChannel().writeAndFlush(out); } catch (Exception ignored) {}
         }
     }
 

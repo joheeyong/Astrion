@@ -224,6 +224,11 @@ public partial class ProjectSetup
         // window + invite modal; opened by FriendsUI 🤝 button.
         networkGo.AddComponent<Astrion.Game.TradeSystem>();
         networkGo.AddComponent<Astrion.UI.TradeUI>();
+        // BlockSystem + BlockListUI — mute / block list. B key toggles UI.
+        // Server-side gates on whisper / friend / party / trade / chat
+        // consult the block lists transparently.
+        networkGo.AddComponent<Astrion.Game.BlockSystem>();
+        networkGo.AddComponent<Astrion.UI.BlockListUI>();
 
         // PlayerStateManager (persists across scenes via DontDestroyOnLoad)
         var stateGo = new GameObject("PlayerStateManager");

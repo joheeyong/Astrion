@@ -135,6 +135,15 @@ public class WorldManager {
         }
     }
 
+    /// Read-only view of the zone's session set — used by per-recipient
+    /// filtered broadcasts (e.g. chat with block lists). Returns an empty
+    /// list when the zone is unknown so callers can iterate unconditionally.
+    public Iterable<PlayerSession> sessionsInZone(String zoneId) {
+        if (zoneId == null) return java.util.Collections.emptyList();
+        Set<PlayerSession> bucket = sessionsByZone.get(zoneId);
+        return bucket == null ? java.util.Collections.emptyList() : bucket;
+    }
+
     public void broadcastToZoneExcept(String zoneId, GamePacket packet, String excludePlayerId) {
         if (zoneId == null) return;
         Set<PlayerSession> bucket = sessionsByZone.get(zoneId);

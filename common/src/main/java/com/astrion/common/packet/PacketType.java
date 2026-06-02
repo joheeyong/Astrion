@@ -40,6 +40,9 @@ public enum PacketType {
     TRADE_UNLOCK(0x25),     // C2S: {} — unlock (also auto-fires when other side changes)
     TRADE_CONFIRM(0x26),    // C2S: {} — only valid after both sides locked
     TRADE_CANCEL(0x27),     // C2S: {} — abort the trade
+    BLOCK_ADD(0x28),        // C2S: {target}
+    BLOCK_REMOVE(0x29),     // C2S: {target}
+    BLOCK_LIST_REQUEST(0x2A), // C2S: {} — pull my current block list
 
     // Server -> Client
     LOGIN_RESULT(0x81),
@@ -77,7 +80,8 @@ public enum PacketType {
     TRADE_OPEN(0xAA),          // {partner} — trade window should open
     TRADE_STATE(0xAB),         // full bilateral state snapshot
     TRADE_RESULT(0xAC),        // {success, message, gainedItems:[{id,qty}], gainedGold}
-    TRADE_ERROR(0xAD);         // {message}
+    TRADE_ERROR(0xAD),         // {message}
+    BLOCK_LIST_DATA(0xAE);     // {blocked:[name,...]}
 
     private final int code;
 

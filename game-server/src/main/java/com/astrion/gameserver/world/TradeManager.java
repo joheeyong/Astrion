@@ -82,6 +82,10 @@ public class TradeManager {
         PlayerSession ts = world.getSessionByPlayerId(target);
         if (ts == null) { sendError(inviter, target + " 님은 접속 중이 아닙니다."); return; }
         if (redis.get("account:" + target) == null) { sendError(inviter, "그런 모험가는 없습니다."); return; }
+        if (redis.isBlocked(inviter, target) || redis.isBlocked(target, inviter)) {
+            sendError(inviter, "해당 사용자에게 거래를 신청할 수 없습니다.");
+            return;
+        }
 
         pendingInvites.put(target, inviter);
         push(ts.getChannel(), PacketType.TRADE_REQUEST_FROM,

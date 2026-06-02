@@ -183,8 +183,35 @@ namespace Astrion.UI
                         var nm = NetworkManager.Instance;
                         if (nm != null && nm.IsConnected)
                         {
+                            // /block <name> /unblock <name> /blocks — mute commands.
+                            // Parsed before whisper so '/w' style prefixes can't
+                            // collide accidentally.
+                            if (msg.Equals("/blocks", System.StringComparison.OrdinalIgnoreCase))
+                            {
+                                Astrion.UI.BlockListUI.Instance?.Open();
+                            }
+                            else if (msg.StartsWith("/block ", System.StringComparison.OrdinalIgnoreCase))
+                            {
+                                string t = msg.Substring(7).Trim();
+                                if (!string.IsNullOrEmpty(t))
+                                {
+                                    Astrion.Game.BlockSystem.Instance?.Block(t);
+                                    AppendSystemLine($"{t} 님을 차단합니다.");
+                                }
+                                else AppendSystemLine("형식: /block 닉네임");
+                            }
+                            else if (msg.StartsWith("/unblock ", System.StringComparison.OrdinalIgnoreCase))
+                            {
+                                string t = msg.Substring(9).Trim();
+                                if (!string.IsNullOrEmpty(t))
+                                {
+                                    Astrion.Game.BlockSystem.Instance?.Unblock(t);
+                                    AppendSystemLine($"{t} 님의 차단을 해제합니다.");
+                                }
+                                else AppendSystemLine("형식: /unblock 닉네임");
+                            }
                             // /w nickname message → whisper packet
-                            if (msg.StartsWith("/w ") || msg.StartsWith("/W "))
+                            else if (msg.StartsWith("/w ") || msg.StartsWith("/W "))
                             {
                                 int sp = msg.IndexOf(' ', 3);
                                 if (sp > 3)
