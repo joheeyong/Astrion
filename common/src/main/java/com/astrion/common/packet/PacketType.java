@@ -24,6 +24,12 @@ public enum PacketType {
     FRIEND_REJECT(0x15),    // reject an incoming request → drop it
     FRIEND_CANCEL(0x16),    // cancel an outgoing request
     WHISPER(0x17),          // 1:1 chat — payload {target, message}
+    PARTY_INVITE(0x18),     // C2S: invite username to your party (creates one if needed)
+    PARTY_ACCEPT(0x19),     // C2S: accept a pending invite from username
+    PARTY_REJECT(0x1A),     // C2S: reject a pending invite from username
+    PARTY_LEAVE(0x1B),      // C2S: leave your current party
+    PARTY_KICK(0x1C),       // C2S: leader-only kick of a member by username
+    PARTY_REQUEST(0x1D),    // C2S: request current party state (on login / scene swap)
 
     // Server -> Client
     LOGIN_RESULT(0x81),
@@ -52,7 +58,10 @@ public enum PacketType {
     FRIEND_ERROR(0xA1),
     FRIEND_ADDED_BY(0xA2),     // someone accepted YOUR request, or vice-versa
     FRIEND_REQUEST_FROM(0xA3), // someone sent you a request (toast hint)
-    WHISPER_RESULT(0xA4);      // whisper delivery — kind=incoming|echo|error
+    WHISPER_RESULT(0xA4),      // whisper delivery — kind=incoming|echo|error
+    PARTY_UPDATE(0xA5),        // full party snapshot pushed to every member
+    PARTY_INVITE_FROM(0xA6),   // someone invited YOU to their party
+    PARTY_ERROR(0xA7);         // user-facing reason a party action failed
 
     private final int code;
 

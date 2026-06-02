@@ -44,7 +44,13 @@ public class MonsterManager {
     }
 
     private final WorldManager worldManager;
+    private com.astrion.gameserver.redis.RedisManager redisManager; // injected post-construction
     private final ObjectMapper mapper = new ObjectMapper();
+
+    /** Optional redis handle — when present, monster kills check the killer's
+     *  party and share EXP/gold with same-zone party members at SHARE_RATE. */
+    public void setRedisManager(com.astrion.gameserver.redis.RedisManager r) { this.redisManager = r; }
+    private static final float PARTY_EXP_SHARE = 0.50f; // each non-killer party member in same zone
     private final ConcurrentHashMap<String, Monster> monsters = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ItemDrop> activeDrops = new ConcurrentHashMap<>();
     private final Random rng = new Random();
@@ -414,6 +420,31 @@ public class MonsterManager {
         onMonsterHit(attacker, monsterId, damage, false);
     }
 
+    /// Splits a fraction of a kill's reward to the killer's same-zone party
+    /// members. No-op when no redis handle is wired or when the killer isn't
+    /// in a party; safe to call on every kill.
+    private void sharePartyExp(PlayerSession killer, Monster monster) {
+        if (redisManager == null) return;
+        String partyId = redisManager.getPartyOf(killer.getPlayerId());
+        if (partyId == null || partyId.isEmpty()) return;
+        java.util.Set<String> members = redisManager.getPartyMembers(partyId);
+        if (members == null || members.isEmpty()) return;
+
+        int sharedExp  = Math.max(1, Math.round(monster.expReward  * PARTY_EXP_SHARE));
+        int sharedGold = Math.max(0, Math.round(monster.goldReward * PARTY_EXP_SHARE));
+        String json = "{\"exp\":" + sharedExp + ",\"gold\":" + sharedGold + "}";
+        String zone = killer.getZoneId();
+        for (String name : members) {
+            if (name.equals(killer.getPlayerId())) continue;
+            PlayerSession s = worldManager.getSessionByPlayerId(name);
+            if (s == null) continue;
+            if (!zone.equals(s.getZoneId())) continue;
+            try {
+                s.getChannel().writeAndFlush(new GamePacket(PacketType.EXP_GAINED, json));
+            } catch (Exception ignored) { /* best effort */ }
+        }
+    }
+
     public void onMonsterHit(PlayerSession attacker, String monsterId, int damage, boolean isCritical) {
         Monster m = monsters.get(monsterId);
         if (m == null || m.dead) return;
@@ -429,11 +460,15 @@ public class MonsterManager {
             m.dead = true;
             m.respawnAt = System.currentTimeMillis() + RESPAWN_DELAY_MS;
             broadcastDie(m, applied);
-            // Award EXP + gold to the killing blower
+            // Award EXP + gold to the killing blow.
             try {
                 String json = "{\"exp\":" + m.expReward + ",\"gold\":" + m.goldReward + "}";
                 attacker.getChannel().writeAndFlush(new GamePacket(PacketType.EXP_GAINED, json));
             } catch (Exception e) { /* ignore */ }
+            // Party share — each online party member in the same zone gets a
+            // fixed fraction. Solo grinders keep the full reward; partying
+            // pays out more total but rewards group play directly.
+            sharePartyExp(attacker, m);
             // Roll for an item drop (zone-wide, first-claim wins)
             rollAndSpawnDrop(m);
             log.info("Monster {} killed by {} for {} dmg (+{} exp, +{} gold; respawn in {}s)",

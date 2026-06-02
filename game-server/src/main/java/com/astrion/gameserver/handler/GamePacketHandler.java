@@ -83,6 +83,12 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             case FRIEND_REJECT -> handleFriendReject(ctx, packet);
             case FRIEND_CANCEL -> handleFriendCancel(ctx, packet);
             case WHISPER -> handleWhisper(ctx, packet);
+            case PARTY_INVITE -> handlePartyInvite(ctx, packet);
+            case PARTY_ACCEPT -> handlePartyAccept(ctx, packet);
+            case PARTY_REJECT -> handlePartyReject(ctx, packet);
+            case PARTY_LEAVE -> handlePartyLeave(ctx, packet);
+            case PARTY_KICK -> handlePartyKick(ctx, packet);
+            case PARTY_REQUEST -> handlePartyRequest(ctx, packet);
             default -> log.warn("Unhandled packet type: {}", packet.getType());
         }
     }
@@ -283,6 +289,255 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
 
     private record WhisperResultPayload(String from, String to, String message, String kind, String error) {}
 
+    // ── Party system ──────────────────────────────────────────────────────
+    private static final int MAX_PARTY_SIZE = 4;
+
+    /// Invite path. Anyone can invite — if the inviter isn't in a party yet
+    /// the accept side will materialise one. If they already lead a party,
+    /// the acceptee joins it. Non-leaders trying to invite while in a
+    /// party get rejected so the leader keeps roster control.
+    private void handlePartyInvite(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession session = worldManager.getSession(ctx.channel());
+        if (session == null) return;
+        String self = session.getPlayerId();
+        JsonNode node = mapper.readTree(packet.getPayload());
+        String target = node.has("target") ? node.get("target").asText().trim() : "";
+
+        if (target.isEmpty() || target.equals(self)) {
+            sendPartyError(ctx, "잘못된 대상입니다.");
+            return;
+        }
+        if (redisManager.get("account:" + target) == null) {
+            sendPartyError(ctx, "그런 모험가는 없습니다.");
+            return;
+        }
+        // Leader gate — if I already have a party, I must be the leader.
+        String myParty = redisManager.getPartyOf(self);
+        if (myParty != null && !myParty.isEmpty()) {
+            String leader = redisManager.getPartyLeader(myParty);
+            if (leader != null && !leader.equals(self)) {
+                sendPartyError(ctx, "파티장만 초대할 수 있습니다.");
+                return;
+            }
+            long size = redisManager.partyMemberCount(myParty);
+            if (size >= MAX_PARTY_SIZE) {
+                sendPartyError(ctx, "파티가 가득 찼습니다 (최대 " + MAX_PARTY_SIZE + "명).");
+                return;
+            }
+        }
+        // Target gate — they must not already be in a party.
+        String targetParty = redisManager.getPartyOf(target);
+        if (targetParty != null && !targetParty.isEmpty()) {
+            sendPartyError(ctx, target + " 님은 이미 다른 파티에 있습니다.");
+            return;
+        }
+        PlayerSession targetSession = worldManager.getSessionByPlayerId(target);
+        if (targetSession == null) {
+            sendPartyError(ctx, target + " 님은 접속 중이 아닙니다.");
+            return;
+        }
+
+        // Materialise a partyId now so the accept side knows which party to
+        // join. If we already lead one, reuse it; otherwise mint a new id
+        // *but don't actually create the party until accept* — that keeps
+        // stale invites from leaving orphaned empty parties in Redis.
+        String partyId = (myParty != null && !myParty.isEmpty())
+            ? myParty
+            : "p_" + java.util.UUID.randomUUID().toString().substring(0, 12);
+
+        redisManager.addPartyInvite(target, self, partyId);
+        pushNotification(targetSession.getChannel(), PacketType.PARTY_INVITE_FROM,
+            new PartyInviteFromPayload(self));
+    }
+
+    private void handlePartyAccept(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession session = worldManager.getSession(ctx.channel());
+        if (session == null) return;
+        String self = session.getPlayerId();
+        JsonNode node = mapper.readTree(packet.getPayload());
+        String inviter = node.has("from") ? node.get("from").asText().trim() : "";
+        if (inviter.isEmpty()) { sendPartyError(ctx, "잘못된 초대입니다."); return; }
+        if (!redisManager.hasPartyInvite(self, inviter)) {
+            sendPartyError(ctx, "유효한 초대가 없습니다 (만료되었을 수 있음).");
+            return;
+        }
+        String partyId = redisManager.getInvitedPartyId(self, inviter);
+        redisManager.removePartyInvite(self, inviter);
+        if (partyId == null || partyId.isEmpty()) {
+            sendPartyError(ctx, "초대가 만료되었습니다.");
+            return;
+        }
+        if (redisManager.getPartyOf(self) != null) {
+            sendPartyError(ctx, "이미 파티에 속해 있습니다.");
+            return;
+        }
+
+        // Lazy materialisation — the inviter may not have been in a party
+        // when they sent the invite. Add them now and mark as leader.
+        if (redisManager.partyMemberCount(partyId) == 0) {
+            redisManager.addPartyMember(partyId, inviter);
+            redisManager.setPartyLeader(partyId, inviter);
+            redisManager.setPartyOf(inviter, partyId);
+        }
+        if (redisManager.partyMemberCount(partyId) >= MAX_PARTY_SIZE) {
+            sendPartyError(ctx, "파티가 가득 찼습니다.");
+            return;
+        }
+        redisManager.addPartyMember(partyId, self);
+        redisManager.setPartyOf(self, partyId);
+        broadcastPartyUpdate(partyId);
+    }
+
+    private void handlePartyReject(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession session = worldManager.getSession(ctx.channel());
+        if (session == null) return;
+        String self = session.getPlayerId();
+        JsonNode node = mapper.readTree(packet.getPayload());
+        String inviter = node.has("from") ? node.get("from").asText().trim() : "";
+        if (inviter.isEmpty()) return;
+        redisManager.removePartyInvite(self, inviter);
+        // Quiet rejection — no notification back to the inviter on purpose.
+    }
+
+    private void handlePartyLeave(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession session = worldManager.getSession(ctx.channel());
+        if (session == null) return;
+        removeFromParty(session.getPlayerId());
+    }
+
+    private void handlePartyKick(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession session = worldManager.getSession(ctx.channel());
+        if (session == null) return;
+        String self = session.getPlayerId();
+        JsonNode node = mapper.readTree(packet.getPayload());
+        String target = node.has("target") ? node.get("target").asText().trim() : "";
+        if (target.isEmpty() || target.equals(self)) {
+            sendPartyError(ctx, "잘못된 대상입니다.");
+            return;
+        }
+        String partyId = redisManager.getPartyOf(self);
+        if (partyId == null || partyId.isEmpty()) {
+            sendPartyError(ctx, "파티에 속해 있지 않습니다.");
+            return;
+        }
+        String leader = redisManager.getPartyLeader(partyId);
+        if (leader == null || !leader.equals(self)) {
+            sendPartyError(ctx, "파티장만 강퇴할 수 있습니다.");
+            return;
+        }
+        String targetParty = redisManager.getPartyOf(target);
+        if (targetParty == null || !targetParty.equals(partyId)) {
+            sendPartyError(ctx, "같은 파티가 아닙니다.");
+            return;
+        }
+        removeFromParty(target);
+    }
+
+    private void handlePartyRequest(ChannelHandlerContext ctx, GamePacket packet) {
+        PlayerSession session = worldManager.getSession(ctx.channel());
+        if (session == null) return;
+        sendPartyState(ctx.channel(), session.getPlayerId());
+    }
+
+    /// Public so channelInactive can call it on disconnect — same semantics
+    /// as a voluntary leave, but no error toast on failure (the user is
+    /// gone). Promotes a new leader if the leaving member was leader, and
+    /// dissolves the party entirely when only one member would remain.
+    public void removeFromParty(String username) {
+        String partyId = redisManager.getPartyOf(username);
+        if (partyId == null || partyId.isEmpty()) return;
+        redisManager.removePartyMember(partyId, username);
+        redisManager.clearPartyOf(username);
+
+        long remaining = redisManager.partyMemberCount(partyId);
+        if (remaining <= 1) {
+            // Solo party isn't a party — dissolve and free the lone member.
+            java.util.Set<String> rest = redisManager.getPartyMembers(partyId);
+            for (String r : rest) {
+                redisManager.clearPartyOf(r);
+                PlayerSession s = worldManager.getSessionByPlayerId(r);
+                if (s != null) sendPartyState(s.getChannel(), r);
+            }
+            redisManager.deleteParty(partyId);
+            // Push an empty-party update to the user who left, too.
+            PlayerSession leaver = worldManager.getSessionByPlayerId(username);
+            if (leaver != null) sendPartyState(leaver.getChannel(), username);
+            return;
+        }
+
+        // Promote next leader if the leaver was the leader.
+        String leader = redisManager.getPartyLeader(partyId);
+        if (leader == null || leader.equals(username)) {
+            String next = null;
+            for (String m : redisManager.getPartyMembers(partyId)) { next = m; break; }
+            if (next != null) redisManager.setPartyLeader(partyId, next);
+        }
+        broadcastPartyUpdate(partyId);
+        // The leaver gets a cleared view too.
+        PlayerSession leaver = worldManager.getSessionByPlayerId(username);
+        if (leaver != null) sendPartyState(leaver.getChannel(), username);
+    }
+
+    private void broadcastPartyUpdate(String partyId) {
+        java.util.Set<String> members = redisManager.getPartyMembers(partyId);
+        for (String m : members) {
+            PlayerSession s = worldManager.getSessionByPlayerId(m);
+            if (s != null) sendPartyState(s.getChannel(), m);
+        }
+    }
+
+    private void sendPartyState(io.netty.channel.Channel ch, String username) {
+        try {
+            String partyId = redisManager.getPartyOf(username);
+            String leader = (partyId != null && !partyId.isEmpty()) ? redisManager.getPartyLeader(partyId) : "";
+            java.util.Set<String> nameSet = (partyId != null && !partyId.isEmpty())
+                ? redisManager.getPartyMembers(partyId) : java.util.Collections.emptySet();
+
+            java.util.List<PartyMemberEntry> members = new java.util.ArrayList<>(nameSet.size());
+            for (String name : nameSet) {
+                PlayerSession s = worldManager.getSessionByPlayerId(name);
+                boolean online = s != null;
+                String zone = online ? s.getZoneId() : "";
+                int hp = 0, maxHp = 0, level = 1;
+                if (online) {
+                    hp = s.lastHp;
+                    maxHp = s.lastMaxHp;
+                    level = s.level;
+                }
+                members.add(new PartyMemberEntry(name, online, zone, hp, maxHp, level));
+            }
+            // Stable ordering: leader first, then alphabetical.
+            String capturedLeader = leader == null ? "" : leader;
+            members.sort((a, b) -> {
+                if (a.name.equals(capturedLeader)) return -1;
+                if (b.name.equals(capturedLeader)) return 1;
+                return a.name.compareToIgnoreCase(b.name);
+            });
+
+            String json = mapper.writeValueAsString(new PartyUpdatePayload(
+                partyId == null ? "" : partyId,
+                capturedLeader,
+                members));
+            ch.writeAndFlush(new GamePacket(PacketType.PARTY_UPDATE, json));
+        } catch (Exception e) {
+            log.warn("sendPartyState for {} failed: {}", username, e.getMessage());
+        }
+    }
+
+    private void sendPartyError(ChannelHandlerContext ctx, String msg) {
+        try {
+            String json = mapper.writeValueAsString(new PartyErrorPayload(msg));
+            ctx.writeAndFlush(new GamePacket(PacketType.PARTY_ERROR, json));
+        } catch (Exception ignored) { /* best effort */ }
+    }
+
+    private record PartyMemberEntry(String name, boolean online, String zone,
+                                     int hp, int maxHp, int level) {}
+    private record PartyUpdatePayload(String partyId, String leader,
+                                       java.util.List<PartyMemberEntry> members) {}
+    private record PartyInviteFromPayload(String from) {}
+    private record PartyErrorPayload(String message) {}
+
     private void handleFriendRemove(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
         PlayerSession session = worldManager.getSession(ctx.channel());
         if (session == null) return;
@@ -381,6 +636,17 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         JsonNode node = mapper.readTree(packet.getPayload());
         int hp = node.has("hp") ? node.get("hp").asInt() : 0;
         int maxHp = node.has("maxHp") ? node.get("maxHp").asInt() : 0;
+        // Snapshot for the party widget — same reporting rate (~3 Hz) the
+        // visible HP bars already use, so no extra network cost.
+        session.lastHp = hp;
+        session.lastMaxHp = maxHp;
+        // Trigger a party update when HP or level changes substantially — the
+        // widget pulls from these fields next refresh. Throttled implicitly
+        // by the status-update rate limit on the client.
+        String myParty = redisManager.getPartyOf(session.getPlayerId());
+        if (myParty != null && !myParty.isEmpty()) {
+            broadcastPartyUpdate(myParty);
+        }
 
         // Combat stats — used later to cap damage. Clamp to sane ranges so a forged
         // STATUS_UPDATE can't enable arbitrary damage either.
@@ -1002,6 +1268,11 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
     public void channelInactive(ChannelHandlerContext ctx) {
         PlayerSession session = worldManager.removePlayer(ctx.channel());
         if (session != null) {
+            // Pull them out of any active party first so the remaining
+            // members get an updated roster with the leaver removed. Same
+            // shape as a voluntary /leave.
+            try { removeFromParty(session.getPlayerId()); }
+            catch (Exception e) { log.warn("party cleanup for {} failed: {}", session.getPlayerId(), e.getMessage()); }
             redisManager.setPlayerOffline(session.getPlayerId());
             String despawnData = "{\"playerId\":\"" + session.getPlayerId() + "\"}";
             worldManager.broadcastAll(new GamePacket(PacketType.DESPAWN_PLAYER, despawnData), session.getPlayerId());

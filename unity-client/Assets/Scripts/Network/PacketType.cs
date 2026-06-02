@@ -25,6 +25,12 @@ namespace Astrion.Network
         FriendReject = 0x15,
         FriendCancel = 0x16,
         Whisper = 0x17,
+        PartyInvite = 0x18,
+        PartyAccept = 0x19,
+        PartyReject = 0x1A,
+        PartyLeave = 0x1B,
+        PartyKick = 0x1C,
+        PartyRequest = 0x1D,
 
         // Server -> Client
         LoginResult = 0x81,
@@ -54,5 +60,8 @@ namespace Astrion.Network
         FriendAddedBy = 0xA2,
         FriendRequestFrom = 0xA3,
         WhisperResult = 0xA4,
+        PartyUpdate = 0xA5,
+        PartyInviteFrom = 0xA6,
+        PartyError = 0xA7,
     }
 }

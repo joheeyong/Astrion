@@ -51,6 +51,7 @@ public class GameServerMain {
         RedisManager redisManager = new RedisManager(REDIS_HOST, REDIS_PORT);
         WorldManager worldManager = new WorldManager();
         MonsterManager monsterManager = new MonsterManager(worldManager);
+        monsterManager.setRedisManager(redisManager); // enables party EXP share
 
         // TLS: load cert + key from env-overridable paths. The key is a
         // PKCS#8 PEM ('BEGIN PRIVATE KEY'); convert legacy 'BEGIN RSA

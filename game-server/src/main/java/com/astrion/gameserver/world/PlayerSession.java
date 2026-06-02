@@ -32,6 +32,11 @@ public class PlayerSession {
     public int weaponDmg = 0;
     public int starboltLv = 1;
 
+    // Last-known HP / maxHP from STATUS_UPDATE — used by party widget so the
+    // bar moves without having to subscribe each member to a new packet.
+    public int lastHp = 0;
+    public int lastMaxHp = 0;
+
     // Visual sync — reported via STATUS_UPDATE / ZONE_ENTER, broadcast to other players
     public String className = "";
     public String equippedWeaponId = "";

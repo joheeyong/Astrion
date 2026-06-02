@@ -200,6 +200,18 @@ namespace Astrion.UI
                         GameHUD.Instance?.FocusChatWith($"/w {capture} ");
                     });
                 }
+                // ＋ party invite: send PARTY_INVITE for this friend's name.
+                // Server validates (already in party, target offline, etc.)
+                // and reports back through PartyError if anything goes wrong.
+                var inviteBtn = go.transform.Find("PartyInviteB")?.GetComponent<Button>();
+                if (inviteBtn)
+                {
+                    inviteBtn.onClick.RemoveAllListeners();
+                    inviteBtn.onClick.AddListener(() => {
+                        Astrion.Game.PartySystem.Instance?.Invite(capture);
+                        ShowStatus($"{capture} 님에게 파티 초대를 보냈습니다.");
+                    });
+                }
 
                 _liveRows.Add(go);
             }

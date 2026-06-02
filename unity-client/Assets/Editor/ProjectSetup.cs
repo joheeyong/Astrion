@@ -211,6 +211,11 @@ public partial class ProjectSetup
         // and packet plumbing for FRIEND_* messages. UI lives on each
         // game scene's HUD; system is built once here.
         networkGo.AddComponent<Astrion.Game.FriendSystem>();
+        // PartySystem — DDOL singleton for PARTY_* packets + roster cache.
+        // PartyWidget renders the visible top-left roster and the invite
+        // modal. Both survive every scene reload.
+        networkGo.AddComponent<Astrion.Game.PartySystem>();
+        networkGo.AddComponent<Astrion.UI.PartyWidget>();
 
         // PlayerStateManager (persists across scenes via DontDestroyOnLoad)
         var stateGo = new GameObject("PlayerStateManager");
@@ -5086,9 +5091,29 @@ public partial class ProjectSetup
         fpRowZoneT.color = new Color(0.78f, 0.55f, 0.24f);
         fpRowZoneT.alignment = TextAnchor.MiddleRight;
         fpRowZoneT.text = "";
-        // Zone column needs to clear both action buttons on its right edge,
-        // so its right offset moves from -48 to -82 to make room.
-        fpRowZone.offsetMax = new Vector2(-82, 0);
+        // Zone column right offset shifts to clear THREE action buttons now
+        // (party-invite +, whisper ✎, remove ✕). Each button is 28w + 6 gap.
+        fpRowZone.offsetMax = new Vector2(-116, 0);
+
+        // Party invite button (＋) — left of the whisper shortcut. Wired in
+        // FriendsUI.Rebuild to send PARTY_INVITE for that row's friend.
+        var fpRowInvite = HUD_CreateRT("PartyInviteB", fpRowTemplate);
+        fpRowInvite.anchorMin = new Vector2(1, 0.5f); fpRowInvite.anchorMax = new Vector2(1, 0.5f);
+        fpRowInvite.pivot = new Vector2(1, 0.5f);
+        fpRowInvite.anchoredPosition = new Vector2(-74, 0);
+        fpRowInvite.sizeDelta = new Vector2(28, 22);
+        var fpRowInviteImg = fpRowInvite.gameObject.AddComponent<Image>();
+        fpRowInviteImg.sprite = TexToSprite(MakeRoundRectTex(48, 36, 4, new Color(0.22f, 0.40f, 0.55f, 0.92f)));
+        fpRowInviteImg.type = Image.Type.Sliced;
+        var fpRowInviteBtn = fpRowInvite.gameObject.AddComponent<Button>();
+        var fpRowInviteLbl = HUD_CreateRT("L", fpRowInvite);
+        fpRowInviteLbl.anchorMin = Vector2.zero; fpRowInviteLbl.anchorMax = Vector2.one;
+        fpRowInviteLbl.offsetMin = fpRowInviteLbl.offsetMax = Vector2.zero;
+        var fpRowInviteTxt = fpRowInviteLbl.gameObject.AddComponent<Text>();
+        fpRowInviteTxt.font = font; fpRowInviteTxt.fontSize = 15; fpRowInviteTxt.fontStyle = FontStyle.Bold;
+        fpRowInviteTxt.alignment = TextAnchor.MiddleCenter;
+        fpRowInviteTxt.color = new Color(0.96f, 0.90f, 0.80f);
+        fpRowInviteTxt.text = "＋";
 
         // Whisper shortcut button (✎) — left of the remove button. Clicking
         // it pre-fills the chat input with '/w <name> '. Wired in FriendsUI.

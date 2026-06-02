@@ -165,6 +165,64 @@ public class RedisManager {
         return commands.sismember("friend_req_out:" + user, to);
     }
 
+    // Party storage. A party has a stable id (UUID-ish, generated on first
+    // accept) and a member set; each member also stores their partyId
+    // back-pointer so 'what party am I in?' is one read. The leader is
+    // tracked separately so promotion on leader-leave is a single SREM
+    // + SET pair. Invites are kept per-recipient with a 60s TTL so stale
+    // ones don't linger forever if the inviter disappears.
+    private static final long PARTY_INVITE_TTL_SEC = 60L;
+
+    public String getPartyOf(String username) {
+        return commands.get("party_of:" + username);
+    }
+    public void setPartyOf(String username, String partyId) {
+        commands.set("party_of:" + username, partyId);
+    }
+    public void clearPartyOf(String username) {
+        commands.del("party_of:" + username);
+    }
+    public java.util.Set<String> getPartyMembers(String partyId) {
+        return commands.smembers("party_members:" + partyId);
+    }
+    public long partyMemberCount(String partyId) {
+        return commands.scard("party_members:" + partyId);
+    }
+    public void addPartyMember(String partyId, String username) {
+        commands.sadd("party_members:" + partyId, username);
+    }
+    public void removePartyMember(String partyId, String username) {
+        commands.srem("party_members:" + partyId, username);
+    }
+    public String getPartyLeader(String partyId) {
+        return commands.get("party_leader:" + partyId);
+    }
+    public void setPartyLeader(String partyId, String username) {
+        commands.set("party_leader:" + partyId, username);
+    }
+    public void deleteParty(String partyId) {
+        commands.del("party_members:" + partyId);
+        commands.del("party_leader:" + partyId);
+    }
+    // Invites: party_inv:{recipient} → set of inviter usernames. We also
+    // store the partyId alongside via party_inv_to:{recipient}:{inviter}
+    // so an accept knows which party to drop into.
+    public void addPartyInvite(String recipient, String inviter, String partyId) {
+        commands.sadd("party_inv:" + recipient, inviter);
+        commands.setex("party_inv_to:" + recipient + ":" + inviter, PARTY_INVITE_TTL_SEC, partyId);
+        commands.expire("party_inv:" + recipient, PARTY_INVITE_TTL_SEC);
+    }
+    public boolean hasPartyInvite(String recipient, String inviter) {
+        return commands.sismember("party_inv:" + recipient, inviter);
+    }
+    public String getInvitedPartyId(String recipient, String inviter) {
+        return commands.get("party_inv_to:" + recipient + ":" + inviter);
+    }
+    public void removePartyInvite(String recipient, String inviter) {
+        commands.srem("party_inv:" + recipient, inviter);
+        commands.del("party_inv_to:" + recipient + ":" + inviter);
+    }
+
     // Low-level passthroughs. Used by AccountLockout (and any future feature
     // that needs counters / TTL keys outside the dedicated DTO accessors above).
     public long incr(String key)                       { return commands.incr(key); }
