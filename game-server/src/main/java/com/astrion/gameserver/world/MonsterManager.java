@@ -45,11 +45,13 @@ public class MonsterManager {
 
     private final WorldManager worldManager;
     private com.astrion.gameserver.redis.RedisManager redisManager; // injected post-construction
+    private AchievementManager achievements; // injected post-construction
     private final ObjectMapper mapper = new ObjectMapper();
 
     /** Optional redis handle — when present, monster kills check the killer's
      *  party and share EXP/gold with same-zone party members at SHARE_RATE. */
     public void setRedisManager(com.astrion.gameserver.redis.RedisManager r) { this.redisManager = r; }
+    public void setAchievementManager(AchievementManager a) { this.achievements = a; }
     private static final float PARTY_EXP_SHARE = 0.50f; // each non-killer party member in same zone
     private final ConcurrentHashMap<String, Monster> monsters = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ItemDrop> activeDrops = new ConcurrentHashMap<>();
@@ -472,7 +474,10 @@ public class MonsterManager {
             // Ranking: kill counter. Server-authoritative — the client
             // never reports kill count directly so it can't be forged.
             if (redisManager != null) {
-                try { redisManager.incrementRankingScore("kills", attacker.getPlayerId(), 1); }
+                try {
+                    long newKills = redisManager.incrementRankingScore("kills", attacker.getPlayerId(), 1);
+                    if (achievements != null) achievements.onKillsChanged(attacker.getPlayerId(), newKills);
+                }
                 catch (Exception ignored) { /* never break combat on ranking write */ }
             }
             // Roll for an item drop (zone-wide, first-claim wins)

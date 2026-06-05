@@ -43,6 +43,7 @@ public enum PacketType {
     BLOCK_ADD(0x28),        // C2S: {target}
     BLOCK_REMOVE(0x29),     // C2S: {target}
     BLOCK_LIST_REQUEST(0x2A), // C2S: {} — pull my current block list
+    ACHIEVEMENT_LIST_REQUEST(0x2B), // C2S: {} — pull every unlocked id
 
     // Server -> Client
     LOGIN_RESULT(0x81),
@@ -81,7 +82,9 @@ public enum PacketType {
     TRADE_STATE(0xAB),         // full bilateral state snapshot
     TRADE_RESULT(0xAC),        // {success, message, gainedItems:[{id,qty}], gainedGold}
     TRADE_ERROR(0xAD),         // {message}
-    BLOCK_LIST_DATA(0xAE);     // {blocked:[name,...]}
+    BLOCK_LIST_DATA(0xAE),     // {blocked:[name,...]}
+    ACHIEVEMENT_UNLOCK(0xAF),  // {id, displayName, rewardItemId, rewardQty}
+    ACHIEVEMENT_LIST_DATA(0xB0); // {unlocked:[id,...], progress:{kind:value,...}}
 
     private final int code;
 

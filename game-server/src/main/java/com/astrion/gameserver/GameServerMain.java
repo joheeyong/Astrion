@@ -54,6 +54,10 @@ public class GameServerMain {
         monsterManager.setRedisManager(redisManager); // enables party EXP share
         com.astrion.gameserver.world.TradeManager tradeManager =
             new com.astrion.gameserver.world.TradeManager(worldManager, redisManager);
+        com.astrion.gameserver.world.AchievementManager achievements =
+            new com.astrion.gameserver.world.AchievementManager(worldManager, redisManager);
+        monsterManager.setAchievementManager(achievements);
+        tradeManager.setAchievementManager(achievements);
 
         // TLS: load cert + key from env-overridable paths. The key is a
         // PKCS#8 PEM ('BEGIN PRIVATE KEY'); convert legacy 'BEGIN RSA
@@ -86,7 +90,7 @@ public class GameServerMain {
             ServerBootstrap bootstrap = new ServerBootstrap();
             bootstrap.group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
-                    .childHandler(new GameServerInitializer(worldManager, redisManager, monsterManager, tradeManager, gameSslCtx, connRateGate))
+                    .childHandler(new GameServerInitializer(worldManager, redisManager, monsterManager, tradeManager, achievements, gameSslCtx, connRateGate))
                     .option(ChannelOption.SO_BACKLOG, 128)
                     .childOption(ChannelOption.SO_KEEPALIVE, true)
                     .childOption(ChannelOption.TCP_NODELAY, true);

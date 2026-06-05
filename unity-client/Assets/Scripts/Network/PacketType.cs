@@ -44,6 +44,7 @@ namespace Astrion.Network
         BlockAdd = 0x28,
         BlockRemove = 0x29,
         BlockListRequest = 0x2A,
+        AchievementListRequest = 0x2B,
 
         // Server -> Client
         LoginResult = 0x81,
@@ -83,5 +84,7 @@ namespace Astrion.Network
         TradeResult = 0xAC,
         TradeError = 0xAD,
         BlockListData = 0xAE,
+        AchievementUnlock = 0xAF,
+        AchievementListData = 0xB0,
     }
 }

@@ -22,18 +22,21 @@ public class GameServerInitializer extends ChannelInitializer<SocketChannel> {
     private final RedisManager redisManager;
     private final MonsterManager monsterManager;
     private final com.astrion.gameserver.world.TradeManager tradeManager;
+    private final com.astrion.gameserver.world.AchievementManager achievements;
     private final SslContext sslCtx; // null when TLS is disabled
     private final ConnectionRateLimitHandler connectionRateLimit;
 
     public GameServerInitializer(WorldManager worldManager, RedisManager redisManager,
                                  MonsterManager monsterManager,
                                  com.astrion.gameserver.world.TradeManager tradeManager,
+                                 com.astrion.gameserver.world.AchievementManager achievements,
                                  SslContext sslCtx,
                                  ConnectionRateLimitHandler connectionRateLimit) {
         this.worldManager = worldManager;
         this.redisManager = redisManager;
         this.monsterManager = monsterManager;
         this.tradeManager = tradeManager;
+        this.achievements = achievements;
         this.sslCtx = sslCtx;
         this.connectionRateLimit = connectionRateLimit;
     }
@@ -62,6 +65,6 @@ public class GameServerInitializer extends ChannelInitializer<SocketChannel> {
         pipeline.addLast(new PacketEncoder());
 
         // Game logic handler
-        pipeline.addLast(new GamePacketHandler(worldManager, redisManager, monsterManager, tradeManager));
+        pipeline.addLast(new GamePacketHandler(worldManager, redisManager, monsterManager, tradeManager, achievements));
     }
 }

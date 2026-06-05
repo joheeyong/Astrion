@@ -62,6 +62,7 @@ public class TradeManager {
 
     private final WorldManager world;
     private final RedisManager redis;
+    private AchievementManager achievements; // injected post-construction
     private final Map<String, Session> sessionsByUser = new ConcurrentHashMap<>();
     // Pending request invites: target → inviter. Only the latest is kept;
     // a fresh invite overrides any prior one. Cleared on accept/reject/timeout.
@@ -71,6 +72,7 @@ public class TradeManager {
         this.world = world;
         this.redis = redis;
     }
+    public void setAchievementManager(AchievementManager a) { this.achievements = a; }
 
     public void requestTrade(String inviter, String target) {
         if (target == null || target.isEmpty() || target.equals(inviter)) {
@@ -225,6 +227,10 @@ public class TradeManager {
             redis.savePlayerState(s.b, mapper.writeValueAsString(bNode));
 
             notifyResult(s, true, "거래 성공", bGiving, aGiving, s.bGold, s.aGold);
+            if (achievements != null) {
+                achievements.onTradeCompleted(s.a);
+                achievements.onTradeCompleted(s.b);
+            }
             sessionsByUser.remove(s.a);
             sessionsByUser.remove(s.b);
             log.info("Trade {} <-> {} executed: {} items / {} gold each way",

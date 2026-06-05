@@ -48,14 +48,17 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
     private final MonsterManager monsterManager;
     private final AccountLockout accountLockout;
     private final com.astrion.gameserver.world.TradeManager tradeManager;
+    private final com.astrion.gameserver.world.AchievementManager achievements;
 
     public GamePacketHandler(WorldManager worldManager, RedisManager redisManager,
                               MonsterManager monsterManager,
-                              com.astrion.gameserver.world.TradeManager tradeManager) {
+                              com.astrion.gameserver.world.TradeManager tradeManager,
+                              com.astrion.gameserver.world.AchievementManager achievements) {
         this.worldManager = worldManager;
         this.redisManager = redisManager;
         this.monsterManager = monsterManager;
         this.tradeManager = tradeManager;
+        this.achievements = achievements;
         // AccountLockout is stateless apart from the redis handle, so one
         // per handler instance is fine — Lettuce's RedisCommands inside
         // RedisManager is what carries the actual state.
@@ -106,6 +109,7 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             case BLOCK_ADD     -> handleBlockAdd(ctx, packet);
             case BLOCK_REMOVE  -> handleBlockRemove(ctx, packet);
             case BLOCK_LIST_REQUEST -> handleBlockListRequest(ctx, packet);
+            case ACHIEVEMENT_LIST_REQUEST -> handleAchievementListRequest(ctx, packet);
             default -> log.warn("Unhandled packet type: {}", packet.getType());
         }
     }
@@ -257,6 +261,9 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         redisManager.removeFriendRequest(a, b);
         redisManager.removeFriendRequest(b, a);
         redisManager.addFriendBoth(a, b);
+        // Achievement check on both sides — friend count just bumped.
+        achievements.onFriendCount(a, redisManager.friendCount(a));
+        achievements.onFriendCount(b, redisManager.friendCount(b));
     }
 
     private void pushNotification(io.netty.channel.Channel ch, PacketType type, Object payload) {
@@ -312,6 +319,7 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         String echo = mapper.writeValueAsString(
             new WhisperResultPayload(sender.getPlayerId(), target, message, "echo", null));
         ctx.writeAndFlush(new GamePacket(PacketType.WHISPER_RESULT, echo));
+        achievements.onWhisperSent(sender.getPlayerId());
     }
 
     private void sendWhisperError(ChannelHandlerContext ctx, String reason) {
@@ -425,6 +433,8 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         redisManager.addPartyMember(partyId, self);
         redisManager.setPartyOf(self, partyId);
         broadcastPartyUpdate(partyId);
+        achievements.onPartyJoined(self);
+        achievements.onPartyJoined(inviter);
     }
 
     private void handlePartyReject(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
@@ -638,6 +648,16 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
         } catch (Exception ignored) { /* best effort */ }
     }
 
+    /// Only the 5 hub cities count toward the 'world traveller' achievement.
+    /// Field zones (outskirts/plains/etc) are explicitly excluded so the
+    /// counter tracks 'have you been to all hubs', not 'have you stepped
+    /// foot in every map'.
+    private static boolean isCityZone(String z) {
+        if (z == null) return false;
+        return z.equals("solaria") || z.equals("pyresummit") || z.equals("verdaglen")
+            || z.equals("nightport") || z.equals("tidehaven");
+    }
+
     private record FriendEntry(String name, boolean online, String zone) {}
     private record FriendListPayload(java.util.List<FriendEntry> friends,
                                      java.util.List<String> incoming,
@@ -741,6 +761,28 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
     }
 
     private record BlockListPayload(java.util.List<String> blocked) {}
+
+    private void handleAchievementListRequest(ChannelHandlerContext ctx, GamePacket packet) {
+        PlayerSession s = worldManager.getSession(ctx.channel()); if (s == null) return;
+        String user = s.getPlayerId();
+        long kills = 0;
+        try { Double sc = redisManager.getRankingScore("kills", user); if (sc != null) kills = sc.longValue(); }
+        catch (Exception ignored) {}
+        long level = s.level;
+        long gold = 0;
+        long friends = redisManager.friendCount(user);
+        try {
+            // Best-effort gold pull from saved state so the bar matches what
+            // the player saw at last STATE_SAVE.
+            String json = redisManager.getPlayerState(user);
+            if (json != null) {
+                JsonNode n = mapper.readTree(json);
+                if (n.has("gold")) gold = n.get("gold").asLong();
+                if (n.has("level") && level <= 0) level = n.get("level").asLong();
+            }
+        } catch (Exception ignored) {}
+        achievements.sendList(ctx.channel(), user, kills, level, gold, friends);
+    }
 
     // ── Trade dispatch (logic in TradeManager) ────────────────────────────
     private void handleTradeRequest(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
@@ -917,6 +959,8 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             // Route through WorldManager so the zone-keyed broadcast index
             // stays in sync — calling session.setZoneId directly would skip it.
             worldManager.setZoneId(session, newZone);
+            // Achievement: city visit counter. Only the 5 hub cities count.
+            if (isCityZone(newZone)) achievements.onCityEntered(session.getPlayerId(), newZone);
             // Zone change is a legitimate "teleport" — skip the next move validation
             session.lastMoveAt = 0L;
             // Announce this player to the new zone
@@ -1035,10 +1079,12 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             if (node.has("level")) {
                 long lv = Math.max(1L, node.get("level").asLong());
                 redisManager.updateRankingScore("level", user, lv);
+                achievements.onLevelChanged(user, lv);
             }
             if (node.has("gold")) {
                 long g = Math.max(0L, node.get("gold").asLong());
                 redisManager.updateRankingScore("gold", user, g);
+                achievements.onGoldChanged(user, g);
             }
         } catch (Exception ignored) { /* never fail save on ranking write */ }
 

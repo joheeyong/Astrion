@@ -223,6 +223,27 @@ public class RedisManager {
         commands.del("party_inv_to:" + recipient + ":" + inviter);
     }
 
+    // ──── Achievements ──────────────────────────────────────────────────
+    // ach:{user}       → SET<id> of unlocked achievement ids
+    // ach_zones:{user} → SET<zoneId> of city zones the user has entered
+    //                    (only cities counted; field zones are ignored)
+    public boolean unlockAchievement(String user, String id) {
+        return commands.sadd("ach:" + user, id) == 1L;
+    }
+    public boolean isAchievementUnlocked(String user, String id) {
+        return commands.sismember("ach:" + user, id);
+    }
+    public java.util.Set<String> getUnlockedAchievements(String user) {
+        return commands.smembers("ach:" + user);
+    }
+    /// True iff this was a first-time visit (added to the set).
+    public boolean recordCityVisit(String user, String zoneId) {
+        return commands.sadd("ach_zones:" + user, zoneId) == 1L;
+    }
+    public long cityVisitCount(String user) {
+        return commands.scard("ach_zones:" + user);
+    }
+
     // ──── Blocklist (per-user set) ───────────────────────────────────────
     // blocks:{user} → set of usernames the user has muted/blocked. Block is
     // one-directional: 'A blocks B' means B can't whisper/party/trade A,

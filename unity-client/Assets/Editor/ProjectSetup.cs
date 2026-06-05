@@ -229,6 +229,10 @@ public partial class ProjectSetup
         // consult the block lists transparently.
         networkGo.AddComponent<Astrion.Game.BlockSystem>();
         networkGo.AddComponent<Astrion.UI.BlockListUI>();
+        // AchievementSystem + AchievementUI — trophy panel + unlock toast.
+        // T key toggles UI. Server hooks at every social/combat event.
+        networkGo.AddComponent<Astrion.Game.AchievementSystem>();
+        networkGo.AddComponent<Astrion.UI.AchievementUI>();
 
         // PlayerStateManager (persists across scenes via DontDestroyOnLoad)
         var stateGo = new GameObject("PlayerStateManager");
