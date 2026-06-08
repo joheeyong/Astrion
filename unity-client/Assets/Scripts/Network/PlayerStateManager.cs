@@ -297,6 +297,30 @@ namespace Astrion.Network
             Save();
         }
 
+        public void UpdateEnhance(System.Collections.Generic.Dictionary<string, int> levels)
+        {
+            if (levels == null || levels.Count == 0)
+            {
+                State.enhanceItemIds = new string[0];
+                State.enhanceLevels  = new int[0];
+            }
+            else
+            {
+                var ids  = new string[levels.Count];
+                var lvls = new int[levels.Count];
+                int i = 0;
+                foreach (var kv in levels)
+                {
+                    ids[i] = kv.Key ?? "";
+                    lvls[i] = kv.Value;
+                    i++;
+                }
+                State.enhanceItemIds = ids;
+                State.enhanceLevels  = lvls;
+            }
+            Save();
+        }
+
         public void UpdateSkillPoints(int skillPoints)
         {
             State.skillPoints = skillPoints;

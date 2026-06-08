@@ -42,6 +42,13 @@ namespace Astrion.Network
         public int imbueHpLv = 0;
         public int imbueMpLv = 0;
         public int imbueCritLv = 0;
+        // Equipment enhancement — parallel arrays of itemId → level. The
+        // level is tied to the (slot, itemId) pair via the Smith NPC, so
+        // swapping a weapon away and back preserves its +N. v1 only the
+        // weapon slot is actually enhanceable; the storage shape is generic
+        // so future patches can extend without a schema change.
+        public string[] enhanceItemIds = new string[0];
+        public int[]    enhanceLevels  = new int[0];
         public string saveId = ""; // populated only by SaveImportant; server strips before persisting
     }
 }

@@ -35,12 +35,14 @@ namespace Astrion.UI
             var def = ItemDatabase.Get(itemId);
             if (def == null || panel == null) { Hide(); return; }
 
-            // Title (rarity-colored)
+            // Title (rarity-colored) — weapons append +N when the player
+            // has enhanced the item via the Smith NPC.
             Color rcol = ItemDatabase.RarityColor(def.rarity);
             if (titleText)
             {
                 titleText.color = rcol;
-                titleText.text = def.displayName;
+                int enhLv = PlayerStats.Instance != null ? PlayerStats.Instance.GetEnhanceLv(itemId) : 0;
+                titleText.text = enhLv > 0 ? $"{def.displayName}  +{enhLv}" : def.displayName;
             }
             if (rarityText)
             {
@@ -51,7 +53,17 @@ namespace Astrion.UI
             if (bodyText)
             {
                 var sb = new StringBuilder();
-                if (def.baseDamage > 0) sb.Append("공격력  +").Append(def.baseDamage).Append('\n');
+                if (def.baseDamage > 0)
+                {
+                    int enhLv = PlayerStats.Instance != null ? PlayerStats.Instance.GetEnhanceLv(itemId) : 0;
+                    int bonus = enhLv * 3;
+                    if (bonus > 0)
+                        sb.Append("공격력  +").Append(def.baseDamage)
+                          .Append("  (+").Append(bonus).Append(" 강화) = ")
+                          .Append(def.baseDamage + bonus).Append('\n');
+                    else
+                        sb.Append("공격력  +").Append(def.baseDamage).Append('\n');
+                }
                 if (def.healAmount > 0) sb.Append("HP 회복  +").Append(def.healAmount).Append('\n');
                 if (def.manaAmount > 0) sb.Append("MP 회복  +").Append(def.manaAmount).Append('\n');
                 if (!string.IsNullOrEmpty(def.description))

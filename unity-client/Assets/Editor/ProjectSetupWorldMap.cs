@@ -12,7 +12,7 @@ using UnityEngine;
 /// See docs/WORLDMAP.md for the canonical layout this code targets.
 public partial class ProjectSetup
 {
-    private enum NpcKind { Innkeeper, Shopkeeper, Sage, Herald }
+    private enum NpcKind { Innkeeper, Shopkeeper, Sage, Herald, Smith }
 
     /// Spawn a single NPC at a city's flat ground. Reuses the player's
     /// procedural body/limbs (BuildPlayerVisual) tinted with a different
@@ -79,6 +79,14 @@ public partial class ProjectSetup
             {
                 var herald = go.AddComponent<Astrion.Game.HeraldNPC2D>();
                 var so = new SerializedObject(herald);
+                so.FindProperty("npcName").stringValue = displayName;
+                so.ApplyModifiedPropertiesWithoutUndo();
+                break;
+            }
+            case NpcKind.Smith:
+            {
+                var smith = go.AddComponent<Astrion.Game.SmithNPC2D>();
+                var so = new SerializedObject(smith);
                 so.FindProperty("npcName").stringValue = displayName;
                 so.ApplyModifiedPropertiesWithoutUndo();
                 break;
@@ -288,9 +296,9 @@ public partial class ProjectSetup
                 tunic: new Color(0.22f, 0.48f, 0.30f),   // green — shopkeeper
                 hair:  new Color(0.30f, 0.20f, 0.10f),
                 kind: NpcKind.Shopkeeper);
-            // Star Sage + Herald are Solaria-only — central hub gets both
-            // the imbue altar and the leaderboard. Other cities keep just
-            // the inn + shop pair.
+            // Star Sage + Herald + Smith are Solaria-only — central hub
+            // collects the imbue altar, leaderboard, and weapon enhancement.
+            // Other cities keep just the inn + shop pair.
             if (baseName == "Solaria")
             {
                 SpawnNpc(worldRoot.transform, new Vector2(-3f, -2.5f), "별빛 신관",
@@ -301,6 +309,10 @@ public partial class ProjectSetup
                     tunic: new Color(0.22f, 0.34f, 0.60f),   // sapphire — herald
                     hair:  new Color(0.50f, 0.42f, 0.30f),
                     kind: NpcKind.Herald);
+                SpawnNpc(worldRoot.transform, new Vector2(-15f, -2.5f), "무기 장인",
+                    tunic: new Color(0.55f, 0.30f, 0.18f),   // burnt copper — smith
+                    hair:  new Color(0.20f, 0.16f, 0.12f),
+                    kind: NpcKind.Smith);
             }
         }
         else

@@ -237,6 +237,9 @@ public partial class ProjectSetup
         // extends its reach. V key toggles visibility. Self-contained; no
         // server roundtrip yet (single starter pet for everyone).
         networkGo.AddComponent<Astrion.Game.PetSystem>();
+        // WeaponEnhanceUI — modal opened by the Smith NPC in Solaria.
+        // Uses PlayerStats.TryEnhanceWeapon for the actual roll.
+        networkGo.AddComponent<Astrion.UI.WeaponEnhanceUI>();
 
         // PlayerStateManager (persists across scenes via DontDestroyOnLoad)
         var stateGo = new GameObject("PlayerStateManager");

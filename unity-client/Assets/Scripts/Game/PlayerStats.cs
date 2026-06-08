@@ -35,6 +35,17 @@ namespace Astrion.Game
         public int ImbueMpLv   { get; private set; } = 0;  // +10 maxMp / tier (already folded into MaxMp)
         public int ImbueCritLv { get; private set; } = 0;  // +1% crit / tier
 
+        // Per-(itemId) enhancement level via Smith NPC. v1 only tracks
+        // weapons; other equipment ids stay 0. ComputeBoltDamage reads
+        // this for the equipped weapon.
+        private readonly System.Collections.Generic.Dictionary<string, int> _enhance = new();
+        public int GetEnhanceLv(string itemId)
+        {
+            if (string.IsNullOrEmpty(itemId)) return 0;
+            return _enhance.TryGetValue(itemId, out var v) ? v : 0;
+        }
+        public const int MAX_ENHANCE_LV = 5;
+
         public event Action OnChanged;
         public event Action OnDied;
         public event Action OnLeveledUp;
@@ -171,6 +182,17 @@ namespace Astrion.Game
             ImbueHpLv   = Mathf.Max(0, s.imbueHpLv);
             ImbueMpLv   = Mathf.Max(0, s.imbueMpLv);
             ImbueCritLv = Mathf.Max(0, s.imbueCritLv);
+            _enhance.Clear();
+            if (s.enhanceItemIds != null && s.enhanceLevels != null)
+            {
+                int n = Mathf.Min(s.enhanceItemIds.Length, s.enhanceLevels.Length);
+                for (int i = 0; i < n; i++)
+                {
+                    string id = s.enhanceItemIds[i];
+                    int lv = Mathf.Clamp(s.enhanceLevels[i], 0, MAX_ENHANCE_LV);
+                    if (!string.IsNullOrEmpty(id) && lv > 0) _enhance[id] = lv;
+                }
+            }
             OnChanged?.Invoke();
         }
 
@@ -236,7 +258,11 @@ namespace Astrion.Game
             int skillLv = SkillSystem.Instance != null ? SkillSystem.Instance.GetLevel("starbolt") : 1;
             if (skillLv < 1) skillLv = 1;
             float skillBonus = (skillLv - 1) * 5f;
-            float baseD = 5f + Intel * 2f + Level * 3f + weaponDmg + skillBonus + ImbueAtkLv;
+            // Weapon enhancement bonus — +3 atk per upgrade tier (max +5
+            // means +15 from a full enhance). Stacks with imbue and skill.
+            int weaponEnhanceLv = GetEnhanceLv(EquippedWeaponId);
+            float enhanceBonus = weaponEnhanceLv * 3f;
+            float baseD = 5f + Intel * 2f + Level * 3f + weaponDmg + skillBonus + ImbueAtkLv + enhanceBonus;
             float variance = baseD * 0.2f;
             int dmg = Mathf.Max(1, Mathf.RoundToInt(baseD + UnityEngine.Random.Range(-variance, variance)));
             isCritical = RollCritical();
@@ -250,6 +276,83 @@ namespace Astrion.Game
         {
             float chance = Luk * 0.005f + ImbueCritLv * 0.01f;
             return UnityEngine.Random.value < chance;
+        }
+
+        // ── Weapon enhancement (Smith NPC) ────────────────────────────────
+        /// Stardust cost per tier — flat 30 / 60 / 90 / 120 / 150.
+        public static int EnhanceCost(int currentLv) => 30 + currentLv * 30;
+        /// Probability of success at the current tier — getting easier to
+        /// fail as the +N climbs. Failure consumes stardust but doesn't
+        /// drop the existing level (no break risk in v1).
+        public static float EnhanceSuccessRate(int currentLv)
+        {
+            switch (currentLv)
+            {
+                case 0: return 1.00f;
+                case 1: return 0.95f;
+                case 2: return 0.80f;
+                case 3: return 0.60f;
+                case 4: return 0.40f;
+                default: return 0f;
+            }
+        }
+        /// Attempt to enhance the currently-equipped weapon. Returns true on
+        /// success. Always consumes stardust if the attempt fires (success
+        /// or not); refuses without cost when ineligible (no weapon, max
+        /// tier, etc.) and surfaces a toast.
+        public bool TryEnhanceWeapon()
+        {
+            if (string.IsNullOrEmpty(EquippedWeaponId))
+            {
+                Astrion.UI.ToastUI.Instance?.Show("무기를 장착하세요.",
+                    new Color(0.95f, 0.55f, 0.30f));
+                return false;
+            }
+            var def = ItemDatabase.Get(EquippedWeaponId);
+            if (def == null || def.baseDamage <= 0)
+            {
+                Astrion.UI.ToastUI.Instance?.Show("강화할 수 있는 무기가 아닙니다.",
+                    new Color(0.95f, 0.55f, 0.30f));
+                return false;
+            }
+            int curLv = GetEnhanceLv(EquippedWeaponId);
+            if (curLv >= MAX_ENHANCE_LV)
+            {
+                Astrion.UI.ToastUI.Instance?.Show($"이미 최대 강화 +{MAX_ENHANCE_LV} 입니다.",
+                    new Color(0.95f, 0.55f, 0.30f));
+                return false;
+            }
+            int cost = EnhanceCost(curLv);
+            var inv = InventorySystem.Instance;
+            if (inv == null) return false;
+            if (inv.CountOf("stardust") < cost)
+            {
+                Astrion.UI.ToastUI.Instance?.Show($"별 가루 {cost}개가 필요합니다.",
+                    new Color(0.95f, 0.55f, 0.30f));
+                return false;
+            }
+            if (!inv.ConsumeAmount("stardust", cost)) return false;
+
+            float rate = EnhanceSuccessRate(curLv);
+            bool ok = UnityEngine.Random.value < rate;
+            if (ok)
+            {
+                _enhance[EquippedWeaponId] = curLv + 1;
+                SaveAttributes();
+                OnChanged?.Invoke();
+                Astrion.UI.ToastUI.Instance?.Show(
+                    $"★ 강화 성공  ·  {def.displayName}  +{curLv + 1}",
+                    new Color(0.95f, 0.82f, 0.35f));
+                return true;
+            }
+            else
+            {
+                SaveAttributes();
+                Astrion.UI.ToastUI.Instance?.Show(
+                    $"강화 실패  ·  {def.displayName}  +{curLv} (유지)",
+                    new Color(0.85f, 0.45f, 0.30f));
+                return false;
+            }
         }
 
         /// Per-kind cap helpers — used by AstralImbueUI to disable buttons
@@ -348,6 +451,7 @@ namespace Astrion.Game
             psm.UpdateGold(Gold);
             psm.UpdateEquipment(EquippedWeaponId, EquippedHelmetId, EquippedArmorId, EquippedRingId);
             psm.UpdateImbue(ImbueAtkLv, ImbueHpLv, ImbueMpLv, ImbueCritLv);
+            psm.UpdateEnhance(_enhance);
         }
 
         private void Update()
