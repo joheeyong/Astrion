@@ -50,18 +50,21 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
     private final com.astrion.gameserver.world.TradeManager tradeManager;
     private final com.astrion.gameserver.world.AchievementManager achievements;
     private final com.astrion.gameserver.world.AuctionManager auctions;
+    private final com.astrion.gameserver.world.PlayerStateLocks playerLocks;
 
     public GamePacketHandler(WorldManager worldManager, RedisManager redisManager,
                               MonsterManager monsterManager,
                               com.astrion.gameserver.world.TradeManager tradeManager,
                               com.astrion.gameserver.world.AchievementManager achievements,
-                              com.astrion.gameserver.world.AuctionManager auctions) {
+                              com.astrion.gameserver.world.AuctionManager auctions,
+                              com.astrion.gameserver.world.PlayerStateLocks playerLocks) {
         this.worldManager = worldManager;
         this.redisManager = redisManager;
         this.monsterManager = monsterManager;
         this.tradeManager = tradeManager;
         this.achievements = achievements;
         this.auctions = auctions;
+        this.playerLocks = playerLocks;
         // AccountLockout is stateless apart from the redis handle, so one
         // per handler instance is fine — Lettuce's RedisCommands inside
         // RedisManager is what carries the actual state.
@@ -1057,6 +1060,16 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
     private void handleStateSave(ChannelHandlerContext ctx, GamePacket packet) {
         PlayerSession session = worldManager.getSession(ctx.channel());
         if (session == null) return;
+        // Per-player lock — STATE_SAVE writes the same Redis JSON that
+        // trade/auction/achievement mutate. Without serialization a client
+        // save can clobber a just-applied server modification. Reentrant,
+        // so the inner ranking/achievement hooks that re-enter the lock
+        // are cheap.
+        playerLocks.withLock(session.getPlayerId(),
+            () -> handleStateSaveLocked(ctx, packet, session));
+    }
+
+    private void handleStateSaveLocked(ChannelHandlerContext ctx, GamePacket packet, PlayerSession session) {
         String json = packet.getPayload();
         String saveId = null;
         JsonNode node;

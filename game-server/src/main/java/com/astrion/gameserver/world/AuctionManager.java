@@ -45,11 +45,13 @@ public class AuctionManager {
 
     private final WorldManager world;
     private final RedisManager redis;
+    private final PlayerStateLocks locks;
     private final ScheduledExecutorService sweeper;
 
-    public AuctionManager(WorldManager world, RedisManager redis) {
+    public AuctionManager(WorldManager world, RedisManager redis, PlayerStateLocks locks) {
         this.world = world;
         this.redis = redis;
+        this.locks = locks;
         this.sweeper = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "auction-sweep");
             t.setDaemon(true);
@@ -66,6 +68,10 @@ public class AuctionManager {
     // ──────────────────────── REGISTER ────────────────────────
 
     public void register(String seller, String itemId, int qty, long price, long durationHours) {
+        locks.withLock(seller, () -> registerLocked(seller, itemId, qty, price, durationHours));
+    }
+
+    private void registerLocked(String seller, String itemId, int qty, long price, long durationHours) {
         if (itemId == null || itemId.isEmpty()) { error(seller, "잘못된 아이템입니다.", "register"); return; }
         if (qty <= 0 || qty > MAX_QTY) { error(seller, "수량이 잘못되었습니다.", "register"); return; }
         if (price <= 0 || price > MAX_PRICE) { error(seller, "가격이 잘못되었습니다.", "register"); return; }
@@ -120,6 +126,18 @@ public class AuctionManager {
     // ──────────────────────── BUY ────────────────────────
 
     public void buy(String buyer, String auctionId) {
+        // Peek to learn the seller without touching state; the real read +
+        // mutation happens under the two-player lock to guarantee no other
+        // op on either side races us.
+        Map<String, String> peek = redis.getAuction(auctionId);
+        if (peek == null || peek.isEmpty()) { error(buyer, "이미 판매되었거나 만료되었습니다.", "buy"); return; }
+        String peekSeller = peek.get("seller");
+        if (peekSeller == null) { error(buyer, "잘못된 매물입니다.", "buy"); return; }
+        if (peekSeller.equals(buyer)) { error(buyer, "본인의 매물은 살 수 없습니다.", "buy"); return; }
+        locks.withLocks(buyer, peekSeller, () -> buyLocked(buyer, auctionId));
+    }
+
+    private void buyLocked(String buyer, String auctionId) {
         Map<String, String> a = redis.getAuction(auctionId);
         if (a == null || a.isEmpty()) { error(buyer, "이미 판매되었거나 만료되었습니다.", "buy"); return; }
         String seller = a.get("seller");
@@ -182,6 +200,10 @@ public class AuctionManager {
     // ──────────────────────── CANCEL ────────────────────────
 
     public void cancel(String user, String auctionId) {
+        locks.withLock(user, () -> cancelLocked(user, auctionId));
+    }
+
+    private void cancelLocked(String user, String auctionId) {
         Map<String, String> a = redis.getAuction(auctionId);
         if (a == null || a.isEmpty()) { error(user, "이미 판매되었거나 만료되었습니다.", "cancel"); return; }
         String seller = a.get("seller");
@@ -239,26 +261,36 @@ public class AuctionManager {
             long now = System.currentTimeMillis();
             List<String> ids = redis.recentAuctions(MAX_RESULTS * 4); // wider window
             for (String id : ids) {
-                Map<String, String> a = redis.getAuction(id);
-                if (a == null || a.isEmpty()) { redis.removeActiveAuction(id); continue; }
-                long exp = parseLong(a.get("expiresAt"), 0);
+                Map<String, String> peek = redis.getAuction(id);
+                if (peek == null || peek.isEmpty()) { redis.removeActiveAuction(id); continue; }
+                long exp = parseLong(peek.get("expiresAt"), 0);
                 if (exp <= 0 || exp > now) continue;
-                String seller = a.get("seller");
-                String itemId = a.get("itemId");
-                int qty = parseInt(a.get("qty"), 0);
-                returnItemToSeller(seller, itemId, qty);
-                cleanupAuction(id, seller);
-                log.info("Auction expired [{}] returned to {} ({} x{})", id, seller, itemId, qty);
-                // Best-effort notify if online
-                PlayerSession s = world.getSessionByPlayerId(seller);
-                if (s != null) {
-                    ok(seller, "[경매] 만료 — 아이템 반환됨", "expired");
-                    pushStateRefresh(seller);
-                    pushList(seller);
-                }
+                String seller = peek.get("seller");
+                // Each expiry refund runs under the seller's lock so a
+                // concurrent register/buy/cancel can't see a half-applied
+                // sweep state.
+                locks.withLock(seller, () -> sweepOne(id, seller));
             }
         } catch (Exception e) {
             log.warn("auction sweep failed: {}", e.getMessage());
+        }
+    }
+
+    private void sweepOne(String id, String seller) {
+        Map<String, String> a = redis.getAuction(id);
+        if (a == null || a.isEmpty()) return;
+        long exp = parseLong(a.get("expiresAt"), 0);
+        if (exp <= 0 || exp > System.currentTimeMillis()) return;
+        String itemId = a.get("itemId");
+        int qty = parseInt(a.get("qty"), 0);
+        returnItemToSeller(seller, itemId, qty);
+        cleanupAuction(id, seller);
+        log.info("Auction expired [{}] returned to {} ({} x{})", id, seller, itemId, qty);
+        PlayerSession s = world.getSessionByPlayerId(seller);
+        if (s != null) {
+            ok(seller, "[경매] 만료 — 아이템 반환됨", "expired");
+            pushStateRefresh(seller);
+            pushList(seller);
         }
     }
 

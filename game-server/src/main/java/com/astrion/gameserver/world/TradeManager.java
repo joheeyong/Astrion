@@ -62,15 +62,17 @@ public class TradeManager {
 
     private final WorldManager world;
     private final RedisManager redis;
+    private final PlayerStateLocks locks;
     private AchievementManager achievements; // injected post-construction
     private final Map<String, Session> sessionsByUser = new ConcurrentHashMap<>();
     // Pending request invites: target → inviter. Only the latest is kept;
     // a fresh invite overrides any prior one. Cleared on accept/reject/timeout.
     private final Map<String, String> pendingInvites = new ConcurrentHashMap<>();
 
-    public TradeManager(WorldManager world, RedisManager redis) {
+    public TradeManager(WorldManager world, RedisManager redis, PlayerStateLocks locks) {
         this.world = world;
         this.redis = redis;
+        this.locks = locks;
     }
     public void setAchievementManager(AchievementManager a) { this.achievements = a; }
 
@@ -194,7 +196,14 @@ public class TradeManager {
     /// Both sides have confirmed — atomically swap inventories via the
     /// Redis-persisted state JSON. Either side's inventory missing the
     /// offered items aborts cleanly with TRADE_RESULT(success=false).
+    /// Wrapped in a two-player lock so a parallel AuctionManager.buy
+    /// (or another trade involving either side) can't race the JSON
+    /// read-modify-write.
     private void execute(Session s) {
+        locks.withLocks(s.a, s.b, () -> executeLocked(s));
+    }
+
+    private void executeLocked(Session s) {
         try {
             String aJson = redis.getPlayerState(s.a);
             String bJson = redis.getPlayerState(s.b);

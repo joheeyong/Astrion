@@ -21,6 +21,18 @@ dependencies {
 
     // Jackson for JSON
     implementation("com.fasterxml.jackson.core:jackson-databind:2.18.3")
+
+    // Tests — JUnit 5. First test landing here is PlayerStateLocksTest,
+    // covering the race-condition audit landing alongside it. Future
+    // regression tests for TradeManager / AuctionManager (without a live
+    // Redis dependency they need a mock; for now we exercise the lock
+    // primitive directly).
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 tasks.jar {

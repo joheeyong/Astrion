@@ -50,6 +50,20 @@ jobs:
       - name: Version sync check
         run: ./gradlew :common:checkVersionSync --no-daemon
 
+      # Server JUnit suite (PlayerStateLocksTest etc.). Failures here block
+      # the deploy artifact below — a broken lock invariant is the kind of
+      # silent damage we don't want to ship to prod.
+      - name: Run server tests
+        run: ./gradlew :game-server:test --no-daemon
+
+      - name: Upload test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-test-report
+          path: game-server/build/reports/tests/test/
+          retention-days: 7
+
       # game-server distTar is what deploy.sh ships to EC2; if it builds
       # locally and packages, the deploy step won't surprise us.
       - name: Build game-server

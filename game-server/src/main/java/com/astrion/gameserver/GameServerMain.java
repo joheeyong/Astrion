@@ -52,14 +52,19 @@ public class GameServerMain {
         WorldManager worldManager = new WorldManager();
         MonsterManager monsterManager = new MonsterManager(worldManager);
         monsterManager.setRedisManager(redisManager); // enables party EXP share
+        // Per-player JVM locks serialise every read-modify-write of the
+        // Redis-stored player state JSON — trade, auction, achievement
+        // grant, and client STATE_SAVE all share this mutex per player.
+        com.astrion.gameserver.world.PlayerStateLocks playerLocks =
+            new com.astrion.gameserver.world.PlayerStateLocks();
         com.astrion.gameserver.world.TradeManager tradeManager =
-            new com.astrion.gameserver.world.TradeManager(worldManager, redisManager);
+            new com.astrion.gameserver.world.TradeManager(worldManager, redisManager, playerLocks);
         com.astrion.gameserver.world.AchievementManager achievements =
-            new com.astrion.gameserver.world.AchievementManager(worldManager, redisManager);
+            new com.astrion.gameserver.world.AchievementManager(worldManager, redisManager, playerLocks);
         monsterManager.setAchievementManager(achievements);
         tradeManager.setAchievementManager(achievements);
         com.astrion.gameserver.world.AuctionManager auctions =
-            new com.astrion.gameserver.world.AuctionManager(worldManager, redisManager);
+            new com.astrion.gameserver.world.AuctionManager(worldManager, redisManager, playerLocks);
 
         // TLS: load cert + key from env-overridable paths. The key is a
         // PKCS#8 PEM ('BEGIN PRIVATE KEY'); convert legacy 'BEGIN RSA
@@ -92,7 +97,7 @@ public class GameServerMain {
             ServerBootstrap bootstrap = new ServerBootstrap();
             bootstrap.group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
-                    .childHandler(new GameServerInitializer(worldManager, redisManager, monsterManager, tradeManager, achievements, auctions, gameSslCtx, connRateGate))
+                    .childHandler(new GameServerInitializer(worldManager, redisManager, monsterManager, tradeManager, achievements, auctions, playerLocks, gameSslCtx, connRateGate))
                     .option(ChannelOption.SO_BACKLOG, 128)
                     .childOption(ChannelOption.SO_KEEPALIVE, true)
                     .childOption(ChannelOption.TCP_NODELAY, true);

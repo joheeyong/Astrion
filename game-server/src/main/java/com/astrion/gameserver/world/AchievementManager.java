@@ -59,10 +59,12 @@ public class AchievementManager {
 
     private final WorldManager world;
     private final RedisManager redis;
+    private final PlayerStateLocks locks;
 
-    public AchievementManager(WorldManager world, RedisManager redis) {
+    public AchievementManager(WorldManager world, RedisManager redis, PlayerStateLocks locks) {
         this.world = world;
         this.redis = redis;
+        this.locks = locks;
     }
 
     public Def[] defs() { return ALL; }
@@ -101,8 +103,14 @@ public class AchievementManager {
     /// Same Redis-JSON manipulation TradeManager uses on execute — no
     /// merging into existing stacks, just a new entry appended; the
     /// client's RestoreFromState compacts on next load.
+    /// Wrapped in the user's lock — reentrant when called from inside an
+    /// already-locked path (TradeManager.execute, AuctionManager.buy etc.).
     private void grantReward(String user, Def d) {
         if (d.rewardItemId == null || d.rewardItemId.isEmpty() || d.rewardQty <= 0) return;
+        locks.withLock(user, () -> grantRewardLocked(user, d));
+    }
+
+    private void grantRewardLocked(String user, Def d) {
         try {
             String json = redis.getPlayerState(user);
             if (json == null) json = "{}";
