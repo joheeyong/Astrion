@@ -92,12 +92,35 @@ public class GameServerMain {
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
 
+        // Business-logic thread pool — every GamePacketHandler call lands
+        // here instead of on the Netty event loop. Lettuce's RedisCommands
+        // are synchronous; calling them on a worker event loop blocks every
+        // other client that loop hosts. With a dedicated executor a slow
+        // Redis round-trip only stalls a single handler thread, the loop
+        // is free to process I/O for other channels.
+        //
+        // Sizing: 2× cores by default — Redis-bound, not CPU-bound, so we
+        // err on more threads than cores. Configurable via env in case we
+        // tune under load.
+        int handlerThreads = Integer.parseInt(System.getenv()
+            .getOrDefault("ASTRION_HANDLER_THREADS",
+                String.valueOf(Math.max(8, Runtime.getRuntime().availableProcessors() * 2))));
+        java.util.concurrent.atomic.AtomicInteger bizSeq = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.ThreadFactory bizFactory = r -> {
+            Thread t = new Thread(r, "biz-handler-" + bizSeq.incrementAndGet());
+            t.setDaemon(true);
+            return t;
+        };
+        io.netty.util.concurrent.DefaultEventExecutorGroup businessExecutor =
+            new io.netty.util.concurrent.DefaultEventExecutorGroup(handlerThreads, bizFactory);
+        log.info("Business handler pool: {} threads (Redis sync off the event loop)", handlerThreads);
+
         try {
             final SslContext gameSslCtx = sslCtx;
             ServerBootstrap bootstrap = new ServerBootstrap();
             bootstrap.group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
-                    .childHandler(new GameServerInitializer(worldManager, redisManager, monsterManager, tradeManager, achievements, auctions, playerLocks, gameSslCtx, connRateGate))
+                    .childHandler(new GameServerInitializer(worldManager, redisManager, monsterManager, tradeManager, achievements, auctions, playerLocks, businessExecutor, gameSslCtx, connRateGate))
                     .option(ChannelOption.SO_BACKLOG, 128)
                     .childOption(ChannelOption.SO_KEEPALIVE, true)
                     .childOption(ChannelOption.TCP_NODELAY, true);
@@ -125,6 +148,11 @@ public class GameServerMain {
                     //    gives Netty time to flush the despawn broadcasts.
                     workerGroup.shutdownGracefully(1, 10, TimeUnit.SECONDS).sync();
                     bossGroup.shutdownGracefully(1, 5, TimeUnit.SECONDS).sync();
+                    // Drain the business handler pool last — by now every
+                    // channel is closed so there's nothing new arriving on
+                    // it. The 5 s grace covers any final ranking write
+                    // queued by an in-flight STATE_SAVE.
+                    businessExecutor.shutdownGracefully(1, 5, TimeUnit.SECONDS).sync();
                     monsterManager.shutdown();
                     redisManager.shutdown();
                 } catch (InterruptedException e) {
@@ -160,6 +188,7 @@ public class GameServerMain {
             log.error("Fatal startup error, tearing down event loops", t);
             workerGroup.shutdownGracefully();
             bossGroup.shutdownGracefully();
+            businessExecutor.shutdownGracefully();
             monsterManager.shutdown();
             redisManager.shutdown();
             throw t;

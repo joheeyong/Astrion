@@ -9,6 +9,7 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.netty.util.concurrent.EventExecutorGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,6 +26,7 @@ public class GameServerInitializer extends ChannelInitializer<SocketChannel> {
     private final com.astrion.gameserver.world.AchievementManager achievements;
     private final com.astrion.gameserver.world.AuctionManager auctions;
     private final com.astrion.gameserver.world.PlayerStateLocks playerLocks;
+    private final EventExecutorGroup businessExecutor;
     private final SslContext sslCtx; // null when TLS is disabled
     private final ConnectionRateLimitHandler connectionRateLimit;
 
@@ -34,6 +36,7 @@ public class GameServerInitializer extends ChannelInitializer<SocketChannel> {
                                  com.astrion.gameserver.world.AchievementManager achievements,
                                  com.astrion.gameserver.world.AuctionManager auctions,
                                  com.astrion.gameserver.world.PlayerStateLocks playerLocks,
+                                 EventExecutorGroup businessExecutor,
                                  SslContext sslCtx,
                                  ConnectionRateLimitHandler connectionRateLimit) {
         this.worldManager = worldManager;
@@ -43,6 +46,7 @@ public class GameServerInitializer extends ChannelInitializer<SocketChannel> {
         this.achievements = achievements;
         this.auctions = auctions;
         this.playerLocks = playerLocks;
+        this.businessExecutor = businessExecutor;
         this.sslCtx = sslCtx;
         this.connectionRateLimit = connectionRateLimit;
     }
@@ -70,7 +74,19 @@ public class GameServerInitializer extends ChannelInitializer<SocketChannel> {
         pipeline.addLast(new PacketDecoder());
         pipeline.addLast(new PacketEncoder());
 
-        // Game logic handler
-        pipeline.addLast(new GamePacketHandler(worldManager, redisManager, monsterManager, tradeManager, achievements, auctions, playerLocks));
+        // Game logic handler — pinned to the business executor pool so all
+        // its callbacks (channelRead0 / channelInactive / userEventTriggered)
+        // run off the Netty event loop. Lettuce's sync Redis API would
+        // otherwise block this loop for the duration of a round-trip,
+        // stalling every other client this loop happens to serve. Netty
+        // guarantees per-channel ordering even across the executor
+        // boundary, so we don't lose any sequencing.
+        //
+        // Each channel sticks to one executor thread (round-robin assigned
+        // at pipeline build time), which preserves StateSave → TradeBuy →
+        // AchievementGrant ordering for a single connection.
+        pipeline.addLast(businessExecutor, "game-handler",
+            new GamePacketHandler(worldManager, redisManager, monsterManager,
+                tradeManager, achievements, auctions, playerLocks));
     }
 }
