@@ -233,6 +233,10 @@ public partial class ProjectSetup
         // T key toggles UI. Server hooks at every social/combat event.
         networkGo.AddComponent<Astrion.Game.AchievementSystem>();
         networkGo.AddComponent<Astrion.UI.AchievementUI>();
+        // PetSystem — floating companion that visualises AutoPickup and
+        // extends its reach. V key toggles visibility. Self-contained; no
+        // server roundtrip yet (single starter pet for everyone).
+        networkGo.AddComponent<Astrion.Game.PetSystem>();
 
         // PlayerStateManager (persists across scenes via DontDestroyOnLoad)
         var stateGo = new GameObject("PlayerStateManager");
