@@ -250,6 +250,10 @@ public partial class ProjectSetup
         networkGo.AddComponent<Astrion.Audio.SoundSystem>();
         // VolumeUI — F11 toggles three sliders (master / sfx / bgm).
         networkGo.AddComponent<Astrion.UI.VolumeUI>();
+        // TutorialSystem + TutorialUI — first-run guided tour. Triggers
+        // once on first game-scene entry; F1 anywhere replays it.
+        networkGo.AddComponent<Astrion.Game.TutorialSystem>();
+        networkGo.AddComponent<Astrion.UI.TutorialUI>();
 
         // PlayerStateManager (persists across scenes via DontDestroyOnLoad)
         var stateGo = new GameObject("PlayerStateManager");
