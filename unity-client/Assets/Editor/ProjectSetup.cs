@@ -240,6 +240,11 @@ public partial class ProjectSetup
         // WeaponEnhanceUI — modal opened by the Smith NPC in Solaria.
         // Uses PlayerStats.TryEnhanceWeapon for the actual roll.
         networkGo.AddComponent<Astrion.UI.WeaponEnhanceUI>();
+        // AuctionSystem + AuctionUI — global asynchronous marketplace.
+        // Every hub city has an Auctioneer NPC pointing at the same Redis
+        // queue, so it doesn't matter which town you list from.
+        networkGo.AddComponent<Astrion.Game.AuctionSystem>();
+        networkGo.AddComponent<Astrion.UI.AuctionUI>();
 
         // PlayerStateManager (persists across scenes via DontDestroyOnLoad)
         var stateGo = new GameObject("PlayerStateManager");

@@ -223,6 +223,42 @@ public class RedisManager {
         commands.del("party_inv_to:" + recipient + ":" + inviter);
     }
 
+    // ──── Auction house ──────────────────────────────────────────────────
+    // auction:{id}         → HASH (id, seller, itemId, qty, price, createdAt, expiresAt)
+    // auction:active       → ZSET scored by createdAt (most recent first when
+    //                         we ZREVRANGE) — single global ordering
+    // auction:seller:{u}   → SET of auction ids the user owns
+    // auction:next_id      → INCR counter for unique numeric ids
+    public long nextAuctionId() { return commands.incr("auction:next_id"); }
+    public void saveAuction(String id, java.util.Map<String, String> fields) {
+        commands.hmset("auction:" + id, fields);
+    }
+    public java.util.Map<String, String> getAuction(String id) {
+        return commands.hgetall("auction:" + id);
+    }
+    public void deleteAuction(String id) {
+        commands.del("auction:" + id);
+    }
+    public void addActiveAuction(String id, long createdAtMs) {
+        commands.zadd("auction:active", (double) createdAtMs, id);
+    }
+    public void removeActiveAuction(String id) {
+        commands.zrem("auction:active", id);
+    }
+    public java.util.List<String> recentAuctions(int n) {
+        // Latest first — ZREVRANGE gives high-score → low-score
+        return commands.zrevrange("auction:active", 0, n - 1);
+    }
+    public void addSellerAuction(String seller, String id) {
+        commands.sadd("auction:seller:" + seller, id);
+    }
+    public void removeSellerAuction(String seller, String id) {
+        commands.srem("auction:seller:" + seller, id);
+    }
+    public java.util.Set<String> sellerAuctions(String seller) {
+        return commands.smembers("auction:seller:" + seller);
+    }
+
     // ──── Achievements ──────────────────────────────────────────────────
     // ach:{user}       → SET<id> of unlocked achievement ids
     // ach_zones:{user} → SET<zoneId> of city zones the user has entered

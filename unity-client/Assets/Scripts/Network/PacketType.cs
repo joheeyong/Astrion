@@ -45,6 +45,10 @@ namespace Astrion.Network
         BlockRemove = 0x29,
         BlockListRequest = 0x2A,
         AchievementListRequest = 0x2B,
+        AuctionListRequest = 0x2C,
+        AuctionRegister = 0x2D,
+        AuctionBuy = 0x2E,
+        AuctionCancel = 0x2F,
 
         // Server -> Client
         LoginResult = 0x81,
@@ -86,5 +90,7 @@ namespace Astrion.Network
         BlockListData = 0xAE,
         AchievementUnlock = 0xAF,
         AchievementListData = 0xB0,
+        AuctionListData = 0xB1,
+        AuctionResult = 0xB2,
     }
 }

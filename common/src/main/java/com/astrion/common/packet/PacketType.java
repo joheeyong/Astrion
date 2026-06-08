@@ -44,6 +44,10 @@ public enum PacketType {
     BLOCK_REMOVE(0x29),     // C2S: {target}
     BLOCK_LIST_REQUEST(0x2A), // C2S: {} — pull my current block list
     ACHIEVEMENT_LIST_REQUEST(0x2B), // C2S: {} — pull every unlocked id
+    AUCTION_LIST_REQUEST(0x2C), // C2S: {} — fetch active auctions (latest first)
+    AUCTION_REGISTER(0x2D),     // C2S: {itemId, qty, pricePerUnit, durationHours}
+    AUCTION_BUY(0x2E),          // C2S: {auctionId}
+    AUCTION_CANCEL(0x2F),       // C2S: {auctionId} — only seller can cancel
 
     // Server -> Client
     LOGIN_RESULT(0x81),
@@ -84,7 +88,9 @@ public enum PacketType {
     TRADE_ERROR(0xAD),         // {message}
     BLOCK_LIST_DATA(0xAE),     // {blocked:[name,...]}
     ACHIEVEMENT_UNLOCK(0xAF),  // {id, displayName, rewardItemId, rewardQty}
-    ACHIEVEMENT_LIST_DATA(0xB0); // {unlocked:[id,...], progress:{kind:value,...}}
+    ACHIEVEMENT_LIST_DATA(0xB0), // {unlocked:[id,...], progress:{kind:value,...}}
+    AUCTION_LIST_DATA(0xB1),     // {entries:[{id, seller, itemId, qty, price, expiresAt}]}
+    AUCTION_RESULT(0xB2);        // {success, message, action} — register/buy/cancel
 
     private final int code;
 

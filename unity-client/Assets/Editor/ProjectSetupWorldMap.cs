@@ -12,7 +12,7 @@ using UnityEngine;
 /// See docs/WORLDMAP.md for the canonical layout this code targets.
 public partial class ProjectSetup
 {
-    private enum NpcKind { Innkeeper, Shopkeeper, Sage, Herald, Smith }
+    private enum NpcKind { Innkeeper, Shopkeeper, Sage, Herald, Smith, Auctioneer }
 
     /// Spawn a single NPC at a city's flat ground. Reuses the player's
     /// procedural body/limbs (BuildPlayerVisual) tinted with a different
@@ -87,6 +87,14 @@ public partial class ProjectSetup
             {
                 var smith = go.AddComponent<Astrion.Game.SmithNPC2D>();
                 var so = new SerializedObject(smith);
+                so.FindProperty("npcName").stringValue = displayName;
+                so.ApplyModifiedPropertiesWithoutUndo();
+                break;
+            }
+            case NpcKind.Auctioneer:
+            {
+                var auct = go.AddComponent<Astrion.Game.AuctioneerNPC2D>();
+                var so = new SerializedObject(auct);
                 so.FindProperty("npcName").stringValue = displayName;
                 so.ApplyModifiedPropertiesWithoutUndo();
                 break;
@@ -296,6 +304,13 @@ public partial class ProjectSetup
                 tunic: new Color(0.22f, 0.48f, 0.30f),   // green — shopkeeper
                 hair:  new Color(0.30f, 0.20f, 0.10f),
                 kind: NpcKind.Shopkeeper);
+            // Auctioneer — present in every hub city, all pointing at the
+            // same global auction queue. Placed at the right side near
+            // the shop, distinct cool-blue tunic.
+            SpawnNpc(worldRoot.transform, new Vector2(15f, -2.5f), "경매인",
+                tunic: new Color(0.18f, 0.30f, 0.50f),   // steel blue — auctioneer
+                hair:  new Color(0.62f, 0.55f, 0.40f),
+                kind: NpcKind.Auctioneer);
             // Star Sage + Herald + Smith are Solaria-only — central hub
             // collects the imbue altar, leaderboard, and weapon enhancement.
             // Other cities keep just the inn + shop pair.

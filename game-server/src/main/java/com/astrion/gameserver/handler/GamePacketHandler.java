@@ -49,16 +49,19 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
     private final AccountLockout accountLockout;
     private final com.astrion.gameserver.world.TradeManager tradeManager;
     private final com.astrion.gameserver.world.AchievementManager achievements;
+    private final com.astrion.gameserver.world.AuctionManager auctions;
 
     public GamePacketHandler(WorldManager worldManager, RedisManager redisManager,
                               MonsterManager monsterManager,
                               com.astrion.gameserver.world.TradeManager tradeManager,
-                              com.astrion.gameserver.world.AchievementManager achievements) {
+                              com.astrion.gameserver.world.AchievementManager achievements,
+                              com.astrion.gameserver.world.AuctionManager auctions) {
         this.worldManager = worldManager;
         this.redisManager = redisManager;
         this.monsterManager = monsterManager;
         this.tradeManager = tradeManager;
         this.achievements = achievements;
+        this.auctions = auctions;
         // AccountLockout is stateless apart from the redis handle, so one
         // per handler instance is fine — Lettuce's RedisCommands inside
         // RedisManager is what carries the actual state.
@@ -110,6 +113,10 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             case BLOCK_REMOVE  -> handleBlockRemove(ctx, packet);
             case BLOCK_LIST_REQUEST -> handleBlockListRequest(ctx, packet);
             case ACHIEVEMENT_LIST_REQUEST -> handleAchievementListRequest(ctx, packet);
+            case AUCTION_LIST_REQUEST -> handleAuctionList(ctx, packet);
+            case AUCTION_REGISTER     -> handleAuctionRegister(ctx, packet);
+            case AUCTION_BUY          -> handleAuctionBuy(ctx, packet);
+            case AUCTION_CANCEL       -> handleAuctionCancel(ctx, packet);
             default -> log.warn("Unhandled packet type: {}", packet.getType());
         }
     }
@@ -761,6 +768,33 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
     }
 
     private record BlockListPayload(java.util.List<String> blocked) {}
+
+    // ── Auction dispatch (logic in AuctionManager) ────────────────────────
+    private void handleAuctionList(ChannelHandlerContext ctx, GamePacket packet) {
+        PlayerSession s = worldManager.getSession(ctx.channel()); if (s == null) return;
+        auctions.sendList(ctx.channel(), s.getPlayerId());
+    }
+    private void handleAuctionRegister(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession s = worldManager.getSession(ctx.channel()); if (s == null) return;
+        JsonNode n = mapper.readTree(packet.getPayload());
+        String itemId = n.has("itemId") ? n.get("itemId").asText("") : "";
+        int qty = n.has("qty") ? n.get("qty").asInt(0) : 0;
+        long price = n.has("price") ? n.get("price").asLong(0) : 0;
+        long hours = n.has("durationHours") ? n.get("durationHours").asLong(0) : 0;
+        auctions.register(s.getPlayerId(), itemId, qty, price, hours);
+    }
+    private void handleAuctionBuy(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession s = worldManager.getSession(ctx.channel()); if (s == null) return;
+        JsonNode n = mapper.readTree(packet.getPayload());
+        String id = n.has("auctionId") ? n.get("auctionId").asText("") : "";
+        auctions.buy(s.getPlayerId(), id);
+    }
+    private void handleAuctionCancel(ChannelHandlerContext ctx, GamePacket packet) throws Exception {
+        PlayerSession s = worldManager.getSession(ctx.channel()); if (s == null) return;
+        JsonNode n = mapper.readTree(packet.getPayload());
+        String id = n.has("auctionId") ? n.get("auctionId").asText("") : "";
+        auctions.cancel(s.getPlayerId(), id);
+    }
 
     private void handleAchievementListRequest(ChannelHandlerContext ctx, GamePacket packet) {
         PlayerSession s = worldManager.getSession(ctx.channel()); if (s == null) return;
