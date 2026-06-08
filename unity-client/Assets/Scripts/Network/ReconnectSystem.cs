@@ -93,6 +93,15 @@ namespace Astrion.Network
         private void OnDisconnected()
         {
             if (_busy) return;
+            // Kicked-by-other-login: don't try to reconnect — the server
+            // would only kick us right back as soon as we re-auth. Show
+            // an explanatory modal and drop the player on the login screen.
+            if (NetworkManager.KickedByOtherLogin)
+            {
+                ShowKickedOverlay(NetworkManager.KickedReason);
+                StartCoroutine(ReturnToLoginAfterDelay());
+                return;
+            }
             if (!IsInGameScene()) return; // ignore disconnects on login/char-select; their UI handles it
             if (!SessionCredentials.HasCredentials)
             {
@@ -100,6 +109,30 @@ namespace Astrion.Network
                 return;
             }
             StartCoroutine(ReconnectFlow());
+        }
+
+        private void ShowKickedOverlay(string reason)
+        {
+            string msg = string.IsNullOrEmpty(reason)
+                ? "다른 곳에서 로그인되어 연결이 해제되었습니다."
+                : reason;
+            ShowOverlay("★  " + msg + "\n\n3초 후 로그인 화면으로 돌아갑니다.");
+        }
+
+        private IEnumerator ReturnToLoginAfterDelay()
+        {
+            _busy = true;
+            yield return new WaitForSecondsRealtime(3f);
+            NetworkManager.KickedByOtherLogin = false; // consume so a future fresh login isn't blocked
+            NetworkManager.KickedReason = "";
+            HideOverlay();
+            _busy = false;
+            SceneManager.LoadScene("LoginScene");
+        }
+
+        private void HideOverlay()
+        {
+            if (_group != null) { _group.alpha = 0f; _group.blocksRaycasts = false; }
         }
 
         private static bool IsInGameScene()

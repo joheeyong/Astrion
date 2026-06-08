@@ -90,7 +90,9 @@ public enum PacketType {
     ACHIEVEMENT_UNLOCK(0xAF),  // {id, displayName, rewardItemId, rewardQty}
     ACHIEVEMENT_LIST_DATA(0xB0), // {unlocked:[id,...], progress:{kind:value,...}}
     AUCTION_LIST_DATA(0xB1),     // {entries:[{id, seller, itemId, qty, price, expiresAt}]}
-    AUCTION_RESULT(0xB2);        // {success, message, action} — register/buy/cancel
+    AUCTION_RESULT(0xB2),        // {success, message, action} — register/buy/cancel
+    SESSION_KICKED(0xB3);        // {reason} — server is closing this connection;
+                                 // the client must NOT auto-reconnect.
 
     private final int code;
 

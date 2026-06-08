@@ -92,5 +92,6 @@ namespace Astrion.Network
         AchievementListData = 0xB0,
         AuctionListData = 0xB1,
         AuctionResult = 0xB2,
+        SessionKicked = 0xB3,
     }
 }

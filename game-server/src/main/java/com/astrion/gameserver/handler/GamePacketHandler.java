@@ -341,6 +341,7 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
     }
 
     private record WhisperResultPayload(String from, String to, String message, String kind, String error) {}
+    private record KickedPayload(String reason) {}
 
     // ── Party system ──────────────────────────────────────────────────────
     private static final int MAX_PARTY_SIZE = 4;
@@ -1293,11 +1294,34 @@ public class GamePacketHandler extends SimpleChannelInboundHandler<GamePacket> {
             }
         }
 
-        // Check if already logged in
-        if (worldManager.getSessionByPlayerId(username) != null) {
-            String result = mapper.writeValueAsString(new LoginResult(false, null, "Already logged in."));
-            ctx.writeAndFlush(new GamePacket(PacketType.LOGIN_RESULT, result));
-            return;
+        // Single-session enforcement. The prior behaviour was to refuse the
+        // new login, which left a duplicate stale session in the world map
+        // until the OS-level TCP timeout caught up. Worse, the two clients
+        // would both periodically STATE_SAVE the same account JSON and
+        // whichever wrote last silently clobbered the other. We now boot
+        // the prior connection so the new one cleanly takes the slot.
+        //
+        // Sequence: notify → strip state synchronously → close channel.
+        // Any in-flight packet already queued on the old executor sees
+        // getSession() == null after the worldManager.removePlayer call
+        // and early-returns rather than committing a clobbering write.
+        PlayerSession existing = worldManager.getSessionByPlayerId(username);
+        if (existing != null && existing.getChannel() != ctx.channel()) {
+            try {
+                String kickJson = mapper.writeValueAsString(
+                    new KickedPayload("다른 곳에서 로그인되어 연결이 해제되었습니다."));
+                existing.getChannel().writeAndFlush(new GamePacket(PacketType.SESSION_KICKED, kickJson));
+            } catch (Exception ignored) { /* best-effort notify */ }
+            try { worldManager.removePlayer(existing.getChannel()); }
+            catch (Exception e) { log.warn("kick removePlayer for {} failed: {}", username, e.getMessage()); }
+            try { redisManager.setPlayerOffline(username); }
+            catch (Exception e) { log.warn("kick setPlayerOffline for {} failed: {}", username, e.getMessage()); }
+            try { tradeManager.onDisconnect(username); }
+            catch (Exception e) { log.warn("kick tradeManager for {} failed: {}", username, e.getMessage()); }
+            try { removeFromParty(username); }
+            catch (Exception e) { log.warn("kick party cleanup for {} failed: {}", username, e.getMessage()); }
+            existing.getChannel().close();
+            log.info("Kicked old session for {} on new login from {}", username, clientIp);
         }
 
         // Login success — actual SPAWN_PLAYER broadcast happens on ZONE_ENTER

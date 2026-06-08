@@ -198,6 +198,14 @@ namespace Astrion.Network
             return true;
         }
 
+        /// Set true when the server tells us we've been booted by another
+        /// login on the same account. The flag is read by ReconnectSystem
+        /// so we *don't* immediately auto-reconnect (which would just kick
+        /// the new client right back, ping-ponging the account). Cleared
+        /// only on a fresh successful login.
+        public static bool KickedByOtherLogin { get; set; }
+        public static string KickedReason { get; set; } = "";
+
         private void Update()
         {
             while (_mainThreadActions.TryDequeue(out Action action))
@@ -206,9 +214,39 @@ namespace Astrion.Network
             }
             while (_receiveQueue.TryDequeue(out GamePacket packet))
             {
+                // SESSION_KICKED is server-initiated — intercept before the
+                // generic OnPacketReceived dispatch so subscribers don't
+                // have to know about it individually. The server closes the
+                // connection right after sending us this; we just record
+                // the reason for the UI layer.
+                if (packet.Type == PacketType.SessionKicked)
+                {
+                    KickedByOtherLogin = true;
+                    try
+                    {
+                        var k = JsonUtility.FromJson<KickedPayload>(packet.Payload);
+                        KickedReason = (k != null && !string.IsNullOrEmpty(k.reason))
+                            ? k.reason
+                            : "다른 곳에서 로그인되어 연결이 해제되었습니다.";
+                    }
+                    catch
+                    {
+                        KickedReason = "다른 곳에서 로그인되어 연결이 해제되었습니다.";
+                    }
+                    // Clear stored credentials so the kicked client doesn't
+                    // auto-reconnect-loop with the same account.
+                    SessionCredentials.Username = "";
+                    SessionCredentials.Password = "";
+                    PlayerPrefs.SetInt("autoLogin", 0);
+                    PlayerPrefs.DeleteKey("autoLoginHash");
+                    PlayerPrefs.Save();
+                    continue; // suppress normal dispatch
+                }
                 OnPacketReceived?.Invoke(packet);
             }
         }
+
+        [Serializable] private class KickedPayload { public string reason; }
 
         public void Disconnect()
         {
