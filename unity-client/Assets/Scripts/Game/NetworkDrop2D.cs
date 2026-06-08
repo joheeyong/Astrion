@@ -65,6 +65,7 @@ namespace Astrion.Game
             }
 
             _claimed = true;
+            Astrion.Audio.SoundSystem.Instance?.Play(Astrion.Audio.Sfx.Pickup);
             Astrion.Network.DropNetworkManager.Instance?.SendClaim(DropId);
         }
     }

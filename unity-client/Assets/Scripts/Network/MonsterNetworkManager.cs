@@ -181,7 +181,10 @@ namespace Astrion.Network
             {
                 var d = JsonUtility.FromJson<HpData>(payload);
                 if (d != null && _monsters.TryGetValue(d.id, out var m) && m != null)
+                {
                     m.OnHpChanged(d.hp, d.damage, d.crit);
+                    Astrion.Audio.SoundSystem.Instance?.Play(Astrion.Audio.Sfx.Hit);
+                }
             }
             catch { /* ignore */ }
         }
@@ -194,6 +197,7 @@ namespace Astrion.Network
                 if (d == null) return;
                 if (_monsters.TryGetValue(d.id, out var m) && m != null) m.OnDeath(d.damage, d.crit);
                 _monsters.Remove(d.id);
+                Astrion.Audio.SoundSystem.Instance?.Play(Astrion.Audio.Sfx.Die);
             }
             catch { /* ignore */ }
         }

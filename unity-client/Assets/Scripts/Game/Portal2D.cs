@@ -83,6 +83,7 @@ namespace Astrion.Game
             if (other.GetComponent<PlayerController2D>() == null) return;
             if (Time.time - _lastTransitionTime < cooldown) return;
             _lastTransitionTime = Time.time;
+            Astrion.Audio.SoundSystem.Instance?.Play(Astrion.Audio.Sfx.Portal);
             PortalTransition.FromScene = SceneManager.GetActiveScene().name;
             SceneManager.LoadScene(targetScene);
         }

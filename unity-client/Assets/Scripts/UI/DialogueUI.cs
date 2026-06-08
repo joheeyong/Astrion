@@ -69,6 +69,7 @@ namespace Astrion.UI
 
         private void Advance()
         {
+            Astrion.Audio.SoundSystem.Instance?.Play(Astrion.Audio.Sfx.Blip);
             _index++;
             if (_index >= _lines.Length) Close();
             else ShowCurrent();

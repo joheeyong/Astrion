@@ -528,6 +528,7 @@ namespace Astrion.Game
             _dirty = true;
             OnChanged?.Invoke();
             FlushSave(); // Important event — save immediately
+            Astrion.Audio.SoundSystem.Instance?.Play(Astrion.Audio.Sfx.Hurt);
             if (Hp <= 0)
             {
                 IsDead = true;

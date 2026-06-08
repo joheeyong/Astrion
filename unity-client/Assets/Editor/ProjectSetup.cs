@@ -245,6 +245,11 @@ public partial class ProjectSetup
         // queue, so it doesn't matter which town you list from.
         networkGo.AddComponent<Astrion.Game.AuctionSystem>();
         networkGo.AddComponent<Astrion.UI.AuctionUI>();
+        // SoundSystem — procedural SFX + BGM. Builds clips at first use,
+        // caches them; persists volume in PlayerPrefs.
+        networkGo.AddComponent<Astrion.Audio.SoundSystem>();
+        // VolumeUI — F11 toggles three sliders (master / sfx / bgm).
+        networkGo.AddComponent<Astrion.UI.VolumeUI>();
 
         // PlayerStateManager (persists across scenes via DontDestroyOnLoad)
         var stateGo = new GameObject("PlayerStateManager");
