@@ -158,26 +158,35 @@ public class AuctionManager {
         }
 
         try {
-            String buyerJson = redis.getPlayerState(buyer);
-            if (buyerJson == null) buyerJson = "{}";
-            ObjectNode buyerState = (ObjectNode) mapper.readTree(buyerJson);
+            // Parallel reads — buyer state and seller state are independent,
+            // round-trips overlap inside Lettuce. Halves the read latency
+            // on the buy-path; the locks above still serialise concurrent
+            // ops on either side.
+            var bothStates = com.astrion.gameserver.redis.RedisManager.both(
+                redis.getPlayerStateAsync(buyer),
+                redis.getPlayerStateAsync(seller)).join();
+            String buyerJson  = bothStates.first()  == null ? "{}" : bothStates.first();
+            String sellerJson = bothStates.second() == null ? "{}" : bothStates.second();
+            ObjectNode buyerState  = (ObjectNode) mapper.readTree(buyerJson);
+            ObjectNode sellerState = (ObjectNode) mapper.readTree(sellerJson);
             long buyerGold = goldOf(buyerState);
             if (buyerGold < price) { error(buyer, "골드가 부족합니다.", "buy"); return; }
 
             // Buyer: pay gold, gain item.
             setGold(buyerState, buyerGold - price);
             addToInventory(buyerState, itemId, qty);
-            redis.savePlayerState(buyer, mapper.writeValueAsString(buyerState));
 
             // Seller: receive 95% of price. Updates their stored gold so
             // it lands whether they're online or not; if online, push them
             // a fresh STATE_DATA so the HUD updates without log-out.
             long sellerGain = Math.round(price * (1f - HOUSE_FEE));
-            String sellerJson = redis.getPlayerState(seller);
-            if (sellerJson == null) sellerJson = "{}";
-            ObjectNode sellerState = (ObjectNode) mapper.readTree(sellerJson);
             setGold(sellerState, goldOf(sellerState) + sellerGain);
-            redis.savePlayerState(seller, mapper.writeValueAsString(sellerState));
+
+            // Parallel writes — both saves go out together; we only resume
+            // once both ACKs land.
+            com.astrion.gameserver.redis.RedisManager.both(
+                redis.savePlayerStateAsync(buyer,  mapper.writeValueAsString(buyerState)),
+                redis.savePlayerStateAsync(seller, mapper.writeValueAsString(sellerState))).join();
 
             cleanupAuction(auctionId, seller);
             ok(buyer, "구매 성공", "buy");

@@ -107,7 +107,12 @@ public class HealthHttpHandler extends SimpleChannelInboundHandler<FullHttpReque
           .append("\"monsters\":").append(monsters).append(',')
           .append("\"active_drops\":").append(drops).append(',')
           .append("\"heap_used_mb\":").append(heapUsedMb).append(',')
-          .append("\"heap_max_mb\":").append(heapMaxMb).append(',');
+          .append("\"heap_max_mb\":").append(heapMaxMb).append(',')
+          // Slow-Redis-call counter — bumps whenever an async Redis call
+          // exceeds the threshold (default 100 ms). Operators trend this
+          // alongside CCU to catch regressions in Redis pipeline latency.
+          .append("\"redis_slow_calls\":")
+              .append(com.astrion.gameserver.redis.RedisManager.getSlowCallCount()).append(',');
         appendIntMap(sb, "players_by_zone", byZone);
         sb.append(',');
         appendIntMap(sb, "monsters_by_zone", monstersByZone);

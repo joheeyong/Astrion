@@ -205,10 +205,15 @@ public class TradeManager {
 
     private void executeLocked(Session s) {
         try {
-            String aJson = redis.getPlayerState(s.a);
-            String bJson = redis.getPlayerState(s.b);
-            if (aJson == null) aJson = "{}";
-            if (bJson == null) bJson = "{}";
+            // Parallel reads — both player state blobs are independent so
+            // overlapping their round-trips halves the read latency from
+            // 2×RTT to 1×RTT. Lock is still held; only the *waits* run
+            // in parallel inside Lettuce, not the JSON mutations below.
+            var both = com.astrion.gameserver.redis.RedisManager.both(
+                redis.getPlayerStateAsync(s.a),
+                redis.getPlayerStateAsync(s.b)).join();
+            String aJson = both.first()  == null ? "{}" : both.first();
+            String bJson = both.second() == null ? "{}" : both.second();
             ObjectNode aNode = (ObjectNode) mapper.readTree(aJson);
             ObjectNode bNode = (ObjectNode) mapper.readTree(bJson);
 
@@ -232,8 +237,12 @@ public class TradeManager {
             setGold(aNode, aHave - s.aGold + s.bGold);
             setGold(bNode, bHave - s.bGold + s.aGold);
 
-            redis.savePlayerState(s.a, mapper.writeValueAsString(aNode));
-            redis.savePlayerState(s.b, mapper.writeValueAsString(bNode));
+            // Parallel writes — same logic as the parallel reads above.
+            // join() blocks until both SETs ACK so the rest of the function
+            // (notifyResult, achievements) only fires after persistence.
+            com.astrion.gameserver.redis.RedisManager.both(
+                redis.savePlayerStateAsync(s.a, mapper.writeValueAsString(aNode)),
+                redis.savePlayerStateAsync(s.b, mapper.writeValueAsString(bNode))).join();
 
             notifyResult(s, true, "거래 성공", bGiving, aGiving, s.bGold, s.aGold);
             if (achievements != null) {

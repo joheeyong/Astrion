@@ -3,9 +3,13 @@ package com.astrion.gameserver.redis;
 import com.astrion.common.model.Position;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
+import io.lettuce.core.api.async.RedisAsyncCommands;
 import io.lettuce.core.api.sync.RedisCommands;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class RedisManager {
 
@@ -14,6 +18,22 @@ public class RedisManager {
     private final RedisClient client;
     private final StatefulRedisConnection<String, String> connection;
     private final RedisCommands<String, String> commands;
+    private final RedisAsyncCommands<String, String> asyncCommands;
+
+    /// Slow-call threshold. A single Redis round-trip should land in single-
+    /// digit ms; anything above this is worth flagging. Picked low enough to
+    /// surface real outliers, high enough that a busy GC pause + network jitter
+    /// doesn't produce noise. Tunable via ASTRION_REDIS_SLOW_MS env var if
+    /// the prod baseline shifts.
+    private static final long SLOW_REDIS_THRESHOLD_MS;
+    static {
+        long v = 100L;
+        String env = System.getenv("ASTRION_REDIS_SLOW_MS");
+        if (env != null) try { v = Long.parseLong(env); } catch (Exception ignored) {}
+        SLOW_REDIS_THRESHOLD_MS = v;
+    }
+    private static final AtomicLong slowCallCount = new AtomicLong();
+    public static long getSlowCallCount() { return slowCallCount.get(); }
 
     public RedisManager(String host, int port) {
         // Lettuce URL accepts ':password@' in the userinfo segment for AUTH.
@@ -27,10 +47,44 @@ public class RedisManager {
             : "redis://:" + pw + "@" + host + ":" + port;
         this.client = RedisClient.create(url);
         this.connection = client.connect();
+        // Both views share the same multiplexed connection — Lettuce pipelines
+        // async commands over the wire automatically. Sync calls block the
+        // caller waiting for the reply; async returns RedisFuture that
+        // completes on Lettuce's event loop.
         this.commands = connection.sync();
-        log.info("Connected to Redis at {}:{} ({})",
-            host, port, (pw == null || pw.isEmpty()) ? "no auth" : "AUTH set");
+        this.asyncCommands = connection.async();
+        log.info("Connected to Redis at {}:{} ({}) — slow-call threshold {} ms",
+            host, port, (pw == null || pw.isEmpty()) ? "no auth" : "AUTH set",
+            SLOW_REDIS_THRESHOLD_MS);
     }
+
+    /// Wraps an async command with elapsed-time tracking. Anything over the
+    /// threshold gets logged once and bumps the slow-call counter exposed on
+    /// /metrics. Lambdas only allocate when needed; sub-threshold calls add
+    /// just one whenComplete callback to Lettuce's normal completion path.
+    private <T> CompletableFuture<T> tracked(String op, CompletableFuture<T> future) {
+        long startNs = System.nanoTime();
+        return future.whenComplete((value, err) -> {
+            long ms = (System.nanoTime() - startNs) / 1_000_000L;
+            if (err != null) {
+                log.warn("[redis] {} failed after {}ms: {}", op, ms, err.getMessage());
+            } else if (ms >= SLOW_REDIS_THRESHOLD_MS) {
+                slowCallCount.incrementAndGet();
+                log.warn("[slow-redis] {} took {}ms", op, ms);
+            }
+        });
+    }
+
+    /// Convenience to drive multiple parallel async commands and continue
+    /// once they all complete. Equivalent to CompletableFuture.allOf but
+    /// types-through the result tuple — easier to read at call sites.
+    public static <A, B> CompletableFuture<Pair<A, B>> both(
+            CompletableFuture<A> a, CompletableFuture<B> b) {
+        return CompletableFuture.allOf(a, b)
+            .thenApply(ignored -> new Pair<>(a.join(), b.join()));
+    }
+
+    public record Pair<A, B>(A first, B second) {}
 
     // Player position cache
     public void updatePlayerPosition(String playerId, Position pos) {
@@ -101,6 +155,22 @@ public class RedisManager {
     }
 
     // Per-player game state (quest progress, collected items, etc.) — stored as JSON blob
+    // ──── Player state JSON ──────────────────────────────────────────────
+    // The blob behind STATE_SAVE / STATE_DATA. Trade/auction/achievement
+    // read-modify-write it under PlayerStateLocks. The async variants are
+    // the primary API now — sync wrappers stay for cold paths that don't
+    // benefit from overlap.
+
+    public CompletableFuture<String> getPlayerStateAsync(String playerId) {
+        return tracked("getPlayerState",
+            asyncCommands.get("player:state:" + playerId).toCompletableFuture());
+    }
+
+    public CompletableFuture<String> savePlayerStateAsync(String playerId, String json) {
+        return tracked("savePlayerState",
+            asyncCommands.set("player:state:" + playerId, json).toCompletableFuture());
+    }
+
     public void savePlayerState(String playerId, String json) {
         commands.set("player:state:" + playerId, json);
     }
