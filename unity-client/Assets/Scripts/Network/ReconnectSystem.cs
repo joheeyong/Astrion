@@ -130,10 +130,7 @@ namespace Astrion.Network
             SceneManager.LoadScene("LoginScene");
         }
 
-        private void HideOverlay()
-        {
-            if (_group != null) { _group.alpha = 0f; _group.blocksRaycasts = false; }
-        }
+        // (HideOverlay already defined below — kicked path reuses it.)
 
         private static bool IsInGameScene()
         {
