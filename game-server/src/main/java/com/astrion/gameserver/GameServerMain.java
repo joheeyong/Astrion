@@ -123,7 +123,16 @@ public class GameServerMain {
                     .childHandler(new GameServerInitializer(worldManager, redisManager, monsterManager, tradeManager, achievements, auctions, playerLocks, businessExecutor, gameSslCtx, connRateGate))
                     .option(ChannelOption.SO_BACKLOG, 128)
                     .childOption(ChannelOption.SO_KEEPALIVE, true)
-                    .childOption(ChannelOption.TCP_NODELAY, true);
+                    .childOption(ChannelOption.TCP_NODELAY, true)
+                    // Backpressure watermarks: isWritable() flips false once
+                    // a channel's outbound queue passes 128 KB and true again
+                    // under 64 KB. WorldManager.send consults the flag to
+                    // drop self-healing broadcasts to slow clients. 128 KB ≈
+                    // several hundred game packets — plenty of headroom for a
+                    // zone-transition burst, small enough that a stuck client
+                    // is detected within a second of congestion.
+                    .childOption(ChannelOption.WRITE_BUFFER_WATER_MARK,
+                        new io.netty.channel.WriteBufferWaterMark(64 * 1024, 128 * 1024));
 
             ChannelFuture future = bootstrap.bind(PORT).sync();
             log.info("Game server started on port {}", PORT);

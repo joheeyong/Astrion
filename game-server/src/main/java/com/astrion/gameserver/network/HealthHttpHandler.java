@@ -112,7 +112,15 @@ public class HealthHttpHandler extends SimpleChannelInboundHandler<FullHttpReque
           // exceeds the threshold (default 100 ms). Operators trend this
           // alongside CCU to catch regressions in Redis pipeline latency.
           .append("\"redis_slow_calls\":")
-              .append(com.astrion.gameserver.redis.RedisManager.getSlowCallCount()).append(',');
+              .append(com.astrion.gameserver.redis.RedisManager.getSlowCallCount()).append(',')
+          // Backpressure counters — packets dropped to slow clients and
+          // channels force-closed for unrecoverable queue growth. A steady
+          // climb here means some client (or the network path to them)
+          // can't keep up with broadcast volume.
+          .append("\"packets_dropped_backpressure\":")
+              .append(com.astrion.gameserver.world.WorldManager.getDroppedPacketCount()).append(',')
+          .append("\"connections_force_closed\":")
+              .append(com.astrion.gameserver.world.WorldManager.getForcedCloseCount()).append(',');
         appendIntMap(sb, "players_by_zone", byZone);
         sb.append(',');
         appendIntMap(sb, "monsters_by_zone", monstersByZone);
