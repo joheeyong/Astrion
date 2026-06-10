@@ -1,9 +1,14 @@
 .gradle/
 build/
-!gradle/wrapper/gradle-wrapper.jar
 *.class
 *.jar
 *.war
+# Negation must come AFTER *.jar — gitignore rules are last-match-wins,
+# so the original ordering (negation first) silently re-ignored the
+# wrapper jar and it never reached the repo. Every gradle step in CI was
+# failing with 'Unable to access jarfile gradle-wrapper.jar' because of
+# this line order.
+!gradle/wrapper/gradle-wrapper.jar
 
 # IDE
 .idea/
