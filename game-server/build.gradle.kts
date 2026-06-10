@@ -32,7 +32,21 @@ dependencies {
 }
 
 tasks.test {
-    useJUnitPlatform()
+    // Unit tests only — e2e-tagged tests need a live Redis and boot a real
+    // Netty server, so they run via the dedicated e2eTest task below.
+    useJUnitPlatform { excludeTags("e2e") }
+}
+
+tasks.register<Test>("e2eTest") {
+    description = "E2E smoke: boots the server in-JVM (real Redis on localhost:6379 required) and drives two bot clients through friend→party→trade."
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform { includeTags("e2e") }
+    shouldRunAfter(tasks.test)
+    // Always rerun — the assertions cross process/Redis state, caching a
+    // green result would defeat the point of a smoke test.
+    outputs.upToDateWhen { false }
 }
 
 tasks.jar {
