@@ -31,8 +31,12 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      # v3 of the standalone action is deprecated; gradle/actions is the
+      # maintained home. Validation needs services.gradle.org for the
+      # checksum list — a runner-side network blip here failed the whole
+      # job once, so don't be surprised by transient reds on this step.
       - name: Validate gradle wrapper
-        uses: gradle/wrapper-validation-action@v3
+        uses: gradle/actions/wrapper-validation@v4
 
       - name: Cache Gradle dependencies
         uses: actions/cache@v4
