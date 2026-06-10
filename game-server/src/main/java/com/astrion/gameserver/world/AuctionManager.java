@@ -361,51 +361,22 @@ public class AuctionManager {
     }
 
     // ──────────────────── JSON inventory helpers ────────────────────
+    // Delegations to the shared PlayerStateJson utility — the actual array
+    // arithmetic lives there (tested in PlayerStateJsonTest).
 
-    private static long goldOf(ObjectNode state) {
-        return state.has("gold") ? state.get("gold").asLong() : 0L;
-    }
-    private static void setGold(ObjectNode state, long gold) { state.put("gold", gold); }
+    private static long goldOf(ObjectNode state) { return PlayerStateJson.goldOf(state); }
+    private static void setGold(ObjectNode state, long gold) { PlayerStateJson.setGold(state, gold); }
 
     private static boolean inventoryContains(ObjectNode state, String itemId, int qty) {
-        JsonNode ids = state.get("inventoryItemIds");
-        JsonNode qts = state.get("inventoryQuantities");
-        if (ids == null || !ids.isArray() || qts == null || !qts.isArray()) return false;
-        int n = Math.min(ids.size(), qts.size());
-        int have = 0;
-        for (int i = 0; i < n; i++) {
-            if (itemId.equals(ids.get(i).asText(""))) have += qts.get(i).asInt(0);
-            if (have >= qty) return true;
-        }
-        return false;
+        return PlayerStateJson.containsItem(state, itemId, qty);
     }
 
     private static void removeFromInventory(ObjectNode state, String itemId, int qty) {
-        ArrayNode ids = (ArrayNode) state.get("inventoryItemIds");
-        ArrayNode qts = (ArrayNode) state.get("inventoryQuantities");
-        if (ids == null || qts == null) return;
-        int need = qty;
-        int n = Math.min(ids.size(), qts.size());
-        for (int i = 0; i < n && need > 0; i++) {
-            if (!itemId.equals(ids.get(i).asText(""))) continue;
-            int have = qts.get(i).asInt(0);
-            int take = Math.min(have, need);
-            int left = have - take;
-            ids.set(i, mapper.getNodeFactory().textNode(left > 0 ? itemId : ""));
-            qts.set(i, mapper.getNodeFactory().numberNode(left));
-            need -= take;
-        }
+        PlayerStateJson.removeItem(state, itemId, qty);
     }
 
     private static void addToInventory(ObjectNode state, String itemId, int qty) {
-        ArrayNode ids = state.has("inventoryItemIds") && state.get("inventoryItemIds").isArray()
-            ? (ArrayNode) state.get("inventoryItemIds")
-            : state.putArray("inventoryItemIds");
-        ArrayNode qts = state.has("inventoryQuantities") && state.get("inventoryQuantities").isArray()
-            ? (ArrayNode) state.get("inventoryQuantities")
-            : state.putArray("inventoryQuantities");
-        ids.add(itemId);
-        qts.add(qty);
+        PlayerStateJson.addItem(state, itemId, qty);
     }
 
     private static int parseInt(String s, int fallback) {

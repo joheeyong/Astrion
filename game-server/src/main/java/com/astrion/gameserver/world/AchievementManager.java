@@ -115,14 +115,7 @@ public class AchievementManager {
             String json = redis.getPlayerState(user);
             if (json == null) json = "{}";
             ObjectNode state = (ObjectNode) mapper.readTree(json);
-            ArrayNode ids = state.has("inventoryItemIds") && state.get("inventoryItemIds").isArray()
-                ? (ArrayNode) state.get("inventoryItemIds")
-                : state.putArray("inventoryItemIds");
-            ArrayNode qts = state.has("inventoryQuantities") && state.get("inventoryQuantities").isArray()
-                ? (ArrayNode) state.get("inventoryQuantities")
-                : state.putArray("inventoryQuantities");
-            ids.add(d.rewardItemId);
-            qts.add(d.rewardQty);
+            PlayerStateJson.addItem(state, d.rewardItemId, d.rewardQty);
             redis.savePlayerState(user, mapper.writeValueAsString(state));
         } catch (Exception e) {
             log.warn("grantReward failed for {} {}: {}", user, d.id, e.getMessage());

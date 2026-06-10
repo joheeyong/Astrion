@@ -326,81 +326,29 @@ public class TradeManager {
         catch (Exception e) { return "{}"; }
     }
 
-    // ── inventory helpers (operate on the persisted JSON shape) ──────────
+    // ── inventory helpers ─────────────────────────────────────────────────
+    // Thin List<Slot> adapters over the shared PlayerStateJson utility —
+    // the actual array arithmetic lives there (tested in PlayerStateJsonTest).
 
-    private static long goldOf(ObjectNode state) {
-        return state.has("gold") ? state.get("gold").asLong() : 0L;
-    }
-    private static void setGold(ObjectNode state, long gold) {
-        state.put("gold", gold);
-    }
+    private static long goldOf(ObjectNode state) { return PlayerStateJson.goldOf(state); }
+    private static void setGold(ObjectNode state, long gold) { PlayerStateJson.setGold(state, gold); }
 
-    /// Compacted (id, totalQty) view of the player's stored inventory.
-    private static Map<String, Integer> inventoryTotals(ObjectNode state) {
-        Map<String, Integer> totals = new HashMap<>();
-        JsonNode ids = state.get("inventoryItemIds");
-        JsonNode qts = state.get("inventoryQuantities");
-        if (ids == null || !ids.isArray() || qts == null || !qts.isArray()) return totals;
-        int n = Math.min(ids.size(), qts.size());
-        for (int i = 0; i < n; i++) {
-            String id = ids.get(i).asText("");
-            int q = qts.get(i).asInt(0);
-            if (id == null || id.isEmpty() || q <= 0) continue;
-            totals.merge(id, q, Integer::sum);
-        }
-        return totals;
+    private static Map<String, Integer> needOf(List<Slot> slots) {
+        Map<String, Integer> need = new HashMap<>();
+        for (Slot g : slots) need.merge(g.itemId, g.qty, Integer::sum);
+        return need;
     }
 
     private static boolean inventoryContains(ObjectNode state, List<Slot> giving) {
-        if (giving.isEmpty()) return true;
-        Map<String, Integer> totals = inventoryTotals(state);
-        Map<String, Integer> need = new HashMap<>();
-        for (Slot g : giving) need.merge(g.itemId, g.qty, Integer::sum);
-        for (var e : need.entrySet()) {
-            if (totals.getOrDefault(e.getKey(), 0) < e.getValue()) return false;
-        }
-        return true;
+        return PlayerStateJson.contains(state, needOf(giving));
     }
 
-    /// Mutates state: removes the requested items, compacting empties at end.
-    /// New inventory size = old size (we just zero out entries we drained).
     private static void removeItems(ObjectNode state, List<Slot> giving) {
-        if (giving.isEmpty()) return;
-        Map<String, Integer> need = new HashMap<>();
-        for (Slot g : giving) need.merge(g.itemId, g.qty, Integer::sum);
-
-        ArrayNode ids = (ArrayNode) state.get("inventoryItemIds");
-        ArrayNode qts = (ArrayNode) state.get("inventoryQuantities");
-        if (ids == null || qts == null) return;
-        int n = Math.min(ids.size(), qts.size());
-        for (int i = 0; i < n; i++) {
-            String id = ids.get(i).asText("");
-            int q = qts.get(i).asInt(0);
-            if (id == null || id.isEmpty() || q <= 0) continue;
-            int rem = need.getOrDefault(id, 0);
-            if (rem <= 0) continue;
-            int take = Math.min(rem, q);
-            ids.set(i, mapper.getNodeFactory().textNode(take == q ? "" : id));
-            qts.set(i, mapper.getNodeFactory().numberNode(q - take));
-            need.put(id, rem - take);
-            if (need.get(id) == 0) need.remove(id);
-            if (need.isEmpty()) break;
-        }
+        PlayerStateJson.removeItems(state, needOf(giving));
     }
 
-    /// Mutates state: appends new entries for each gained slot. We don't
-    /// bother merging into existing stacks here — the client's RestoreFromState
-    /// pass on the next state pull will compact naturally.
     private static void addItems(ObjectNode state, List<Slot> gained) {
-        if (gained.isEmpty()) return;
-        ArrayNode ids = (ArrayNode) state.get("inventoryItemIds");
-        ArrayNode qts = (ArrayNode) state.get("inventoryQuantities");
-        if (ids == null) { ids = state.putArray("inventoryItemIds"); }
-        if (qts == null) { qts = state.putArray("inventoryQuantities"); }
-        for (Slot g : gained) {
-            ids.add(g.itemId);
-            qts.add(g.qty);
-        }
+        for (Slot g : gained) PlayerStateJson.addItem(state, g.itemId, g.qty);
     }
 
     private static List<Slot> nonEmpty(Slot[] arr) {
